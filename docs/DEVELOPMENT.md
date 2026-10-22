@@ -27,8 +27,8 @@ git submodule update --init --recursive
 | `pnpm run start` | 直接启动应用(不重新生成) |
 | `pnpm run build:cortico` | 只生成 `build/cortico` 与设置窗口 `build/console`(改了 `console/` 后重跑，再重新打开设置窗口) |
 | `pnpm run test` | 主仓库单元测试 |
-| `pnpm run test:worlds` | 桌宠 World(含电脑操作)的单元测试（使用本仓库锁定的 Cortico） |
-| `pnpm run typecheck:worlds` | 两个 World 的类型检查 |
+| `pnpm run test:worlds` | 桌宠 World(含电脑操作)与社交媒体 World 的单元测试（使用本仓库锁定的 Cortico；社交媒体 World 读页面的测试要用本机的 Chrome、Edge、Brave、Chromium 或 `PLAYWRIGHT_BROWSERS_PATH` 下的 Chromium，找不到时跳过） |
+| `pnpm run typecheck:worlds` | 桌宠与社交媒体两个 World 的类型检查 |
 | `pnpm run typecheck` | 检查 Core 与 Electron 部分的类型 |
 | `pnpm run typecheck:web` | 检查设置窗口(`console/`)的类型 |
 | `pnpm run build:installer` | Windows 上打出 `dist/Coopanion-Setup-<版本>.exe`,设 `COOPANION_CHANNEL=portable` 时打出便携版 `dist/Coopanion-<版本>-win-x64-portable.zip`;Mac 上打出 `dist/Coopanion-<版本>-mac-<架构>.dmg` 和 `.zip`(`PACK_ARCH=x64` 在 Apple 芯片上打 Intel 版) |
@@ -48,11 +48,12 @@ $env:CORTICO_COMPANION_DATA = "$env:TEMP\coo-test"; pnpm run start
 |---|---|
 | `vendor/cortico` | Cortico 本体(子模块) |
 | `packages/cortico-world-desktop-pet` | 桌宠 World,电脑操作在其中的 `src/cua/`;源码由本仓库直接管理 |
+| `packages/cortico-world-social` | 社交媒体 World:Coo 用本机已装的 Chrome、Edge、Brave 或 Chromium(playwright-core 驱动，自己的资料目录)浏览 Reddit、X、Facebook、Threads、Instagram、YouTube、哔哩哔哩与小红书，每次请求有上限;视频文字稿、图片 OCR(tesseract.js)、每日自动浏览与累计用时;面板在设置窗口的「社交媒体」页 |
 | `packages/cortico-provider-coo` | Coo Pet Provider:DeepSeek、千问、Kimi 等几家模型服务的 provider,DeepSeek 排第一 |
 | `core/` | Core 子进程的入口:装配 Cormini、World、provider;首次运行的种子文件;没填 Key 时让桌宠提醒;`coopanion` World(`notice.ts`)在更新后把更新说明、在引导结束后把引导里的对话、在对方改设置后把改了什么告诉 Coo,并提供 Coo 给自己设唤醒器的工具(`alarms.ts`,高级模式的应用通知页列出闹钟、可删除，删除时告诉 Coo;面板在 `core/webui/`,由 `scripts/stage.ts` 打包);匿名使用统计(`telemetry.ts`,字段见 [TELEMETRY.md](TELEMETRY.md)) |
-| `console/` | 设置窗口：Coopanion 自己的前端，只经 Core 的 WebUI HTTP API 读写状态。`base/` 是请求、语言、流、路由、主题、UI 原语与面板宿主;`rail/` 是左栏;「开始」「习惯」(电脑操作是其中一节)「装扮」「语音输入」「用量与成本」「对话」各页在 `features/`,「系统提示词」(完整的系统提示词与「清空对话并重开」)两种模式共用 `advanced/` 里的那一页;普通/高级两种模式见 `features/mode.ts`;高级模式的页面(模型供应商、扩展、控制台、Core、World 总览)与按 manifest 挂 World、Persona、Memory 页的页面宿主是从 Cortico WebUI 复制来的，在 `advanced/`,归 Coopanion 维护;字标下的版本与更新提示在 `features/release.ts`(版本号与渠道由 `scripts/stage.ts` 构建时写入) |
+| `console/` | 设置窗口：Coopanion 自己的前端，只经 Core 的 WebUI HTTP API 读写状态。`base/` 是请求、语言、流、路由、主题、UI 原语与面板宿主;`rail/` 是左栏;「开始」「习惯」(电脑操作是其中一节)「装扮」「语音输入」「社交媒体」「用量与成本」「对话」各页在 `features/`(「语音输入」与「社交媒体」挂载各自 World 的面板),「系统提示词」(完整的系统提示词与「清空对话并重开」)两种模式共用 `advanced/` 里的那一页;普通/高级两种模式见 `features/mode.ts`;高级模式的页面(模型供应商、扩展、控制台、Core、World 总览)与按 manifest 挂 World、Persona、Memory 页的页面宿主是从 Cortico WebUI 复制来的，在 `advanced/`,归 Coopanion 维护;字标下的版本与更新提示在 `features/release.ts`(版本号与渠道由 `scripts/stage.ts` 构建时写入) |
 | `app/` | Electron 主进程:托盘(Mac 上是菜单栏图标)、设置窗口(启动时不打开，用自己的 session;在 Core WebUI 的源下以 `/coopanion/` 应答 `build/console` 的文件;只把来自 Core 自己的源的请求转给 Core,桌宠服务器只接来自 Core 或它自己的源的请求和无 referrer 的帧文件读取(`/figure-frame`、`/web/`、`/packs/`,以 Origin `null` 转发),其余一律 403;发往本机以外的请求只放行新版本查询与扩展市场的图片(官方索引里的包图标与截图、GitHub 头像),子 frame 只能留在本机;离开 Core WebUI 的链接交给系统浏览器;信任模型见 `main.cjs` 的注释)、Core 子进程托管、桌宠窗口模式、自动更新(`updater.cjs`)、Steam 版读创意工坊(`steam.cjs`);`app/shims/` 是扩展安装用的 corepack 替身 |
-| `scripts/stage.ts` | 从 `vendor/cortico` 生成应用使用的 `build/cortico`(去掉内建的平台 World 与 llamacpp,`src/web/client` 原样),构建 Cortico WebUI、桌宠面板与设置窗口 `build/console` |
+| `scripts/stage.ts` | 从 `vendor/cortico` 生成应用使用的 `build/cortico`(去掉内建的平台 World 与 llamacpp,`src/web/client` 原样),构建 Cortico WebUI、桌宠与社交媒体两个 World 的面板与设置窗口 `build/console` |
 | `scripts/pack.ts` | 组装扁平的 `build/app` 并调用 electron-builder;`installer/nsis.nsh` 定 Windows 默认安装位置、卸载时保留 `data`、卸载(非升级)时报告给统计服务;Mac 包是临时签名(ad hoc)的 dmg 与 zip |
 | `scripts/make-icons.cjs` | 用 Electron 把 Coo 的造型(`web/coo/coo.js`)画成 `app/icons` 与 `core/seed/avatar.png` |
 | `installer/install.ps1` | 一行命令安装用的脚本:下载最新 Release 的安装包并运行 |
@@ -63,7 +64,7 @@ $env:CORTICO_COMPANION_DATA = "$env:TEMP\coo-test"; pnpm run start
 
 Cortico 是内核,Coopanion 是用它做的一个产品。使用者看到的界面按下面分工:
 
-- **Coopanion 只渲染自己绑定的 World**:桌宠 World(含电脑操作)、`coopanion` World 和控制台 World。应用壳和这些 World 之间的接口(比如桌宠 World 的 `PetBotControls`)归 Coopanion 所有，随产品需要修改，不属于 Cortico 的契约。
+- **Coopanion 只渲染自己绑定的 World**:桌宠 World(含电脑操作)、社交媒体 World、`coopanion` World 和控制台 World。应用壳和这些 World 之间的接口(比如桌宠 World 的 `PetBotControls`)归 Coopanion 所有，随产品需要修改，不属于 Cortico 的契约。
 - **应用壳不为其他 World 提供界面入口。** 桌宠菜单和设置窗口的普通模式里，不放扩展提供的按钮、页面或菜单项。高级模式的扩展页、World 总览等页面复制自 Cortico WebUI,是给开发者用的，扩展 World 用 `webUi()` 声明的面板和链接显示在那里。
 - **扩展 World 想让使用者看到内容，走下面两条路之一:**
   - **经过 Bot。** World 给 Bot 提供读写内容的工具，把使用者需要知道的事投递成事件,Coo 再用桌宠的气泡、选项和对话页告诉使用者。怎么呈现由桌宠 World 决定;呈现能力不够时扩充桌宠 World,不对扩展开放。适合偶尔看一眼的内容。
