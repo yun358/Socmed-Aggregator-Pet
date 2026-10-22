@@ -64,6 +64,7 @@ const KEYS = {
   dblclick: `${K}.doubleClickChat`,
   statusBubble: `${K}.statusBubble`,
   saidBubbles: `${K}.saidBubbles`,
+  replyArrows: `${K}.showReplyArrows`,
   wakeOn: `${K}.touch.wakeOn`,
   selfAdjust: `${K}.selfAdjust`,
 } as const;
@@ -84,7 +85,7 @@ interface HabitState {
 
 /** The pet's actions in the menu's order (the World's PET_ACTIONS), with the icon each shows. */
 const ACTIONS: ReadonlyArray<[id: string, icon: string]> = [
-  ['chat', 'chat'], ['voice', 'mic'], ['roam', 'roam_calm'], ['theme', 'moon'], ['sound', 'sound'], ['hide', 'eyeOff'], ['dress', 'shirt'],
+  ['chat', 'chat'], ['voice', 'mic'], ['roam', 'roam_calm'], ['theme', 'moon'], ['sound', 'sound'], ['hide', 'eyeOff'], ['dress', 'shirt'], ['replies', 'replies'],
 ];
 /** Kinds of sound (the World's SOUND_KINDS), each under `worlds.desktop-pet.sounds.<kind>`. */
 const SOUND_KINDS = ['move', 'touch', 'face', 'snore', 'talk', 'ui'] as const;
@@ -183,6 +184,7 @@ async function mount(ctx: PageContext): Promise<void> {
   const dblclick = ui.checkbox(S.dblclick, { onChange: (on) => void save(KEYS.dblclick, on, GROUP, behaviorMsg) });
   const statusBubble = ui.checkbox(S.statusBubble, { onChange: (on) => void save(KEYS.statusBubble, on, GROUP, behaviorMsg) });
   const saidBubbles = ui.checkbox(S.saidBubble, { onChange: (on) => void save(KEYS.saidBubbles, on, GROUP, behaviorMsg) });
+  const replyArrows = ui.checkbox(S.replyArrows, { onChange: (on) => void save(KEYS.replyArrows, on, GROUP, behaviorMsg) });
   // the two rows below follow the pet panel's state; 「自定义…」 is picked by saving its popup
   let habit: Required<HabitState> = { wake: { wakeOn: 'poke', wakeKinds: ['poke'] }, selfAdjust: { mode: 'default', custom: {} } };
   const wakeHint = ui.h('p', 'home-note');
@@ -333,6 +335,7 @@ async function mount(ctx: PageContext): Promise<void> {
     row(S.dblclickLabel, dblclick.el),
     row(S.statusBubbleLabel, statusBubble.el, S.statusBubbleHint),
     row(S.saidBubbleLabel, saidBubbles.el, S.saidBubbleHint),
+    row(S.replyArrowsLabel, replyArrows.el, S.replyArrowsHint),
     behaviorMsg,
   );
   const display = ui.sheet({ title: S.groupDisplay });
@@ -543,6 +546,7 @@ async function mount(ctx: PageContext): Promise<void> {
     if (typeof values[KEYS.dblclick] === 'boolean') dblclick.setChecked(values[KEYS.dblclick] as boolean);
     if (typeof values[KEYS.statusBubble] === 'boolean') statusBubble.setChecked(values[KEYS.statusBubble] as boolean);
     if (typeof values[KEYS.saidBubbles] === 'boolean') saidBubbles.setChecked(values[KEYS.saidBubbles] as boolean);
+    if (typeof values[KEYS.replyArrows] === 'boolean') replyArrows.setChecked(values[KEYS.replyArrows] as boolean);
     if (typeof values[KEYS.overlay] === 'boolean') overlay.setChecked(values[KEYS.overlay] as boolean);
     // a popup open over the page keeps the rows as they are until it is saved or closed
     const state = await habitState;
