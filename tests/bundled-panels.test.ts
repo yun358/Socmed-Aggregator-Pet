@@ -10,18 +10,21 @@ const log = { error: (msg: string) => { throw new Error(msg); } } as unknown as 
 
 describe('bundled World panels', () => {
   // needs the panel bundle that `pnpm run build:cortico` builds
-  it('the WebUI server has a bundle for the desktop pet page and serves its files', () => {
+  it('the WebUI server has a bundle for the desktop pet and social media pages and serves their files', () => {
     const table = bundledWebUiAssets([
       { id: 'desktop-pet', packageName: 'cortico-world-desktop-pet' },
+      { id: 'social', packageName: 'cortico-world-social' },
     ]);
-    expect(table.map((a) => a.pageId)).toEqual(['world:desktop-pet']);
-    expect(existsSync(table[0].jsFile) && existsSync(table[0].cssFile!)).toBe(true);
+    expect(table.map((a) => a.pageId)).toEqual(['world:desktop-pet', 'world:social']);
     const assets = new WebUiAssets(join(tmpdir(), 'no-web-dist'), log, table);
-    // package version plus a content hash, so a rebuilt bundle gets a new URL
-    expect(table[0].version).toMatch(/^\d+\.\d+\.\d+-[0-9a-f]{10}$/);
-    expect(assets.forPage('world:desktop-pet')).toEqual({
-      js: expect.stringMatching(/^\/assets\/extensions\/cortico-world-desktop-pet\/.+\.js$/),
-      css: expect.stringMatching(/\.css$/),
-    });
+    for (const [i, name] of ['desktop-pet', 'social'].entries()) {
+      expect(existsSync(table[i].jsFile) && existsSync(table[i].cssFile!), name).toBe(true);
+      // package version plus a content hash, so a rebuilt bundle gets a new URL
+      expect(table[i].version).toMatch(/^\d+\.\d+\.\d+-[0-9a-f]{10}$/);
+      expect(assets.forPage(`world:${name}`)).toEqual({
+        js: expect.stringMatching(new RegExp(`^/assets/extensions/cortico-world-${name}/.+\\.js$`)),
+        css: expect.stringMatching(/\.css$/),
+      });
+    }
   });
 });

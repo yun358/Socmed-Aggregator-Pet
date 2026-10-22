@@ -1,5 +1,5 @@
 /**
- * The app's Core process: Cormini as the Persona, the console, desktop-pet and coopanion Worlds, Coo Pet
+ * The app's Core process: Cormini as the Persona, the console, desktop-pet, social and coopanion Worlds, Coo Pet
  * Provider (DeepSeek and the other model services Coo offers) and its `chatgpt` module (a ChatGPT plan,
  * signed in) next to Cortico's built-in providers, and Worlds or providers installed from npm through
  * the console's extension page.
@@ -60,6 +60,7 @@ import { withWorlds, type WorldDefinition, type WorldSection } from 'cortico/wor
 import { InstanceLockedError } from 'cortico/core/instance-lock.ts';
 import { CONSOLE } from 'cortico/worlds/console/definition.ts';
 import { desktopPetDefinition, figurePacks, type DesktopPetWorld } from 'cortico-world-desktop-pet';
+import { socialDefinition } from 'cortico-world-social';
 import COO, { CHATGPT, CHATGPT_PROVIDER, signedIn, usageLimited, vendorOf } from 'cortico-provider-coo';
 import { appWebUiAsset, bundledWebUiAssets } from './bundled-panels.ts';
 import { followPetLook } from './console-theme.ts';
@@ -466,6 +467,7 @@ export async function main(): Promise<void> {
     onCreate: (world) => { notice = world; },
     label: () => coreText(language()).noticeLabel,
   });
+  const SOCIAL = socialDefinition({ modelLanguage: () => modelLanguage(config?.language), language });
   /** Coopanion's config group; the console reads this object, retitled in place when the app language changes. */
   const settingsGroup = companionGroup('zh');
   const base = await cormini();
@@ -473,7 +475,7 @@ export async function main(): Promise<void> {
   let coo: CoopanionPersona | null = null;
   const definitionBase: BotDefinition<CorminiConfig> = {
     ...base.definition,
-    declares: [CONSOLE.id, DESKTOP_PET.id, NOTICE.id],
+    declares: [CONSOLE.id, DESKTOP_PET.id, SOCIAL.id, NOTICE.id],
     // Cormini's tools under the same names; the memory differs by PARTNER.md and the version history
     describe: {
       tools: base.definition.describe?.tools ?? [],
@@ -520,7 +522,7 @@ export async function main(): Promise<void> {
       };
     },
   };
-  const bundled = [CONSOLE, DESKTOP_PET, NOTICE] as WorldDefinition<WorldSection>[];
+  const bundled = [CONSOLE, DESKTOP_PET, SOCIAL, NOTICE] as WorldDefinition<WorldSection>[];
 
   // extension providers must be registered before endpoints are resolved
   const extensions = await loadExtensions(repoRoot(), {
@@ -530,6 +532,7 @@ export async function main(): Promise<void> {
   registerProviderModules([COO, CHATGPT_PROVIDER, ...extensions.providers]);
   extensions.webUiAssets.push(...bundledWebUiAssets([
     { id: DESKTOP_PET.id, packageName: 'cortico-world-desktop-pet' },
+    { id: SOCIAL.id, packageName: 'cortico-world-social' },
   ]), ...appWebUiAsset(NOTICE_ID, join(APP_ROOT, 'build', 'panels', 'coopanion'), APP_VERSION));
   const definition = withWorlds(definitionBase, [...bundled, ...extensions.worlds]);
 

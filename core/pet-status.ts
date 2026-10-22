@@ -1,11 +1,12 @@
 /**
- * What the pet's status bubble says for the tools this app's bot has: the Persona's memory tools, computer use, the alarms
- * (alarms.ts) and the console World, in the app language (`core/i18n`). Only the arguments named here reach the page;
+ * What the pet's status bubble says for the tools this app's bot has: the Persona's memory tools, computer use, the social
+ * media reads, the alarms (alarms.ts) and the console World, in the app language (`core/i18n`). Only the arguments named here reach the page;
  * typed text, notes, window titles and coordinates never do. Wording that depends on an argument waits for the call
  * to be written out, so the bubble does not say something the call turns out not to do. A detail (a file name, a
  * pattern) is cut to 20 characters as seen for Chinese, Japanese and Korean, twice that for other languages.
  */
 import { capFor, charCount, cutChars, numberArg, stringArg, type DescribeTool, type PetStatus, type ToolArgs } from 'cortico-world-desktop-pet';
+import { socialText } from 'cortico-world-social';
 import { coreText, type CoreText } from './i18n/index.ts';
 import type { Language } from 'cortico/core/language.ts';
 
@@ -20,6 +21,10 @@ function clickText(s: CoreText['status'], args: ToolArgs, done: boolean): string
   if (numberArg(args, 'clicks') === 2) return s.doubleClick;
   return done ? s.click : null;
 }
+
+/** A social media platform's name in the app language, once the call names a known one. */
+const platformName = (app: Language, id: string | undefined): string | undefined =>
+  id ? (socialText(app).platforms as Record<string, string>)[id] : undefined;
 
 /** The status bubble's words for a tool call, in `language()` at the time of the call. */
 export function petToolDescriber(language: () => Language): DescribeTool {
@@ -61,6 +66,14 @@ export function petToolDescriber(language: () => Language): DescribeTool {
         const seconds = numberArg(args, 'seconds');
         return show('wait', s.wait, seconds === undefined ? undefined : s.seconds(seconds));
       }
+      case 'social_browse': {
+        const platform = platformName(app, stringArg(args, 'platform'));
+        const query = stringArg(args, 'query');
+        if (stringArg(args, 'source') === 'search') return show('search', s.search, query ? s.quoted(query) : platform);
+        return show('browse', s.browse, query && platform ? `${platform} ${query}` : platform);
+      }
+      case 'social_transcript': case 'social_read': case 'social_digest': case 'social_stats': return show('read', s.read);
+      case 'social_login': return show('browse', s.browse, platformName(app, stringArg(args, 'platform')));
       case 'alarm_set': {
         const minutes = numberArg(args, 'in_minutes');
         return show('alarm', s.alarmSet, stringArg(args, 'at') || (minutes === undefined ? undefined : s.minutesLater(minutes)));
