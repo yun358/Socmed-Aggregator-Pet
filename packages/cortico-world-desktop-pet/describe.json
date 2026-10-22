@@ -180,7 +180,8 @@
                 "theme",
                 "sound",
                 "dress",
-                "hide"
+                "hide",
+                "replies"
               ]
             },
             "maxItems": 6,

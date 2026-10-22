@@ -151,7 +151,7 @@ const de: Translation<PetText> = {
     fontSize: (from: number, to: number) => `die Schriftgröße von ${from}× auf ${to}× ändern`,
     theme: { dark: 'zum Nacht-Look wechseln', light: 'zum Tag-Look wechseln' },
     hover: (list: string) => `die Hover-Schaltflächen auf ${list} ändern`,
-    actions: { chat: 'Tippen', voice: 'Spracheingabe', roam: 'Herumlaufen', theme: 'Nachtmodus', sound: 'Töne', dress: 'Outfit', hide: 'Haustier ausblenden' },
+    actions: { chat: 'Tippen', voice: 'Spracheingabe', roam: 'Herumlaufen', theme: 'Nachtmodus', sound: 'Töne', dress: 'Outfit', hide: 'Haustier ausblenden', replies: 'Frühere Antworten' },
     user: (to: string) => `dich „${to}“ nennen`,
   },
 
@@ -199,6 +199,7 @@ const de: Translation<PetText> = {
     doubleClickChat: { title: 'Doppelklick zum Tippen', description: 'Ein Doppelklick auf das Haustier öffnet das Eingabefeld.' },
     statusBubble: { title: 'Statusblase', description: 'Zeigt, was das Haustier tut, während es nachdenkt, sein Gedächtnis durchsieht oder den Computer bedient, Dateinamen eingeschlossen.' },
     saidBubbles: { title: 'Eingabeblasen', description: 'Getipptes, Gesprochenes und von der Chatseite Gesendetes erscheint über dem Haustier, bis es antwortet. Ausgeschaltet erscheint Gesprochenes nur während der Erkennung.' },
+    showReplyArrows: { title: 'Antwortpfeile', description: 'Pfeile an den Sprechblasen des Haustiers blättern durch seine letzten 50 Blasen zurück und wieder vor. Eine Blase bleibt, solange der Zeiger darauf ist; während frühere Blasen gezeigt werden, warten neue.' },
     selfAdjust: { title: 'Selbsteinstellung', description: 'off: Es kann seine Einstellungen nicht ändern und sich auch nicht zeitweise ruhig stellen. default: Figur, Outfit, Herumlaufen und Schnarchen ändert es direkt; Größe, Blasengröße, Schriftgröße, Töne, Nachtmodus, Hover-Schaltflächen und dein Name warten auf deine Zustimmung. any: Alles ändert es direkt. custom: wie auf der Seite „Gewohnheiten“ angehakt; Angehaktes ändert es direkt, der Rest wartet auf deine Zustimmung.' },
     windowEnabled: { title: 'Haustier-Fenster beim Start öffnen' },
     scale: { title: 'Größe' },

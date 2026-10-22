@@ -15,6 +15,11 @@ export default {
   'bubble.typeLabel': 'Type to talk',
   /** The typing bubble's button that carries the draft to the Chat page in the settings window. */
   'bubble.expand': 'Continue on the Chat page',
+  /** The arrows under a speech bubble that go through the earlier ones. */
+  'bubble.prev': 'Previous reply',
+  'bubble.next': 'Next reply',
+  /** The count after the position under a speech bubble: bubbles still to come. */
+  'bubble.waiting': '{n} more to come',
 
   // what the person said: a sentence being heard; how many images a chat-page message carries
   'heard.more': 'Listening…',
@@ -45,6 +50,7 @@ export default {
   'action.soundOff': 'Sounds: off · click to turn on',
   'action.dress': 'Dress up',
   'action.hide': 'Hide the pet (show it again from the tray icon)',
+  'action.replies': 'Show earlier replies',
   'menu.cancel': 'Cancel',
   'menu.resume': 'Resume',
   'menu.pause': 'Pause',

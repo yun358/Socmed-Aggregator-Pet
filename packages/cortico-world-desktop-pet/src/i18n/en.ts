@@ -174,7 +174,7 @@ const en: PetText = {
     fontSize: (from: number, to: number) => `change the text size from ${from}× to ${to}×`,
     theme: { dark: 'switch to the night look', light: 'switch to the day look' } as Record<'dark' | 'light', string>,
     hover: (list: string) => `change the hover buttons to ${list}`,
-    actions: { chat: 'Type', voice: 'Voice input', roam: 'Walking', theme: 'Night mode', sound: 'Sounds', dress: 'Dress up', hide: 'Hide pet' } as Record<string, string>,
+    actions: { chat: 'Type', voice: 'Voice input', roam: 'Walking', theme: 'Night mode', sound: 'Sounds', dress: 'Dress up', hide: 'Hide pet', replies: 'Past replies' } as Record<string, string>,
     user: (to: string) => `call you "${to}"`,
   },
 
@@ -225,6 +225,7 @@ const en: PetText = {
     doubleClickChat: { title: 'Double-click to type', description: 'Double-clicking the pet opens the typing box.' },
     statusBubble: { title: 'Status bubble', description: 'Shows what the pet is doing while it thinks, looks through its memory or uses the computer, file names included.' },
     saidBubbles: { title: 'Input bubbles', description: 'What the person types, says or sends from the chat page shows above the pet until it replies. When off, speech shows only while it is recognized.' },
+    showReplyArrows: { title: 'Reply arrows', description: "Arrows on the pet's speech bubbles go back through its last 50 bubbles and forward again. A bubble stays while the pointer is on it; while earlier bubbles are shown, new ones wait." },
     selfAdjust: { title: 'Self-adjustment', description: 'off: it cannot change its settings or keep quiet for a while. default: figure, dress, walking and snoring change directly; size, bubble size, text size, sounds, night mode, hover buttons and what it calls you wait for your consent. any: everything changes directly. custom: as ticked on the Habits page; ticked items change directly, the rest wait for your consent.' },
     windowEnabled: { title: 'Open the pet window at start' },
     scale: { title: 'Size' },

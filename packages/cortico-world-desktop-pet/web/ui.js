@@ -66,6 +66,10 @@ export const ICONS = {
   // a page that opens in the browser
   external: icon('<path d="M14 4h6v6M20 4l-8.5 8.5M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/>'),
   eyeOff: icon('<path d="M3 12s3.2-6 9-6c1.6 0 3 .4 4.2 1M21 12s-3.2 6-9 6c-1.6 0-3-.4-4.2-1"/><path d="M9.9 14.1a3 3 0 0 1 4.2-4.2M4 4l16 16"/>'),
+  // the arrows of Coo's say bubble, and its earlier bubbles: the chat bubble with the back arrow in it
+  chevronLeft: icon('<path d="M15 5l-7 7 7 7"/>'),
+  chevronRight: icon('<path d="M9 5l7 7-7 7"/>'),
+  replies: icon('<path d="M4.5 12A7.5 7.5 0 1 0 6.7 6.7"/><path d="M6.7 3.2v3.5h3.5"/><path d="M12 8.5V12l2.5 1.5"/>'),
   // how much the pet walks on its own, as a gauge: low, middle, high
   roam_off: icon('<path d="M4 16a8 8 0 0 1 16 0"/><path d="M12 16 7 13.2"/><circle cx="12" cy="16" r="1.2" fill="currentColor"/>'),
   roam_calm: icon('<path d="M4 16a8 8 0 0 1 16 0"/><path d="M12 16V10"/><circle cx="12" cy="16" r="1.2" fill="currentColor"/>'),

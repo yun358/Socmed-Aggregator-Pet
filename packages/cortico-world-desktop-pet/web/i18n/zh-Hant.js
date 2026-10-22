@@ -11,6 +11,9 @@ export default {
   'bubble.typePlaceholder': '輸入想說的話…',
   'bubble.typeLabel': '打字說話',
   'bubble.expand': '在對話頁繼續編輯',
+  'bubble.prev': '上一則回覆',
+  'bubble.next': '下一則回覆',
+  'bubble.waiting': '還有 {n} 則',
 
   // what the person said: a sentence being heard; how many images a chat-page message carries
   'heard.more': '正在傾聽…',
@@ -41,6 +44,7 @@ export default {
   'action.soundOff': '音效：已關閉 · 點一下開啟',
   'action.dress': '裝扮',
   'action.hide': '先把我藏起來（系統匣裡可以叫我回來）',
+  'action.replies': '查看之前的回覆',
   'menu.cancel': '取消',
   'menu.resume': '繼續',
   'menu.pause': '暫停',

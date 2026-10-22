@@ -1,5 +1,6 @@
 ## Unreleased
 
+- The pet page keeps the text of Coo's last 50 speech bubbles. With `showReplyArrows` (default on) a speech bubble carries back and forward arrows and stays while the pointer is on it, and the action `replies` (menu and hover buttons) opens the bubbles again after the last one closed. `PET_ACTIONS` and `pet_set`'s hover-button ids gain `replies`; `init` and `prefs` carry `showReplyArrows`.
 - `pet_walk_to` is now `pet_move_to`, with the same `to` and `run` and an optional `params`. A bot that names the old tool has to use the new name.
 - Figure packs may declare targets of their own for it (`moves` in figure.json): the World checks the call's params against the pack and the body does the move (`move(args, id)`), reporting `arrived` or `interrupted` as walks do. The bot reads the targets in `{{pet.moves}}` and hears of added and removed ones on a figure switch. Packs without `moves`, Coo and the whale among them, behave as before.
 - A pack that `needs` `windows` gets the visible top edges of the other windows on the pet's display in `host.bounds().ledges`, on Windows, macOS and Linux under X11 (the last two not yet tried on a machine); the window process reads none for other packs.

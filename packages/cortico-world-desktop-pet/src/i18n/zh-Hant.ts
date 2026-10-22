@@ -151,7 +151,7 @@ const zhHant: Translation<PetText> = {
     fontSize: (from: number, to: number) => `把字體尺寸從 ${from} 倍改成 ${to} 倍`,
     theme: { dark: '換成夜間模式', light: '換成白天模式' },
     hover: (list: string) => `把懸停按鈕換成${list}`,
-    actions: { chat: '打字', voice: '語音輸入', roam: '走動', theme: '夜間模式', sound: '音效', dress: '裝扮', hide: '隱藏桌寵' },
+    actions: { chat: '打字', voice: '語音輸入', roam: '走動', theme: '夜間模式', sound: '音效', dress: '裝扮', hide: '隱藏桌寵', replies: '回覆記錄' },
     user: (to: string) => `改叫你「${to}」`,
   },
 
@@ -199,6 +199,7 @@ const zhHant: Translation<PetText> = {
     doubleClickChat: { title: '點兩下開啟打字框', description: '在桌寵上點兩下開啟打字框。' },
     statusBubble: { title: '狀態氣泡', description: '想事情、翻記憶、操作電腦時顯示在做什麼，會顯示檔名。' },
     saidBubbles: { title: '輸入氣泡', description: '打字、語音和對話頁送出的訊息顯示在桌寵頭頂，回覆後淡出。關閉時語音只在辨識中顯示。' },
+    showReplyArrows: { title: '回覆箭頭', description: '桌寵的說話氣泡下顯示前後箭頭，可以翻看最近 50 個氣泡。滑鼠停在氣泡上時氣泡不會消失；往回翻看期間，新的氣泡排隊等待。' },
     selfAdjust: { title: '自主設定權限', description: 'off 禁止：不能自己改設定，也不能臨時安靜；default 預設：形象、配色、走動和打呼直接改，大小、氣泡尺寸、字體尺寸、音效、夜間模式、懸停按鈕和稱呼先徵得你同意；any 任意：都直接改；custom 自訂：照「習慣」頁裡的勾選，勾上的直接改，其餘先徵得你同意。' },
     windowEnabled: { title: '啟動時開啟桌寵視窗' },
     scale: { title: '大小' },

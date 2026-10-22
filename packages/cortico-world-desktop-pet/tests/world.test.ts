@@ -115,6 +115,27 @@ describe('with a pet page', () => {
     expect(await next.next((m) => m.t === 'status')).toEqual({ t: 'status', status: null });
   });
 
+  it('sends showReplyArrows in init and again in prefs when it changes', async () => {
+    const { world, cfg } = await mounted();
+    const page = await FakePage.open(origin(world));
+    cleanup.push(() => page.close());
+    expect(page.init).toMatchObject({ showReplyArrows: DESKTOP_PET_DEFAULTS.showReplyArrows });
+    cfg.showReplyArrows = !DESKTOP_PET_DEFAULTS.showReplyArrows;
+    expect(await page.next((m) => m.t === 'prefs')).toMatchObject({ showReplyArrows: !DESKTOP_PET_DEFAULTS.showReplyArrows });
+    const next = await FakePage.open(origin(world));
+    cleanup.push(() => next.close());
+    expect(next.init).toMatchObject({ showReplyArrows: !DESKTOP_PET_DEFAULTS.showReplyArrows });
+  });
+
+  it('takes the replies action as a hover button picked on the page', async () => {
+    const { world, cfg } = await mounted();
+    const page = await FakePage.open(origin(world));
+    cleanup.push(() => page.close());
+    page.send({ t: 'prefs', hoverButtons: ['chat', 'replies'] });
+    expect(await page.next((m) => m.t === 'prefs')).toMatchObject({ hoverButtons: ['chat', 'replies'] });
+    expect(cfg.hoverButtons).toBe('chat,replies');
+  });
+
   it('pet_say sends parsed beats and reports dropped markers', async () => {
     const { world } = await mounted();
     const page = await FakePage.open(origin(world));

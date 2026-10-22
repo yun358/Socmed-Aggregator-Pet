@@ -44,6 +44,8 @@ const prefs = {
   statusBubble: true,
   /** What the person typed, said or sent from the chat page stays above Coo (see lines); off, speech shows only while it is heard. */
   saidBubbles: true,
+  /** Arrows under Coo's say bubbles go back through its earlier ones (see replies), and a say bubble stays while the pointer is on it. */
+  showReplyArrows: true,
   /** Draw at the moving frame rate while the body rests too. */
   /** Frames a second while the body moves; 0 follows the display. */
   frameRate: 60,
@@ -267,6 +269,7 @@ function applyPrefs(p) {
   if (typeof p.doubleClickChat === 'boolean') prefs.doubleClickChat = p.doubleClickChat;
   if (typeof p.statusBubble === 'boolean') { prefs.statusBubble = p.statusBubble; setBody({ thoughtShown: p.statusBubble }); }
   if (typeof p.saidBubbles === 'boolean') { prefs.saidBubbles = p.saidBubbles; if (!p.saidBubbles) for (const line of lines) if (!line.live) fadeLine(line); }
+  if (typeof p.showReplyArrows === 'boolean') { prefs.showReplyArrows = p.showReplyArrows; if (!p.showReplyArrows) endBrowse(); drawNav(); }
   if (typeof p.lockFrameRate === 'boolean') prefs.lockFrameRate = p.lockFrameRate;
   if (typeof p.frameRate === 'number' && p.frameRate >= 0) prefs.frameRate = p.frameRate;
   // the window process does the hiding; the page only passes the setting on
@@ -300,22 +303,24 @@ function onOrder(m) {
     case 'watching': watching = true; stopMic(); break;
     // the settings window's 「在桌面上隐藏」: the same as the menu's 「隐藏」
     case 'hide': host?.hide?.(); break;
-    case 'say': dropAsks(); queue.push({ kind: 'say', id: m.id, beats: m.beats, i: -1 }); holdRoam(20); break;
-    case 'ask': dropAsks(); queue.push({ kind: 'ask', id: m.id, question: m.question, options: m.options || [], own: m.own !== false }); holdRoam(20); break;
-    case 'confirm': dropAsks(); queue.push({ kind: 'ask', confirm: true, id: m.id, question: m.question, options: m.options, own: false }); holdRoam(20); break;
+    // drawNav: the arrows' label counts the says waiting, and back is off while a question or dialog step waits
+    case 'say': dropAsks(); queue.push({ kind: 'say', id: m.id, beats: m.beats, i: -1 }); holdRoam(20); drawNav(); break;
+    // a question ends browsing before it queues, so it is not left waiting unseen (a confirmation times out)
+    case 'ask': endBrowse(); dropAsks(); queue.push({ kind: 'ask', id: m.id, question: m.question, options: m.options || [], own: m.own !== false }); holdRoam(20); drawNav(); break;
+    case 'confirm': endBrowse(); dropAsks(); queue.push({ kind: 'ask', confirm: true, id: m.id, question: m.question, options: m.options, own: false }); holdRoam(20); drawNav(); break;
     case 'walk': walk(m); break;
     case 'move': walk(m); break;
     case 'walk-stop': body?.stopWalk(m.id); break;
-    case 'ask-close': closeAsk(m.id); break;
+    case 'ask-close': closeAsk(m.id); drawNav(); break;
     case 'act': acts.push(...m.actions); holdRoam(20); break;
     case 'listen': onListen(m); break;
     // a message sent from the chat page, once the bot has it, and one taken back before delivery
     case 'said': if (prefs.saidBubbles) addLine('chat', typeof m.text === 'string' ? m.text : '', false, { images: Number(m.images) || 0, cursor: m.cursor ?? null }); break;
     case 'said-withdrawn': withdrawLine(m.cursor); break;
     case 'status': setStatus(m.status); break;
-    case 'dialog': queue.push({ kind: 'dialog', id: m.id, d: m }); holdRoam(20); break;
+    case 'dialog': endBrowse(); queue.push({ kind: 'dialog', id: m.id, d: m }); holdRoam(20); drawNav(); break;
     case 'dialog-update': updateDialog(m); break;
-    case 'dialog-close': endDialog(m.id); break;
+    case 'dialog-close': endDialog(m.id); drawNav(); break;
   }
 }
 
@@ -434,16 +439,16 @@ function stepDialog(dt) {
   if (!it) return;
   if (it.kind === 'say') {
     if (it.i < 0 || it.beatDone) {
-      // a bubble with a link stays while the pointer is on it, so the link can be clicked
-      if (it.beatDone && (T < it.holdUntil || (bubble.matches(':hover') && bubble.querySelector('a')))) return;
+      if (it.beatDone && !it.skip && (T < it.holdUntil || held())) return;
       it.i++;
       it.beatDone = false;
+      it.skip = false;
       if (it.i >= it.beats.length) { closeBubble(); return; }
       const b = it.beats[it.i];
       let lead = 0;
       for (const a of b.actions || []) { acts.push(a); lead = .45; }
       it.shown = 0; it.acc = 0; it.fired = 0; it.startAt = T + lead;
-      if (b.text) { openBubble('say', '<p class="b-text"></p>'); sfx.pop(); } else { bubble.hidden = true; }
+      if (b.text) { keepReply(b.text); openBubble('say', `<p class="b-text"></p>${navHtml()}`); drawNav(); sfx.pop(); } else { bubble.hidden = true; }
       return;
     }
     const b = it.beats[it.i];
@@ -452,9 +457,13 @@ function stepDialog(dt) {
     typeText(it, b.text, dt, b.anchors || []);
     if (it.shown >= b.text.length && !it.beatDone) {
       it.beatDone = true;
-      const last = it.i === it.beats.length - 1;
-      it.holdUntil = T + (last ? 1.6 + b.text.length * .07 : .9 + b.text.length * .03) / prefs.bubbleSpeed;
+      it.holdUntil = T + holdFor(it, b.text);
     }
+    return;
+  }
+  if (it.kind === 'replay') {
+    if (onBubble) it.idleFrom = T;
+    else if (T - it.idleFrom >= BROWSE_IDLE) endBrowse();
     return;
   }
   if (it.kind === 'ask') {
@@ -464,12 +473,15 @@ function stepDialog(dt) {
   if (it.kind === 'dialog') stepTalk(it, dt);
 }
 
+/** Seconds a say's line stays once typed out: longer for its last line. */
+const holdFor = (it, text) => (it.i === it.beats.length - 1 ? 1.6 + text.length * .07 : .9 + text.length * .03) / prefs.bubbleSpeed;
+
 function typeText(it, text, dt, anchors) {
   const p = bubble.querySelector('.b-text');
   if (!p || it.shown >= text.length) return;
   if (it.spoken !== text) { it.spoken = text; speech.begin(text); }
   // with speech, each pause mark waits its own time, letters type faster, and the voice makes the sound;
-  // estimateSeconds in src/script.ts mirrors these steps, this rate and the holds in stepDialog
+  // estimateSeconds in src/script.ts mirrors these steps, this rate, holdFor and the hold of a beat without text in stepDialog
   const spoken = speech.active;
   it.acc += dt * 20 * prefs.bubbleSpeed;
   while (it.acc >= 1 && it.shown < text.length) {
@@ -551,6 +563,137 @@ function dismissAsk() {
   it.answered = true;
   send(it.confirm ? { t: 'confirmed', id: it.id, index: null } : { t: 'answer', askId: it.id, dismissed: true });
   closeBubble();
+}
+
+/*
+ * ---------- Coo's earlier bubbles: the arrows of a say bubble while `prefs.showReplyArrows` is on ----------
+ * `replies` holds the text of each say bubble shown, oldest first. Browsing them is an item of its own
+ * (`kind: 'replay'`, `pos` the entry shown, `right` the right edge layout keeps the bubble at), so queued items wait, the status bubble stays away and the body
+ * stays put; the say that was on screen waits in `live`. Moving forward past the newest entry ends browsing:
+ * `live` comes back with its current line typed out and held anew from then, or the bubble closes. Browsing also
+ * ends on Esc, when the typing box opens, when an ask, confirmation or dialog step arrives (it cannot start while
+ * one waits), and BROWSE_IDLE seconds after the last step back or forward with the pointer off the bubble.
+ */
+const MAX_REPLIES = 50;
+const BROWSE_IDLE = 8;
+const replies = [];
+/** Whether the pointer is on Coo's bubble: its enter and leave events, corrected by the window's cursor reports. */
+let onBubble = false;
+bubble.addEventListener('pointerenter', () => { onBubble = true; });
+bubble.addEventListener('pointerleave', () => { onBubble = false; });
+bubble.addEventListener('click', (e) => {
+  // the icons let the pointer through (pet.css), so a disabled button gets no click
+  const b = e.target.closest('.b-prev, .b-next');
+  if (!b) return;
+  sfx.tick();
+  if (b.classList.contains('b-prev')) goBack(); else goForward();
+});
+
+/** An ask, a confirmation or a dialog step waits in the queue. */
+const asking = () => queue.some((q) => q.kind !== 'say');
+/** A say bubble stays while the pointer is on it, with the arrows on or when it has a link to click, unless a question or dialog step waits behind it. */
+const held = () => onBubble && !bubble.hidden && !asking() && (prefs.showReplyArrows || !!bubble.querySelector('a'));
+
+function keepReply(text) {
+  replies.push(text);
+  if (replies.length > MAX_REPLIES) replies.shift();
+  // the hover buttons are drawn again only when their list changes, and the first entry makes `replies` available
+  if (replies.length === 1) refreshButtons();
+}
+/** A say closed before its end keeps the lines it had not shown yet. */
+function keepUnshown(it) {
+  for (const b of it.beats.slice(it.i + 1)) if (b.text) keepReply(b.text);
+}
+/** Where a say's current line stands among `replies`: the newest entry, or past the end while its beat has no text. */
+const liveAt = (it) => (it.beats[it.i].text ? replies.length - 1 : replies.length);
+/** Say bubbles still to come: the lines left in the say on screen or set aside, then those of the says queued. */
+function waitingLines() {
+  const lines = (beats) => beats.filter((b) => b.text).length;
+  const live = item?.kind === 'replay' ? item.live : item?.kind === 'say' ? item : null;
+  let n = live ? lines(live.beats.slice(live.i + 1)) : 0;
+  for (const q of queue) if (q.kind === 'say') n += lines(q.beats);
+  return n;
+}
+
+const navHtml = () => `<div class="b-nav" hidden><button class="b-prev" type="button" aria-label="${esc(t('bubble.prev'))}" title="${esc(t('bubble.prev'))}">${ICONS.chevronLeft}</button><span class="b-pos"></span><button class="b-next" type="button" aria-label="${esc(t('bubble.next'))}" title="${esc(t('bubble.next'))}">${ICONS.chevronRight}</button></div>`;
+/**
+ * The arrows of the say bubble on screen, hidden with a single entry, nothing browsed and nothing to come; the
+ * label counts the bubbles still to come. Forward is off on the newest entry when nothing comes after it.
+ */
+function drawNav() {
+  const nav = bubble.querySelector('.b-nav');
+  if (!nav) return;
+  const browsing = item?.kind === 'replay', n = replies.length;
+  const waiting = waitingLines();
+  nav.hidden = !prefs.showReplyArrows || (!browsing && n < 2 && !waiting);
+  if (nav.hidden) return;
+  const pos = browsing ? item.pos : n - 1;
+  const label = nav.querySelector('.b-pos');
+  label.textContent = `${pos + 1}/${n}${waiting ? ` +${waiting}` : ''}`;
+  if (waiting) label.title = t('bubble.waiting', { n: waiting }); else label.removeAttribute('title');
+  nav.querySelector('.b-prev').disabled = pos === 0 || asking();
+  const last = browsing ? pos + 1 >= (item.live ? liveAt(item.live) : n) : true;
+  nav.querySelector('.b-next').disabled = last && !waiting && !(browsing && item.live);
+}
+/** `text` in full in Coo's say bubble: the one on screen, or a new one. */
+function showSay(text) {
+  if (bubble.hidden || !bubble.querySelector('.b-nav')) openBubble('say', `<p class="b-text"></p>${navHtml()}`);
+  bubble.querySelector('.b-text').replaceChildren(linked(text));
+  drawNav();
+}
+
+/**
+ * One entry back: from the say on screen, from the entry browsed, or, with no bubble up, to the newest. It does
+ * nothing with the arrows off (a menu opened before keeps its tile), while an ask or dialog step is up or waits, or
+ * while the typing box is open.
+ */
+function goBack() {
+  if (!prefs.showReplyArrows || asking()) return;
+  if (item?.kind === 'replay') {
+    item.idleFrom = T;
+    if (item.pos > 0) { item.pos--; showSay(replies[item.pos]); }
+    return;
+  }
+  if (item && item.kind !== 'say') return;
+  const pos = (item ? liveAt(item) : replies.length) - 1;
+  if (pos < 0) return;
+  speech.stop();
+  item = { kind: 'replay', pos, live: item, idleFrom: T, right: item && !bubble.hidden ? bubbleRight : undefined };
+  showSay(replies[pos]);
+}
+function goForward() {
+  const it = item;
+  if (it?.kind === 'say') { skipLine(it); return; }
+  if (it?.kind !== 'replay') return;
+  it.idleFrom = T;
+  if (it.pos + 1 < (it.live ? liveAt(it.live) : replies.length)) { it.pos++; showSay(replies[it.pos]); }
+  else endBrowse();
+}
+/** The say's current line typed out at once and let go, though the pointer is on the bubble, so the next one comes. */
+function skipLine(it) {
+  if (!prefs.showReplyArrows || it.i < 0 || !waitingLines()) return;
+  if (!it.beatDone) resumeSay(it);
+  it.skip = true;
+}
+/** Ends browsing: the say set aside comes back, else the bubble closes. With `show` false the caller replaces the bubble. */
+function endBrowse(show = true) {
+  const it = item;
+  if (it?.kind !== 'replay') return;
+  if (!it.live) { closeBubble(); return; }
+  item = it.live;
+  if (show) resumeSay(item);
+}
+/** The say set aside, back on screen with its current line typed out, the actions inside it played, and held from now. */
+function resumeSay(it) {
+  const b = it.beats[it.i];
+  // a beat without text goes on as it was
+  if (!b.text) { bubble.hidden = true; return; }
+  showSay(b.text);
+  const anchors = b.anchors || [];
+  while (it.fired < anchors.length) acts.push(...anchors[it.fired++].actions);
+  it.shown = b.text.length;
+  it.beatDone = true;
+  it.holdUntil = T + holdFor(it, b.text);
 }
 
 /* ---------- an app's conversation: one step at a time in Coo's bubble ---------- */
@@ -788,6 +931,8 @@ function stepTalkMotion() {
 function openInput() {
   closeMenu();
   if (item && item.kind === 'ask' && !item.answered) return;
+  endBrowse(false);
+  if (item?.kind === 'say') keepUnshown(item);
   if (item) closeBubble();
   item = { kind: 'input' };
   const expand = prefs.bot?.buttons?.chat
@@ -1133,6 +1278,12 @@ const ACTIONS = {
       else window.open('/dress', '_blank');
     },
   },
+  replies: {
+    icon: () => ICONS.replies,
+    available: () => prefs.showReplyArrows && replies.length > 0,
+    state: () => t('action.replies'),
+    run: () => goBack(),
+  },
 };
 const available = (id) => ACTIONS[id] && (ACTIONS[id].available?.() ?? true);
 
@@ -1427,11 +1578,13 @@ document.addEventListener('pointermove', (e) => {
 host?.onCursor?.((p) => {
   cursor.at = p;
   if (!p) {
+    onBubble = false;
     diag.poll = { at: performance.now(), off: true };
     if (!pressing) setInteractive(false, 'poll');
     return;
   }
   const el = document.elementFromPoint(p.x, p.y);
+  onBubble = bubble.contains(el);
   const hit = !!body?.hit(p), ui = !!el?.closest?.(UI_SELECTOR);
   diag.poll = { at: performance.now(), x: p.x, y: p.y, hit, ui };
   setInteractive(rendering() && (pressing || hit || ui), 'poll');
@@ -1519,6 +1672,7 @@ document.addEventListener('keydown', (e) => {
     closeMenu();
     if (item && item.kind === 'ask') dismissAsk();
     else if (item && item.kind === 'input') closeBubble();
+    else endBrowse();
     return;
   }
   const typing = e.target.closest && e.target.closest('input, textarea');
@@ -1543,10 +1697,13 @@ function tailAt(bw, x) {
   const k = clamp((bw - TAIL_CENTER) / (TAIL_FOLLOW - TAIL_CENTER), 0, 1);
   return bw / 2 + (clamp(x, 22, bw - 22) - bw / 2) * k;
 }
-/** Coo's bubble above its head, moved over to the side it faces. */
-function place(el, a, extraUp) {
+/** Where Coo's bubble ended on the right when it was last placed. */
+let bubbleRight;
+/** Coo's bubble above its head, moved over to the side it faces, or with its right edge at `right`. */
+function place(el, a, extraUp, right) {
   const bw = el.offsetWidth, bh = el.offsetHeight;
-  const left = clamp(a.x - bw / 2 + (at()?.facing ?? 1) * 26, 10, Math.max(10, innerWidth - bw - 10));
+  const x = right === undefined ? a.x - bw / 2 + (at()?.facing ?? 1) * 26 : right - bw;
+  const left = clamp(x, 10, Math.max(10, innerWidth - bw - 10));
   const top = Math.max(8, a.y - bh - extraUp);
   el.style.left = f(left) + 'px';
   el.style.top = f(top) + 'px';
@@ -1585,7 +1742,13 @@ function layout(dt = 0) {
   let sayBox = null;
   // choice cards keep their bubble where it was; its tail follows Coo along the bottom edge
   if (!bubble.hidden && item?.kind === 'dialog' && item.pinX !== undefined) sayBox = placeTalk(item, a);
-  else if (!bubble.hidden) sayBox = place(bubble, a, 18 * prefs.bubbleSize);
+  else if (!bubble.hidden) {
+    // a browsed bubble keeps its right edge, where the arrows are, as entries of other lengths replace each other
+    const browsing = item?.kind === 'replay';
+    sayBox = place(bubble, a, 18 * prefs.bubbleSize, browsing ? item.right : undefined);
+    bubbleRight = sayBox.left + sayBox.bw;
+    if (browsing) item.right ??= bubbleRight;
+  }
   placeLines(a, sayBox, dt);
 }
 

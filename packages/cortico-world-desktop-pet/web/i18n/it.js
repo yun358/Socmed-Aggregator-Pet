@@ -11,6 +11,9 @@ export default {
   'bubble.typePlaceholder': 'Scrivi un messaggio…',
   'bubble.typeLabel': 'Scrivi per parlare',
   'bubble.expand': 'Continua nella pagina Chat',
+  'bubble.prev': 'Risposta precedente',
+  'bubble.next': 'Risposta successiva',
+  'bubble.waiting': 'Ancora {n} in arrivo',
 
   // what the person said: a sentence being heard; how many images a chat-page message carries
   'heard.more': 'In ascolto…',
@@ -41,6 +44,7 @@ export default {
   'action.soundOff': 'Suoni: disattivati · clicca per attivarli',
   'action.dress': 'Guardaroba',
   'action.hide': "Nascondimi per ora (l'icona nell'area di notifica mi riporta qui)",
+  'action.replies': 'Rivedi le risposte precedenti',
   'menu.cancel': 'Annulla',
   'menu.resume': 'Riprendi',
   'menu.pause': 'Pausa',

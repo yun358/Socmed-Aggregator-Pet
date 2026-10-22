@@ -151,7 +151,7 @@ const es419: Translation<PetText> = {
     fontSize: (from: number, to: number) => `cambiar el tamaño del texto de ${from}× a ${to}×`,
     theme: { dark: 'cambiar al aspecto de noche', light: 'cambiar al aspecto de día' },
     hover: (list: string) => `cambiar los botones al pasar el cursor a ${list}`,
-    actions: { chat: 'Escribir', voice: 'Entrada de voz', roam: 'Paseos', theme: 'Modo nocturno', sound: 'Sonidos', dress: 'Vestuario', hide: 'Ocultar mascota' },
+    actions: { chat: 'Escribir', voice: 'Entrada de voz', roam: 'Paseos', theme: 'Modo nocturno', sound: 'Sonidos', dress: 'Vestuario', hide: 'Ocultar mascota', replies: 'Respuestas anteriores' },
     user: (to: string) => `llamarte «${to}»`,
   },
 
@@ -199,6 +199,7 @@ const es419: Translation<PetText> = {
     doubleClickChat: { title: 'Doble clic para escribir', description: 'Hacer doble clic en la mascota abre el cuadro de texto.' },
     statusBubble: { title: 'Burbuja de estado', description: 'Muestra lo que hace la mascota mientras piensa, revisa su memoria o usa la computadora, incluidos los nombres de archivo.' },
     saidBubbles: { title: 'Burbujas de entrada', description: 'Lo que se escribe, se dice o se envía desde la página de chat aparece sobre la mascota hasta que responde. Desactivado, la voz solo aparece mientras se reconoce.' },
+    showReplyArrows: { title: 'Flechas de respuestas', description: 'Flechas en las burbujas de la mascota para volver a sus últimas 50 burbujas y avanzar de nuevo. Una burbuja se queda mientras el puntero está encima; mientras se ven las anteriores, las nuevas esperan.' },
     selfAdjust: { title: 'Autoajuste', description: 'off: no puede cambiar sus ajustes ni quedarse en silencio un rato. default: personaje, atuendo, paseos y ronquidos cambian directamente; tamaño, tamaño de las burbujas, tamaño del texto, sonidos, modo nocturno, botones al pasar el cursor y cómo te llama esperan tu consentimiento. any: todo cambia directamente. custom: según lo marcado en la página Hábitos; lo marcado cambia directamente y lo demás espera tu consentimiento.' },
     windowEnabled: { title: 'Abrir la ventana de la mascota al iniciar' },
     scale: { title: 'Tamaño' },

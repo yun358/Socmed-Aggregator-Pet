@@ -182,6 +182,14 @@ body.desk .floor{display:none}
 .b-hint{display:block; margin-top:2px; font-size:calc(12px * var(--bubble-font, 1)); color:var(--muted)}
 .b-foot{display:flex; align-items:center; gap:8px; margin-top:2px}
 .b-foot .b-hint{flex:1; margin-top:0}
+/* Coo's earlier bubbles (pet-app.js replies): back, where the bubble shown stands, forward */
+.b-nav{display:flex; align-items:center; justify-content:flex-end; gap:2px; margin:2px calc(-8px * var(--bubble-size, 1)) calc(-4px * var(--bubble-size, 1)) 0}
+.b-nav[hidden]{display:none}
+.b-nav button{display:grid; place-items:center; width:calc(24px * var(--bubble-font, 1)); height:calc(24px * var(--bubble-font, 1)); padding:0; border:0; border-radius:50%; background:none; color:var(--muted); cursor:pointer}
+.b-nav button:hover:not(:disabled){color:var(--text)}
+.b-nav button:disabled{opacity:.35; cursor:default}
+.b-nav svg{width:calc(15px * var(--bubble-font, 1)); height:calc(15px * var(--bubble-font, 1)); pointer-events:none}
+.b-pos{font-size:calc(12px * var(--bubble-font, 1)); color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap}
 .b-cancel{flex:none; font:inherit; font-size:calc(12px * var(--bubble-font, 1)); padding:2px 9px; border-radius:8px; border:1.5px solid var(--line); background:none; color:var(--muted); cursor:pointer}
 .b-cancel:hover{color:var(--text); border-color:var(--text)}
 .caret[hidden], .b-cancel[hidden]{display:none}
@@ -354,7 +362,7 @@ body.desk .floor{display:none}
 .menu .m-act.run:not(.paused){color:var(--skin-eye)}
 .menu .m-act.power:hover, .menu .m-act.danger{color:var(--anger)}
 .menu .m-act.text{width:auto; padding:0 10px; border-radius:15px; font-size:12.5px; white-space:nowrap}
-/* six actions in three columns spread over the menu's width (the header no longer widens it: see .m-name) */
+/* the actions in three columns spread over the menu's width (the header no longer widens it: see .m-name) */
 .m-grid{display:grid; grid-template-columns:repeat(3, 1fr); justify-items:center; gap:8px 10px; padding:4px 2px 2px}
 /* every entry is a round icon button; a switch that is on is lit in the eye color, one that is off keeps its crossed-out icon on a dashed ring */
 .m-tile{

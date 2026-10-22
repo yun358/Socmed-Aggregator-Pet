@@ -26,7 +26,7 @@ function page() {
   win.deps = {
     applyTheme: (theme) => { win.document.documentElement.dataset.theme = theme; }, clamp, f, ICONS, linked: (text, n) => linked(text, n, win.document),
     COO_CSS, mini, normalizeSkin, skinCss,
-    createSfx: () => ({ pop() {}, babble() {}, blub() {}, configure() {}, set() {}, listenStart() {}, listenEnd() {}, select() {}, tick() {} }),
+    createSfx: () => ({ pop() {}, babble() {}, blub() {}, configure() {}, set() {}, listenStart() {}, listenEnd() {}, select() {}, tick() {}, unlock() {} }),
     createSpeech: () => ({ configure() {}, begin() {}, reveal() { return false; }, stop() {}, active: false }),
     textSteps: () => 1,
     loadBody: async () => body, body,
@@ -34,8 +34,8 @@ function page() {
     // the tab's stage (stage.js) is decoration the activity bubble does not depend on
     lightWall() {}, dressFloor() {}, modeButton: () => ({ show() {} }), glowColor: () => null, setGlow() {}, bindAppearance() {}, announcePainted() {},
   };
-  win.eval(`const { applyTheme, clamp, f, ICONS, linked, COO_CSS, mini, normalizeSkin, skinCss, createSfx, createSpeech, textSteps, loadBody, t, language, useLanguage, lightWall, dressFloor, modeButton, glowColor, setGlow, bindAppearance, announcePainted } = window.deps;\n${source}\nbody = window.deps.body; window.page = { onOrder, openInput, closeBubble, step: (dt) => { T += dt; stepDialog(dt); stepLines(); stepStatus(); layout(dt); }, interactive: () => bubble.matches(UI_SELECTOR), lines: () => lines, overUi: (el) => el.matches(UI_SELECTOR), REPLIED_FADE, UNANSWERED_FADE, MAX_LINES };`);
-  return { ...win.page, bubble: win.document.querySelector('#bubble'), bodyChanges, doc: win.document };
+  win.eval(`const { applyTheme, clamp, f, ICONS, linked, COO_CSS, mini, normalizeSkin, skinCss, createSfx, createSpeech, textSteps, loadBody, t, language, useLanguage, lightWall, dressFloor, modeButton, glowColor, setGlow, bindAppearance, announcePainted } = window.deps;\n${source}\nbody = window.deps.body; window.page = { onOrder, openInput, closeBubble, step: (dt) => { T += dt; stepDialog(dt); stepLines(); stepStatus(); layout(dt); }, interactive: () => bubble.matches(UI_SELECTOR), lines: () => lines, overUi: (el) => el.matches(UI_SELECTOR), clickable: (el) => !!el.closest(UI_SELECTOR), REPLIED_FADE, UNANSWERED_FADE, MAX_LINES, MAX_REPLIES, BROWSE_IDLE };`);
+  return { ...win.page, bubble: win.document.querySelector('#bubble'), bodyChanges, doc: win.document, win };
 }
 const read = { kind: 'read', text: '在看', detail: '日记.md' };
 const think = { kind: 'think', text: '' };
@@ -213,5 +213,264 @@ describe("the person's lines above Coo", () => {
     expect(up(p)).toHaveLength(1);
     p.onOrder({ t: 'listen', phase: 'heard', text: '今天天气怎么样' });
     expect(up(p)).toHaveLength(0);
+  });
+});
+
+describe("Coo's earlier bubbles", () => {
+  const say = (p, id, ...texts) => p.onOrder({ t: 'say', id, beats: texts.map((text) => ({ text, actions: [], anchors: [] })) });
+  const text = (p) => (p.bubble.hidden ? null : p.bubble.querySelector('.b-text')?.textContent ?? null);
+  const nav = (p) => p.bubble.querySelector('.b-nav');
+  const pos = (p) => p.bubble.querySelector('.b-pos').textContent;
+  const prev = (p) => p.bubble.querySelector('.b-prev');
+  const next = (p) => p.bubble.querySelector('.b-next');
+  const point = (p, on) => p.bubble.dispatchEvent(new p.win.Event(on ? 'pointerenter' : 'pointerleave'));
+  /** Runs the page clock in frames of .1 s until `done` after one, for at most `limit` seconds. */
+  const until = (p, done, limit = 30) => { for (let t = 0; t < limit; t += .1) { p.step(.1); if (done()) return; } };
+  const repliesButton = (p) => p.doc.querySelector('#tools [data-action="replies"]');
+  /** A page with the arrows on and the replies action among the hover buttons. */
+  const arrowsPage = () => {
+    const p = page();
+    p.onOrder({ t: 'prefs', showReplyArrows: true, hoverButtons: ['chat', 'replies'] });
+    return p;
+  };
+
+  it('keeps every line shown: previous shows the one before in full, next returns to the line on screen', () => {
+    const p = arrowsPage();
+    say(p, 's', '早上好', '今天下雨');
+    p.step(.01);
+    // one line and one more coming: the arrows count it, and next is on
+    expect(nav(p).hidden).toBe(false);
+    expect(pos(p)).toBe('1/1 +1');
+    expect(prev(p).disabled).toBe(true);
+    expect(next(p).disabled).toBe(false);
+    until(p, () => text(p) === '今天下雨');
+    expect(nav(p).hidden).toBe(false);
+    expect(pos(p)).toBe('2/2');
+    expect(next(p).disabled).toBe(true);
+    prev(p).click();
+    expect(text(p)).toBe('早上好');
+    expect(pos(p)).toBe('1/2');
+    expect(prev(p).disabled).toBe(true);
+    expect(next(p).disabled).toBe(false);
+    next(p).click();
+    expect(text(p)).toBe('今天下雨');
+    expect(next(p).disabled).toBe(true);
+    until(p, () => p.bubble.hidden);
+    expect(p.bubble.hidden).toBe(true);
+  });
+
+  it('the arrows take the mouse like the rest of the bubble', () => {
+    const p = arrowsPage();
+    say(p, 's', '一', '二');
+    until(p, () => text(p) === '二');
+    expect(p.clickable(prev(p))).toBe(true);
+    expect(p.clickable(next(p))).toBe(true);
+  });
+
+  it('while browsing the queue waits: a say that arrives is counted on the label and starts once browsing ends', () => {
+    const p = arrowsPage();
+    say(p, 'a', '第一句', '第二句');
+    until(p, () => text(p) === '第二句');
+    prev(p).click();
+    say(p, 'b', '新的一句');
+    expect(pos(p)).toBe('1/2 +1');
+    point(p, true);
+    until(p, () => text(p) !== '第一句', p.BROWSE_IDLE * 2);
+    expect(text(p)).toBe('第一句');
+    // the say set aside comes back typed out and held anew, still counting the one waiting, then that one follows
+    next(p).click();
+    expect(text(p)).toBe('第二句');
+    expect(pos(p)).toBe('2/2 +1');
+    point(p, false);
+    p.step(.1);
+    expect(text(p)).toBe('第二句');
+    until(p, () => text(p) === '新的一句');
+    expect(text(p)).toBe('新的一句');
+    expect(pos(p)).toBe('3/3');
+  });
+
+  it('browsing ends BROWSE_IDLE seconds after the pointer leaves the bubble', () => {
+    const p = arrowsPage();
+    say(p, 's', '一', '二');
+    until(p, () => text(p) === '二');
+    prev(p).click();
+    point(p, true);
+    until(p, () => text(p) !== '一', p.BROWSE_IDLE + 1);
+    point(p, false);
+    p.step(p.BROWSE_IDLE - .5);
+    expect(text(p)).toBe('一');
+    p.step(1);
+    expect(text(p)).toBe('二');
+  });
+
+  it('each step back or forward keeps browsing; BROWSE_IDLE seconds after the last one, with the pointer off the bubble, it ends', () => {
+    const p = arrowsPage();
+    say(p, 's', '一', '二', '三', '四');
+    until(p, () => p.bubble.hidden);
+    for (const [button, expected] of [[repliesButton, '4/4'], [repliesButton, '3/4'], [repliesButton, '2/4'], [next, '3/4']]) {
+      button(p).click();
+      expect(pos(p)).toBe(expected);
+      p.step(p.BROWSE_IDLE * .6);
+    }
+    expect(text(p)).toBe('三');
+    p.step(p.BROWSE_IDLE * .6);
+    expect(p.bubble.hidden).toBe(true);
+  });
+
+  it('a browsed bubble keeps its right edge, so the arrows stay under the pointer', () => {
+    const p = arrowsPage();
+    // jsdom lays nothing out: the bubble is as wide as its text
+    Object.defineProperty(p.bubble, 'offsetWidth', { configurable: true, get: () => 20 + 10 * (p.bubble.querySelector('.b-text')?.textContent.length ?? 0) });
+    const right = () => parseFloat(p.bubble.style.left) + p.bubble.offsetWidth;
+    say(p, 's', '短', '这是一句长得多的话');
+    until(p, () => text(p) === '这是一句长得多的话');
+    const edge = right();
+    prev(p).click();
+    p.step(.01);
+    expect(text(p)).toBe('短');
+    expect(right()).toBe(edge);
+  });
+
+  it('a question waiting behind a say is shown: the hold lets go, browsing ends and back stays off', () => {
+    const p = arrowsPage();
+    say(p, 's', '一', '二');
+    until(p, () => text(p) === '二');
+    point(p, true);
+    prev(p).click();
+    p.onOrder({ t: 'confirm', id: 'q', question: '继续吗', options: ['继续'] });
+    expect(text(p)).toBe('二');
+    expect(prev(p).disabled).toBe(true);
+    prev(p).click();
+    repliesButton(p).click();
+    expect(text(p)).toBe('二');
+    until(p, () => p.bubble.classList.contains('ask'));
+    expect(p.bubble.classList.contains('ask')).toBe(true);
+  });
+
+  it('the replies action does nothing once the arrows are off, from a button drawn before', () => {
+    const p = arrowsPage();
+    say(p, 's', '一');
+    until(p, () => p.bubble.hidden);
+    const stale = repliesButton(p);
+    p.onOrder({ t: 'prefs', showReplyArrows: false });
+    stale.click();
+    expect(p.bubble.hidden).toBe(true);
+  });
+
+  it('after the last bubble closed the replies action shows the newest line and keeps the activity bubble away; with nothing after it next is off', () => {
+    const p = arrowsPage();
+    say(p, 's', '一', '二');
+    until(p, () => p.bubble.hidden);
+    show(p, read); p.step(.01);
+    expect(p.bubble.classList.contains('status')).toBe(true);
+    repliesButton(p).click();
+    p.step(1);
+    expect(p.bubble.classList.contains('status')).toBe(false);
+    expect(text(p)).toBe('二');
+    expect(pos(p)).toBe('2/2');
+    expect(next(p).disabled).toBe(true);
+    until(p, () => p.bubble.dataset.kind === 'read', p.BROWSE_IDLE * 2);
+    expect(p.bubble.dataset.kind).toBe('read');
+  });
+
+  it('with the pointer on the bubble, next shows the next line at once, and is off once nothing comes after', () => {
+    const p = arrowsPage();
+    say(p, 's', '一', '二', '三');
+    until(p, () => text(p) === '一');
+    point(p, true);
+    expect(pos(p)).toBe('1/1 +2');
+    until(p, () => text(p) !== '一', 10);
+    expect(text(p)).toBe('一');
+    next(p).click();
+    until(p, () => text(p) === '二', 2);
+    expect(pos(p)).toBe('2/2 +1');
+    next(p).click();
+    until(p, () => text(p) === '三', 2);
+    expect(pos(p)).toBe('3/3');
+    expect(next(p).disabled).toBe(true);
+  });
+
+  it.each(['ask', 'confirm', 'dialog'])('a %s ends browsing as it arrives', (kind) => {
+    const p = arrowsPage();
+    say(p, 's', '一');
+    until(p, () => p.bubble.hidden);
+    repliesButton(p).click();
+    point(p, true);
+    if (kind === 'dialog') p.onOrder({ t: 'dialog', id: 'd', text: '你好', input: { kind: 'text', submit: '好' } });
+    else p.onOrder({ t: kind, id: 'q', question: '继续吗', options: ['继续'] });
+    p.step(.01);
+    expect(p.bubble.classList.contains(kind === 'dialog' ? 'talk' : 'ask')).toBe(true);
+  });
+
+  it('Esc ends browsing', () => {
+    const p = arrowsPage();
+    say(p, 's', '一');
+    until(p, () => p.bubble.hidden);
+    repliesButton(p).click();
+    expect(text(p)).toBe('一');
+    p.doc.dispatchEvent(new p.win.KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(p.bubble.hidden).toBe(true);
+  });
+
+  it('the typing box ends browsing, and a say it cuts short keeps the lines it had not shown', () => {
+    const p = arrowsPage();
+    say(p, 'a', '甲');
+    until(p, () => p.bubble.hidden);
+    say(p, 'b', '乙', '丙', '丁');
+    until(p, () => text(p) === '乙');
+    prev(p).click();
+    expect(text(p)).toBe('甲');
+    p.openInput();
+    expect(p.bubble.querySelector('textarea')).not.toBeNull();
+    p.closeBubble();
+    repliesButton(p).click();
+    expect(text(p)).toBe('丁');
+    expect(pos(p)).toBe('4/4');
+  });
+
+  it('keeps the last MAX_REPLIES lines', () => {
+    const p = arrowsPage();
+    say(p, 's', ...Array.from({ length: p.MAX_REPLIES + 1 }, (_, i) => `第 ${i} 句`));
+    until(p, () => p.bubble.hidden, 200);
+    repliesButton(p).click();
+    expect(pos(p)).toBe(`${p.MAX_REPLIES}/${p.MAX_REPLIES}`);
+    for (let i = 1; i < p.MAX_REPLIES; i++) prev(p).click();
+    expect(text(p)).toBe('第 1 句');
+    expect(prev(p).disabled).toBe(true);
+  });
+
+  it('with the arrows on a say bubble stays while the pointer is on it', () => {
+    const p = arrowsPage();
+    say(p, 's', '一');
+    p.step(.01);
+    point(p, true);
+    until(p, () => p.bubble.hidden);
+    expect(text(p)).toBe('一');
+    point(p, false);
+    until(p, () => p.bubble.hidden);
+    expect(p.bubble.hidden).toBe(true);
+  });
+
+  it('with the arrows off a say bubble shows none and goes on with the pointer on it', () => {
+    const p = arrowsPage();
+    p.onOrder({ t: 'prefs', showReplyArrows: false });
+    say(p, 's', '一', '二');
+    until(p, () => text(p) === '二');
+    expect(nav(p).hidden).toBe(true);
+    point(p, true);
+    until(p, () => p.bubble.hidden);
+    expect(p.bubble.hidden).toBe(true);
+  });
+
+  it('offers the replies action once a line was shown, and only while the arrows are on', () => {
+    const p = arrowsPage();
+    expect(repliesButton(p)).toBeNull();
+    say(p, 's', '一');
+    p.step(.01);
+    expect(repliesButton(p)).not.toBeNull();
+    p.onOrder({ t: 'prefs', showReplyArrows: false });
+    expect(repliesButton(p)).toBeNull();
+    p.onOrder({ t: 'prefs', showReplyArrows: true });
+    expect(repliesButton(p)).not.toBeNull();
   });
 });

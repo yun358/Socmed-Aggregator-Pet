@@ -151,7 +151,7 @@ const ptBR: Translation<PetText> = {
     fontSize: (from: number, to: number) => `mudar o tamanho do texto de ${from}× para ${to}×`,
     theme: { dark: 'mudar para a aparência de noite', light: 'mudar para a aparência de dia' },
     hover: (list: string) => `trocar os botões ao passar o mouse para ${list}`,
-    actions: { chat: 'Digitar', voice: 'Entrada de voz', roam: 'Passeios', theme: 'Modo noturno', sound: 'Sons', dress: 'Guarda-roupa', hide: 'Ocultar o pet' },
+    actions: { chat: 'Digitar', voice: 'Entrada de voz', roam: 'Passeios', theme: 'Modo noturno', sound: 'Sons', dress: 'Guarda-roupa', hide: 'Ocultar o pet', replies: 'Respostas anteriores' },
     user: (to: string) => `chamar você de “${to}”`,
   },
 
@@ -199,6 +199,7 @@ const ptBR: Translation<PetText> = {
     doubleClickChat: { title: 'Clique duplo para digitar', description: 'Clicar duas vezes no pet abre a caixa de texto.' },
     statusBubble: { title: 'Balão de status', description: 'Mostra o que o pet está fazendo enquanto pensa, consulta a memória ou usa o computador, incluindo nomes de arquivos.' },
     saidBubbles: { title: 'Balões de entrada', description: 'O que é digitado, falado ou enviado pela página de chat aparece acima do pet até ele responder. Desligado, a fala só aparece enquanto é reconhecida.' },
+    showReplyArrows: { title: 'Setas de respostas', description: 'Setas nos balões do pet voltam pelos últimos 50 balões e avançam de novo. Um balão fica enquanto o ponteiro está sobre ele; enquanto os anteriores aparecem, os novos esperam.' },
     selfAdjust: { title: 'Autoajuste', description: 'off: não pode mudar as próprias configurações nem fazer silêncio por um tempo. default: personagem, visual, passeios e ronco mudam direto; tamanho, tamanho dos balões, tamanho do texto, sons, modo noturno, botões ao passar o mouse e como chama você esperam seu consentimento. any: tudo muda direto. custom: conforme marcado na página Hábitos; o que estiver marcado muda direto e o resto espera seu consentimento.' },
     windowEnabled: { title: 'Abrir a janela do pet ao iniciar' },
     scale: { title: 'Tamanho' },

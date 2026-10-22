@@ -151,7 +151,7 @@ const fr: Translation<PetText> = {
     fontSize: (from: number, to: number) => `passer la taille du texte de ${from}× à ${to}×`,
     theme: { dark: "passer à l'aspect nuit", light: "passer à l'aspect jour" },
     hover: (list: string) => `mettre comme boutons au survol : ${list}`,
-    actions: { chat: 'Écrire', voice: 'Saisie vocale', roam: 'Déplacements', theme: 'Mode nuit', sound: 'Sons', dress: 'Habiller', hide: 'Masquer le compagnon' },
+    actions: { chat: 'Écrire', voice: 'Saisie vocale', roam: 'Déplacements', theme: 'Mode nuit', sound: 'Sons', dress: 'Habiller', hide: 'Masquer le compagnon', replies: 'Réponses passées' },
     user: (to: string) => `vous appeler « ${to} »`,
   },
 
@@ -199,6 +199,7 @@ const fr: Translation<PetText> = {
     doubleClickChat: { title: 'Double-clic pour écrire', description: 'Double-cliquer sur le compagnon ouvre la zone de saisie.' },
     statusBubble: { title: "Bulle d'état", description: "Montre ce que fait le compagnon pendant la réflexion, la consultation de la mémoire ou l'utilisation de l'ordinateur, noms de fichiers compris." },
     saidBubbles: { title: 'Bulles de saisie', description: "Ce qui est tapé, dit ou envoyé depuis la page de discussion s'affiche au-dessus du compagnon jusqu'à sa réponse. Désactivé, la parole ne s'affiche que pendant la reconnaissance." },
+    showReplyArrows: { title: 'Flèches des réponses', description: 'Des flèches sur les bulles du compagnon permettent de revoir ses 50 dernières bulles et de revenir. Une bulle reste tant que le pointeur est dessus ; pendant que vous revoyez les précédentes, les nouvelles attendent.' },
     selfAdjust: { title: 'Autoréglage', description: "off : aucun changement de réglage ni mise au calme pour un moment de sa propre initiative. default : personnage, tenue, déplacements et ronflements changent directement ; taille, taille des bulles, taille du texte, sons, mode nuit, boutons au survol et la façon de vous appeler attendent votre accord. any : tout change directement. custom : selon les cases cochées sur la page Habitudes ; ce qui est coché change directement, le reste attend votre accord." },
     windowEnabled: { title: 'Ouvrir la fenêtre du compagnon au démarrage' },
     scale: { title: 'Taille' },

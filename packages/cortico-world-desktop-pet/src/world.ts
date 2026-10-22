@@ -861,6 +861,7 @@ export class DesktopPetWorld implements World {
       status: this.status.status,
       statusBubble: this.cfg.statusBubble,
       saidBubbles: this.cfg.saidBubbles,
+      showReplyArrows: this.cfg.showReplyArrows,
       bot: this.botInfo(),
     };
   }

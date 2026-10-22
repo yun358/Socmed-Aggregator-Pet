@@ -11,6 +11,9 @@ export default {
   'bubble.typePlaceholder': '메시지를 입력하세요…',
   'bubble.typeLabel': '입력해서 말하기',
   'bubble.expand': '대화 페이지에서 계속 쓰기',
+  'bubble.prev': '이전 답변',
+  'bubble.next': '다음 답변',
+  'bubble.waiting': '{n}개 더 있음',
 
   // what the person said: a sentence being heard; how many images a chat-page message carries
   'heard.more': '듣는 중…',
@@ -41,6 +44,7 @@ export default {
   'action.soundOff': '효과음: 꺼짐 · 클릭하여 켜기',
   'action.dress': '꾸미기',
   'action.hide': '저를 잠시 숨기기(트레이 아이콘으로 다시 불러낼 수 있습니다)',
+  'action.replies': '이전 답변 보기',
   'menu.cancel': '취소',
   'menu.resume': '재개',
   'menu.pause': '일시 중지',

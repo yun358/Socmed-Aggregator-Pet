@@ -11,6 +11,9 @@ export default {
   'bubble.typePlaceholder': 'Digite uma mensagem…',
   'bubble.typeLabel': 'Digite para falar',
   'bubble.expand': 'Continuar na página Chat',
+  'bubble.prev': 'Resposta anterior',
+  'bubble.next': 'Próxima resposta',
+  'bubble.waiting': 'Mais {n} a caminho',
 
   // what the person said: a sentence being heard; how many images a chat-page message carries
   'heard.more': 'Ouvindo…',
@@ -41,6 +44,7 @@ export default {
   'action.soundOff': 'Sons: desligados · clique para ligar',
   'action.dress': 'Guarda-roupa',
   'action.hide': 'Me esconda por enquanto (o ícone da bandeja me traz de volta)',
+  'action.replies': 'Ver respostas anteriores',
   'menu.cancel': 'Cancelar',
   'menu.resume': 'Retomar',
   'menu.pause': 'Pausar',

@@ -14,6 +14,10 @@ export default {
   'bubble.typeLabel': '打字说话',
   /** 打字气泡里把草稿带到设置窗口「对话」页的按钮 */
   'bubble.expand': '在对话页继续编辑',
+  /** 说话气泡下翻看之前气泡的箭头 */
+  'bubble.prev': '上一条回复',
+  'bubble.next': '下一条回复',
+  'bubble.waiting': '还有 {n} 条',
 
   // 你说的话:语音识别中的样子;对话页发来的消息附的图片数
   'heard.more': '正在倾听…',
@@ -44,6 +48,7 @@ export default {
   'action.soundOff': '音效：已关闭 · 点击开启',
   'action.dress': '装扮',
   'action.hide': '隐藏桌宠（可从托盘图标重新显示）',
+  'action.replies': '查看之前的回复',
   'menu.cancel': '取消',
   'menu.resume': '继续',
   'menu.pause': '暂停',

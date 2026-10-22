@@ -151,7 +151,7 @@ const it: Translation<PetText> = {
     fontSize: (from: number, to: number) => `cambiare la dimensione del testo da ${from}× a ${to}×`,
     theme: { dark: "passare all'aspetto notte", light: "passare all'aspetto giorno" },
     hover: (list: string) => `cambiare i pulsanti al passaggio in ${list}`,
-    actions: { chat: 'Scrivi', voice: 'Input vocale', roam: 'Movimento', theme: 'Modalità notte', sound: 'Suoni', dress: 'Guardaroba', hide: "Nascondi l'animaletto" },
+    actions: { chat: 'Scrivi', voice: 'Input vocale', roam: 'Movimento', theme: 'Modalità notte', sound: 'Suoni', dress: 'Guardaroba', hide: "Nascondi l'animaletto", replies: 'Risposte precedenti' },
     user: (to: string) => `chiamarti «${to}»`,
   },
 
@@ -199,6 +199,7 @@ const it: Translation<PetText> = {
     doubleClickChat: { title: 'Doppio clic per scrivere', description: "Un doppio clic sull'animaletto apre la casella di testo." },
     statusBubble: { title: 'Fumetto di stato', description: "Mostra cosa sta facendo l'animaletto mentre pensa, sfoglia la sua memoria o usa il computer, nomi dei file compresi." },
     saidBubbles: { title: 'Fumetti di input', description: "Ciò che viene scritto, detto o inviato dalla pagina chat appare sopra l'animaletto finché non risponde. Se disattivato, il parlato appare solo durante il riconoscimento." },
+    showReplyArrows: { title: 'Frecce delle risposte', description: "Frecce sui fumetti dell'animaletto per tornare ai suoi ultimi 50 fumetti e andare avanti. Un fumetto resta finché il puntatore è sopra; mentre si rivedono i precedenti, i nuovi aspettano." },
     selfAdjust: { title: 'Autoregolazione', description: 'off: non può cambiare le proprie impostazioni né mettersi in silenzio per un po\'. default: personaggio, abiti, movimento e russare cambiano direttamente; dimensione, dimensione dei fumetti, dimensione del testo, suoni, modalità notte, pulsanti al passaggio e come ti chiama aspettano il tuo consenso. any: tutto cambia direttamente. custom: come spuntato nella pagina Abitudini; ciò che è spuntato cambia direttamente, il resto aspetta il tuo consenso.' },
     windowEnabled: { title: "Apri la finestra dell'animaletto all'avvio" },
     scale: { title: 'Dimensione' },

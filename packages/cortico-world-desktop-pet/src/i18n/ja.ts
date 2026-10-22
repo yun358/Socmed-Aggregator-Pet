@@ -151,7 +151,7 @@ const ja: Translation<PetText> = {
     fontSize: (from: number, to: number) => `文字サイズを ${from} 倍から ${to} 倍にする`,
     theme: { dark: '夜の見た目にする', light: '昼の見た目にする' },
     hover: (list: string) => `ホバーボタンを${list}にする`,
-    actions: { chat: '入力', voice: '音声入力', roam: '歩き回り', theme: 'ナイトモード', sound: 'サウンド', dress: '着せ替え', hide: 'ペットを隠す' },
+    actions: { chat: '入力', voice: '音声入力', roam: '歩き回り', theme: 'ナイトモード', sound: 'サウンド', dress: '着せ替え', hide: 'ペットを隠す', replies: '過去の返事' },
     user: (to: string) => `あなたを「${to}」と呼ぶ`,
   },
 
@@ -199,6 +199,7 @@ const ja: Translation<PetText> = {
     doubleClickChat: { title: 'ダブルクリックで入力', description: 'ペットをダブルクリックすると入力欄が開きます。' },
     statusBubble: { title: 'ステータス吹き出し', description: '考えているとき、記憶を見ているとき、コンピューターを操作しているときに、ペットが何をしているかを表示します。ファイル名も表示されます。' },
     saidBubbles: { title: '入力の吹き出し', description: '入力、音声、チャットページから送ったメッセージを、返事をするまでペットの上に表示します。オフのとき、音声は認識中だけ表示されます。' },
+    showReplyArrows: { title: '返事の矢印', description: 'ペットの吹き出しに矢印を表示し、直近 50 個の吹き出しを前後に見返せます。ポインターが吹き出しの上にある間は消えません。見返している間、新しい吹き出しは待機します。' },
     selfAdjust: { title: '自分で設定する権限', description: 'off 禁止：設定を自分で変えられず、一時的に静かにすることもできません。default 標準：アバター、着せ替え、歩き回り、いびきは直接変え、サイズ、吹き出しのサイズ、文字サイズ、サウンド、ナイトモード、ホバーボタン、呼び名は先にあなたの同意を得ます。any すべて：どれも直接変えます。custom カスタム：「ふるまい」ページのチェックどおりで、チェックした項目は直接変え、ほかは先に同意を得ます。' },
     windowEnabled: { title: '起動時にペットのウィンドウを開く' },
     scale: { title: 'サイズ' },

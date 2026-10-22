@@ -11,6 +11,9 @@ export default {
   'bubble.typePlaceholder': 'Введите сообщение…',
   'bubble.typeLabel': 'Написать сообщение',
   'bubble.expand': 'Продолжить на странице «Чат»',
+  'bubble.prev': 'Предыдущий ответ',
+  'bubble.next': 'Следующий ответ',
+  'bubble.waiting': 'Ещё {n} впереди',
 
   // what the person said: a sentence being heard; how many images a chat-page message carries
   'heard.more': 'Слушаю…',
@@ -41,6 +44,7 @@ export default {
   'action.soundOff': 'Звуки: выкл. · нажмите, чтобы включить',
   'action.dress': 'Гардероб',
   'action.hide': 'Спрятать меня на время (значок в трее вернёт меня)',
+  'action.replies': 'Посмотреть прошлые ответы',
   'menu.cancel': 'Отмена',
   'menu.resume': 'Продолжить',
   'menu.pause': 'Пауза',

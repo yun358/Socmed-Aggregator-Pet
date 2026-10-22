@@ -11,6 +11,9 @@ export default {
   'bubble.typePlaceholder': 'メッセージを入力…',
   'bubble.typeLabel': '入力して話す',
   'bubble.expand': 'チャットページで続ける',
+  'bubble.prev': '前の返事',
+  'bubble.next': '次の返事',
+  'bubble.waiting': 'あと {n} 件',
 
   // what the person said: a sentence being heard; how many images a chat-page message carries
   'heard.more': '聞き取り中…',
@@ -41,6 +44,7 @@ export default {
   'action.soundOff': 'サウンド：オフ · クリックでオン',
   'action.dress': '着せ替え',
   'action.hide': 'しばらく隠れる（トレイアイコンで呼び戻せます）',
+  'action.replies': '前の返事を見る',
   'menu.cancel': 'キャンセル',
   'menu.resume': '再開',
   'menu.pause': '一時停止',
