@@ -1,0 +1,70 @@
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+import type { WorldHost } from 'cortico/core/types.ts';
+import { noticeDefinition, releaseNotes, type AlarmsState } from '../core/notice.ts';
+
+/** A releases directory with one file per version, each `## 下载` section after its body. */
+function releases(versions: string[]): string {
+  const dir = mkdtempSync(join(tmpdir(), 'coo-notes-'));
+  for (const v of versions) writeFileSync(join(dir, `v${v}.md`), `# Coopanion v${v}\n\n本版 ${v}\n\n## 下载\n\n- 安装包 ${v}\n`);
+  return dir;
+}
+
+describe('releaseNotes', () => {
+  it('takes the versions after the last one run up to the running one, in version order', () => {
+    // 0.1.9 sorts after 0.1.10 as text
+    const dir = releases(['0.1.8', '0.1.9', '0.1.10', '0.1.11', '0.1.12']);
+    expect(releaseNotes(dir, '0.1.8', '0.1.11').map((n) => n.version)).toEqual(['0.1.9', '0.1.10', '0.1.11']);
+  });
+
+  it('takes only the running version when the last one is unknown', () => {
+    const dir = releases(['0.1.12', '0.1.13']);
+    expect(releaseNotes(dir, null, '0.1.13').map((n) => n.version)).toEqual(['0.1.13']);
+  });
+
+  it('reads a version\'s English notes for English model text, its Chinese ones where there are none, each without its download list', () => {
+    const dir = releases(['0.1.12', '0.1.13']);
+    writeFileSync(join(dir, 'v0.1.13.en.md'), '# Coopanion v0.1.13\n\nThis release 0.1.13\n\n## Download\n\n- installer 0.1.13\n');
+    const notes = releaseNotes(dir, '0.1.11', '0.1.13', 'en');
+    expect(notes.map((n) => n.version)).toEqual(['0.1.12', '0.1.13']);
+    expect(notes[0]!.text).toContain('本版 0.1.12');
+    expect(notes[1]!.text).toContain('This release 0.1.13');
+    expect(notes[1]!.text).not.toContain('installer');
+  });
+
+  it('leaves the download list out', () => {
+    const [note] = releaseNotes(releases(['0.1.13']), null, '0.1.13');
+    expect(note!.text).toContain('本版 0.1.13');
+    expect(note!.text).not.toContain('安装包');
+  });
+});
+
+describe('alarms panel', () => {
+  it('deletes an alarm from Coo\'s list and tells Coo which one', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'coo-notice-'));
+    const world = noticeDefinition({
+      version: 'dev', notesDir: dir, stateFile: join(dir, 'notice.json'), alarmsFile: join(dir, 'alarms.json'),
+      newInstall: () => true, read: () => undefined, petConnected: () => false, guiding: () => false,
+      refreshTools: async () => {}, label: () => 'notice',
+    }).create({ timezone: 'Asia/Shanghai' } as never);
+    const pushed: Array<{ type: string; render: () => string | null }> = [];
+    await world.start({ pushDeferred: (e: { type: string; render: () => string | null }) => pushed.push(e) } as unknown as WorldHost);
+    try {
+      const run = (name: string, args: Record<string, unknown>) => world.tools().find((t) => t.name === name)!.handler(args, {} as never) as Promise<{ text: string }>;
+      await run('alarm_set', { note: '提醒喝水', in_minutes: 30 });
+      await run('alarm_set', { note: '提醒睡觉', in_minutes: 90 });
+      const panel = world.webUi!('zh');
+      const [first] = ((await panel.invoke!('alarms', 'list', [])) as AlarmsState).alarms;
+      const after = (await panel.invoke!('alarms', 'cancel', [first!.id])) as AlarmsState;
+      expect(after.alarms.map((a) => a.note)).toEqual(['提醒睡觉']);
+      expect((await run('alarm_list', {})).text).not.toContain('提醒喝水');
+      expect(pushed.map((e) => e.type)).toEqual(['coopanion.alarm-cancelled']);
+      expect(pushed[0]!.render()).toContain('提醒喝水');
+      await expect(panel.invoke!('alarms', 'cancel', [first!.id])).rejects.toThrow();
+    } finally {
+      await world.stop();
+    }
+  });
+});

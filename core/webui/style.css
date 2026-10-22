@@ -1,0 +1,6 @@
+/* time, then 每天, then how far off on a line of its own */
+.coo-alarm-when{display:flex; flex-wrap:wrap; align-items:center; gap:2px 8px; white-space:nowrap}
+.coo-alarm-time{font-family:var(--mono); color:var(--ink)}
+.coo-alarm-when .chip{padding:3px 8px}
+.coo-alarm-when small.muted{flex-basis:100%}
+table.data td.coo-alarm-act{width:1%; white-space:nowrap; text-align:right; vertical-align:middle}
