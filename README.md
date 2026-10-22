@@ -15,6 +15,7 @@ A personal fork of [Coopanion](https://github.com/Pal-AI-Lab/Coopanion). Everyth
 - **Daily autoscroll**: Coo reads a set number of posts each day at a set time and tells you what was in them.
 - **Lifetime counter**: how much time Coo has spent on each platform.
 - **Reply arrows**: ‹ and › under Coo's speech bubble to go back through its replies when it talks too fast.
+- **Copy**: the copy button on Coo's speech bubble copies the whole reply, or just the text you selected in the bubble.
 
 Set everything up on the **Social media** page of the settings window. Some platforms need a login: click **Log in** there, log in in the window that opens, then close it.
 
