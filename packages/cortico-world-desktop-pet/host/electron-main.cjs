@@ -453,7 +453,8 @@ function runPetHost({ url, parentPid = 0, tray: withTray = true }) {
     else if (win.isFocused()) win.blur();
   });
   ipcMain.on('pet:hide', () => { releaseAutoHidden(); if (win) win.hide(); });
-  ipcMain.on('pet:copy', (_e, text) => clipboard.writeText(String(text)));
+  // writeText returns a promise from Electron 44 on, nothing before
+  ipcMain.on('pet:copy', (_e, text) => { Promise.resolve(clipboard.writeText(String(text))).catch(() => {}); });
   ipcMain.on('pet:overlayFrame', (_e, rect, at) => overlay.frame(rect, at));
   ipcMain.on('pet:hideWhenFullscreen', (_e, on) => { hideWhenFullscreen = !!on; });
   ipcMain.on('pet:watchWindows', (_e, on) => watchWindows(!!on));
