@@ -1,8 +1,8 @@
 /**
- * The settings window (console/, and the desktop-pet World's panels it loads) depends on Core only
- * through the WebUI HTTP API: it imports no module of Cortico's WebUI (`src/web/client/`), and from
- * Cortico it takes types only (the panel contract and the shapes of the API's replies), which leave no
- * code in the bundle.
+ * The settings window (console/, and the panels of the desktop-pet and social Worlds it loads)
+ * depends on Core only through the WebUI HTTP API: it imports no module of Cortico's WebUI
+ * (`src/web/client/`), and from Cortico it takes types only (the panel contract and the shapes of
+ * the API's replies), which leave no code in the bundle.
  */
 import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
@@ -11,6 +11,7 @@ import { dirname, join, relative, resolve, sep } from 'node:path';
 const ROOT = resolve(import.meta.dirname, '..');
 const CONSOLE = join(ROOT, 'console');
 const PET_PANELS = join(ROOT, 'packages', 'cortico-world-desktop-pet', 'src', 'webui');
+const SOCIAL_PANELS = join(ROOT, 'packages', 'cortico-world-social', 'src', 'webui');
 const CORTICO_SRC = join(ROOT, 'vendor', 'cortico', 'src');
 
 function sources(dir: string): string[] {
@@ -43,7 +44,7 @@ function corticoPath(imp: Import): string | null {
   return target && target.startsWith(CORTICO_SRC + sep) ? relative(CORTICO_SRC, target).split(sep).join('/') : null;
 }
 
-const imports = [...sources(CONSOLE), ...sources(PET_PANELS)].flatMap(importsOf);
+const imports = [...sources(CONSOLE), ...sources(PET_PANELS), ...sources(SOCIAL_PANELS)].flatMap(importsOf);
 const show = (imp: Import) => `${relative(ROOT, imp.file)}: ${imp.spec}`;
 
 describe('the settings window and Cortico', () => {
