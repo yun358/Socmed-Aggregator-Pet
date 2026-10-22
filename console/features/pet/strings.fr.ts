@@ -57,7 +57,7 @@ export const S: Partial<typeof en> = {
   saidBubble: 'Afficher ce que vous dites',
   saidBubbleHint: "Ce que vous tapez, dites ou envoyez depuis la page Discussion reste au-dessus de Coo jusqu'à sa réponse. Désactivé, la parole s'affiche encore pendant la reconnaissance puis s'efface.",
   replyArrows: 'Afficher des flèches précédent et suivant sur les bulles de parole de Coo',
-  replyArrowsHint: 'Pour revoir les 50 dernières bulles de parole de Coo. Une bulle reste tant que le pointeur est dessus. Pendant que vous revoyez les précédentes, les nouvelles attendent ; la consultation se termine après 8 secondes sans pointeur sur la bulle ni changement de bulle.',
+  replyArrowsHint: 'Pour revoir les 50 dernières bulles de parole de Coo. Pendant que vous revoyez les précédentes, les nouvelles attendent ; la consultation se termine après 8 secondes sans pointeur sur la bulle ni changement de bulle.',
   wake: 'Mode de réponse',
   wakeModes: { none: 'Calme', poke: 'Par défaut', all: 'Réactif', custom: 'Personnalisé…' },
   wakeHints: { none: 'Les contacts sont notés et reçoivent une réponse groupée la prochaine fois que vous parlez', poke: "Ne répond qu'aux petits coups", all: 'Répond à tous les contacts' },

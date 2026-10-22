@@ -57,7 +57,7 @@ export const S: Partial<typeof en> = {
   saidBubble: '顯示你說的話',
   saidBubbleHint: '打字、語音和「對話」頁送出的訊息留在 Coo 頭頂，Coo 回覆後淡出。關閉後，語音仍在辨識時顯示，辨識完即淡出。',
   replyArrows: '在說話氣泡下顯示前後箭頭',
-  replyArrowsHint: '用來翻看 Coo 最近 50 個說話氣泡；滑鼠停在氣泡上時氣泡不會消失。往回翻看時新的氣泡排隊等待，滑鼠不在氣泡上且 8 秒沒有翻動時結束翻看。',
+  replyArrowsHint: '用來翻看 Coo 最近 50 個說話氣泡。往回翻看時新的氣泡排隊等待，滑鼠不在氣泡上且 8 秒沒有翻動時結束翻看。',
   wake: '回應模式',
   wakeModes: { none: '安靜', poke: '預設', all: '積極', custom: '自訂…' },
   wakeHints: { none: '互動先記錄，等你說話時一併回應', poke: '只有被戳的時候才回應', all: '所有互動都會回應' },

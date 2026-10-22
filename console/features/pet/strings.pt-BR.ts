@@ -57,7 +57,7 @@ export const S: Partial<typeof en> = {
   saidBubble: 'Mostrar o que você diz',
   saidBubbleHint: 'O que você digita, fala ou envia pela página Chat fica acima de Coo até ele responder. Desligado, a fala ainda aparece enquanto é reconhecida e some em seguida.',
   replyArrows: 'Mostrar setas de anterior e próximo nos balões de fala de Coo',
-  replyArrowsHint: 'Para rever os últimos 50 balões de fala de Coo. Um balão fica enquanto o ponteiro está sobre ele. Enquanto você vê os anteriores, os novos esperam; a revisão termina após 8 segundos sem o ponteiro no balão e sem mudar de balão.',
+  replyArrowsHint: 'Para rever os últimos 50 balões de fala de Coo. Enquanto você vê os anteriores, os novos esperam; a revisão termina após 8 segundos sem o ponteiro no balão e sem mudar de balão.',
   wake: 'Modo de resposta',
   wakeModes: { none: 'Quieto', poke: 'Padrão', all: 'Ativo', custom: 'Personalizado…' },
   wakeHints: { none: 'Os toques ficam anotados e são respondidos juntos quando você falar', poke: 'Só responde quando você cutuca', all: 'Responde a todos os toques' },

@@ -57,7 +57,7 @@ export const S: Partial<typeof en> = {
   saidBubble: 'Mostrar lo que dices',
   saidBubbleHint: 'Lo que escribes, dices o envías desde la página Chat queda sobre Coo hasta que responde. Si lo desactivas, la voz se sigue mostrando mientras se reconoce y luego se desvanece.',
   replyArrows: 'Mostrar flechas de anterior y siguiente en las burbujas de diálogo de Coo',
-  replyArrowsHint: 'Para volver a las últimas 50 burbujas de diálogo de Coo. Una burbuja se queda mientras el puntero está encima. Mientras ves las anteriores, las nuevas esperan; el repaso termina tras 8 segundos sin el puntero en la burbuja y sin cambiar de burbuja.',
+  replyArrowsHint: 'Para volver a las últimas 50 burbujas de diálogo de Coo. Mientras ves las anteriores, las nuevas esperan; el repaso termina tras 8 segundos sin el puntero en la burbuja y sin cambiar de burbuja.',
   wake: 'Modo de respuesta',
   wakeModes: { none: 'Tranquilo', poke: 'Predeterminado', all: 'Activo', custom: 'Personalizado…' },
   wakeHints: { none: 'Los toques quedan anotados y reciben respuesta juntos la próxima vez que hables', poke: 'Solo responde cuando das un toque', all: 'Responde a todos los toques' },

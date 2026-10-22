@@ -57,7 +57,7 @@ export const S: Partial<typeof en> = {
   saidBubble: 'Zeigen, was du sagst',
   saidBubbleHint: 'Was du tippst, sprichst oder von der Seite Chat sendest, bleibt über Coo, bis Coo antwortet. Ausgeschaltet erscheint Gesprochenes noch während der Erkennung und verblasst danach.',
   replyArrows: 'Pfeile zum Zurück- und Vorblättern an den Sprechblasen von Coo zeigen',
-  replyArrowsHint: 'Blättert durch die letzten 50 Sprechblasen von Coo. Eine Blase bleibt, solange der Zeiger darauf ist. Während du zurückblätterst, warten neue Blasen; das Blättern endet nach 8 Sekunden ohne Zeiger auf der Blase und ohne Weiterblättern.',
+  replyArrowsHint: 'Blättert durch die letzten 50 Sprechblasen von Coo. Während du zurückblätterst, warten neue Blasen; das Blättern endet nach 8 Sekunden ohne Zeiger auf der Blase und ohne Weiterblättern.',
   wake: 'Reaktionsmodus',
   wakeModes: { none: 'Ruhig', poke: 'Standard', all: 'Aktiv', custom: 'Eigene…' },
   wakeHints: { none: 'Berührungen werden gemerkt und gesammelt beantwortet, wenn du das nächste Mal etwas sagst', poke: 'Reagiert nur, wenn du Coo anstupst', all: 'Reagiert auf jede Berührung' },

@@ -57,7 +57,7 @@ export const S: Partial<typeof en> = {
   saidBubble: 'Mostra quello che dici',
   saidBubbleHint: 'Quello che scrivi, dici o invii dalla pagina Chat resta sopra Coo finché non risponde. Se disattivato, il parlato appare comunque durante il riconoscimento e poi svanisce.',
   replyArrows: 'Mostra le frecce indietro e avanti sui fumetti di Coo',
-  replyArrowsHint: 'Per rivedere gli ultimi 50 fumetti di Coo. Un fumetto resta finché il puntatore è sopra. Mentre rivedi i precedenti, i nuovi aspettano; la consultazione termina dopo 8 secondi senza il puntatore sul fumetto e senza cambiare fumetto.',
+  replyArrowsHint: 'Per rivedere gli ultimi 50 fumetti di Coo. Mentre rivedi i precedenti, i nuovi aspettano; la consultazione termina dopo 8 secondi senza il puntatore sul fumetto e senza cambiare fumetto.',
   wake: 'Modalità di risposta',
   wakeModes: { none: 'Tranquillo', poke: 'Predefinito', all: 'Attivo', custom: 'Personalizzato…' },
   wakeHints: { none: 'I tocchi vengono annotati e ricevono risposta tutti insieme quando parli tu', poke: 'Risponde solo ai colpetti', all: 'Risponde a tutti i tocchi' },
