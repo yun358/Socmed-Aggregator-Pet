@@ -7,7 +7,7 @@ A fork of [Coopanion](https://github.com/Pal-AI-Lab/Coopanion), the desktop pet,
 - **Ask Coo about social media.** It reads Reddit, X, Facebook, Threads, Instagram, YouTube, Bilibili and Rednote in its own browser and answers in a speech bubble.
   - "What's happening on r/wallstreetbets?"
   - "What is MKBHD's latest video about?" Coo lists the videos, you pick one, and it summarizes the transcript.
-  - "Find posts about Japanese restaurants in Singapore."
+  - "Find posts about Anime."
 - **Limits per question**: how many posts and seconds Coo may spend (5 posts and 120 s by default).
 - **Text-only mode**: skips posts with images to save tokens. Otherwise the text in images is read on your computer.
 - **Daily autoscroll**: Coo reads a set number of posts each day and tells you what was in them.
