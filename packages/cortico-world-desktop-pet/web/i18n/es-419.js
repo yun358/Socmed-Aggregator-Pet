@@ -14,6 +14,8 @@ export default {
   'bubble.prev': 'Respuesta anterior',
   'bubble.next': 'Respuesta siguiente',
   'bubble.waiting': '{n} más por venir',
+  'bubble.copy': 'Copiar la respuesta o el texto seleccionado',
+  'bubble.copied': 'Copiado',
 
   // what the person said: a sentence being heard; how many images a chat-page message carries
   'heard.more': 'Escuchando…',

@@ -18,6 +18,8 @@ export default {
   'bubble.prev': '上一条回复',
   'bubble.next': '下一条回复',
   'bubble.waiting': '还有 {n} 条',
+  'bubble.copy': '复制整段回复或选中的文字',
+  'bubble.copied': '已复制',
 
   // 你说的话:语音识别中的样子;对话页发来的消息附的图片数
   'heard.more': '正在倾听…',

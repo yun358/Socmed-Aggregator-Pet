@@ -14,6 +14,8 @@ export default {
   'bubble.prev': '上一則回覆',
   'bubble.next': '下一則回覆',
   'bubble.waiting': '還有 {n} 則',
+  'bubble.copy': '複製整段回覆或選取的文字',
+  'bubble.copied': '已複製',
 
   // what the person said: a sentence being heard; how many images a chat-page message carries
   'heard.more': '正在傾聽…',

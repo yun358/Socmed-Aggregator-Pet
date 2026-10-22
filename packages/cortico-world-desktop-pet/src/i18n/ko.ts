@@ -199,7 +199,7 @@ const ko: Translation<PetText> = {
     doubleClickChat: { title: '더블클릭으로 입력', description: '펫을 더블클릭하면 입력 상자가 열립니다.' },
     statusBubble: { title: '상태 말풍선', description: '펫이 생각하거나, 기억을 살펴보거나, 컴퓨터를 사용하는 동안 무엇을 하는지 파일 이름까지 보여 줍니다.' },
     saidBubbles: { title: '입력 말풍선', description: '입력, 음성, 대화 페이지에서 보낸 메시지를 펫이 답할 때까지 위에 표시합니다. 끄면 음성은 인식하는 동안만 표시됩니다.' },
-    showReplyArrows: { title: '답변 화살표', description: '펫의 말풍선에 화살표를 표시해 최근 말풍선 50개를 앞뒤로 다시 볼 수 있습니다. 포인터가 말풍선 위에 있는 동안은 사라지지 않고, 이전 말풍선을 보는 동안 새 말풍선은 기다립니다.' },
+    showReplyArrows: { title: '답변 화살표', description: '펫의 말풍선에 화살표를 표시해 최근 말풍선 50개를 앞뒤로 다시 볼 수 있습니다. 이전 말풍선을 보는 동안 새 말풍선은 기다립니다.' },
     selfAdjust: { title: '스스로 설정 권한', description: 'off 금지: 설정을 스스로 바꿀 수 없고 잠시 조용히 하기도 쓸 수 없습니다. default 기본: 외형, 꾸미기, 걷기, 코골이는 직접 바꾸고, 크기, 말풍선 크기, 글자 크기, 효과음, 야간 모드, 호버 버튼, 부를 이름은 먼저 동의를 구합니다. any 모두: 전부 직접 바꿉니다. custom 사용자 지정: 「습관」 페이지에서 체크한 항목은 직접 바꾸고, 나머지는 먼저 동의를 구합니다.' },
     windowEnabled: { title: '시작할 때 펫 창 열기' },
     scale: { title: '크기' },

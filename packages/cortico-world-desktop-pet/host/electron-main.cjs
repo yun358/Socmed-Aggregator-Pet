@@ -19,7 +19,7 @@
  * The tray's words follow the app language the page reports (`petHost.setLanguage`), from the pages'
  * tables (web/i18n); the windows' titles are the pages' own.
  */
-const { app, BrowserWindow, Menu, Tray, ipcMain, nativeImage, screen, session, shell, systemPreferences } = require('electron');
+const { app, BrowserWindow, Menu, Tray, clipboard, ipcMain, nativeImage, screen, session, shell, systemPreferences } = require('electron');
 const { join } = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { createCursorSource } = require('./cursor.cjs');
@@ -453,6 +453,7 @@ function runPetHost({ url, parentPid = 0, tray: withTray = true }) {
     else if (win.isFocused()) win.blur();
   });
   ipcMain.on('pet:hide', () => { releaseAutoHidden(); if (win) win.hide(); });
+  ipcMain.on('pet:copy', (_e, text) => clipboard.writeText(String(text)));
   ipcMain.on('pet:overlayFrame', (_e, rect, at) => overlay.frame(rect, at));
   ipcMain.on('pet:hideWhenFullscreen', (_e, on) => { hideWhenFullscreen = !!on; });
   ipcMain.on('pet:watchWindows', (_e, on) => watchWindows(!!on));

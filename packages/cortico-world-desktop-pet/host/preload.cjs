@@ -12,6 +12,8 @@ contextBridge.exposeInMainWorld('petHost', {
   grabFocus: () => ipcRenderer.send('pet:grabFocus'),
   releaseFocus: () => ipcRenderer.send('pet:releaseFocus'),
   hide: () => ipcRenderer.send('pet:hide'),
+  /** Puts `text` on the system clipboard (the copy button of Coo's speech bubble). */
+  copyText: (text) => ipcRenderer.send('pet:copy', String(text)),
   /** Whether the window is shown, each time it is shown or hidden (by the menu, the tray or a fullscreen window). */
   onShown: (cb) => ipcRenderer.on('pet:shown', (_e, shown) => cb(!!shown)),
   /** Whether the window hides itself while a fullscreen window covers its display. */

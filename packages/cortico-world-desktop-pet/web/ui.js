@@ -69,6 +69,8 @@ export const ICONS = {
   // the arrows of Coo's say bubble, and its earlier bubbles: the chat bubble with the back arrow in it
   chevronLeft: icon('<path d="M15 5l-7 7 7 7"/>'),
   chevronRight: icon('<path d="M9 5l7 7-7 7"/>'),
+  copy: icon('<rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 8.5v-2a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/>'),
+  check: icon('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
   replies: icon('<path d="M4.5 12A7.5 7.5 0 1 0 6.7 6.7"/><path d="M6.7 3.2v3.5h3.5"/><path d="M12 8.5V12l2.5 1.5"/>'),
   // how much the pet walks on its own, as a gauge: low, middle, high
   roam_off: icon('<path d="M4 16a8 8 0 0 1 16 0"/><path d="M12 16 7 13.2"/><circle cx="12" cy="16" r="1.2" fill="currentColor"/>'),

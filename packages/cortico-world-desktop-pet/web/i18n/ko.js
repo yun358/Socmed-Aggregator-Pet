@@ -14,6 +14,8 @@ export default {
   'bubble.prev': '이전 답변',
   'bubble.next': '다음 답변',
   'bubble.waiting': '{n}개 더 있음',
+  'bubble.copy': '답변 전체 또는 선택한 텍스트 복사',
+  'bubble.copied': '복사했습니다',
 
   // what the person said: a sentence being heard; how many images a chat-page message carries
   'heard.more': '듣는 중…',

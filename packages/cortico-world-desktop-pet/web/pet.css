@@ -184,7 +184,8 @@ body.desk .floor{display:none}
 .b-foot .b-hint{flex:1; margin-top:0}
 /* Coo's earlier bubbles (pet-app.js replies): back, where the bubble shown stands, forward */
 .b-nav{display:flex; align-items:center; justify-content:flex-end; gap:2px; margin:2px calc(-8px * var(--bubble-size, 1)) calc(-4px * var(--bubble-size, 1)) 0}
-.b-nav[hidden]{display:none}
+.b-nav[hidden], .b-nav > [hidden]{display:none}
+.bubble.say .b-text{user-select:text; -webkit-user-select:text; cursor:text}
 .b-nav button{display:grid; place-items:center; width:calc(24px * var(--bubble-font, 1)); height:calc(24px * var(--bubble-font, 1)); padding:0; border:0; border-radius:50%; background:none; color:var(--muted); cursor:pointer}
 .b-nav button:hover:not(:disabled){color:var(--text)}
 .b-nav button:disabled{opacity:.35; cursor:default}

@@ -14,6 +14,8 @@ export default {
   'bubble.prev': '前の返事',
   'bubble.next': '次の返事',
   'bubble.waiting': 'あと {n} 件',
+  'bubble.copy': '返事全体か選択したテキストをコピー',
+  'bubble.copied': 'コピーしました',
 
   // what the person said: a sentence being heard; how many images a chat-page message carries
   'heard.more': '聞き取り中…',

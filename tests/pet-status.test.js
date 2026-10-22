@@ -223,6 +223,14 @@ describe("Coo's earlier bubbles", () => {
   const pos = (p) => p.bubble.querySelector('.b-pos').textContent;
   const prev = (p) => p.bubble.querySelector('.b-prev');
   const next = (p) => p.bubble.querySelector('.b-next');
+  const copy = (p) => p.bubble.querySelector('.b-copy');
+  /** The texts the page put on the clipboard. */
+  const clipboard = (p) => {
+    const copied = [];
+    Object.defineProperty(p.win.navigator, 'clipboard', { value: { writeText: async (text) => { copied.push(text); } } });
+    return copied;
+  };
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
   const point = (p, on) => p.bubble.dispatchEvent(new p.win.Event(on ? 'pointerenter' : 'pointerleave'));
   /** Runs the page clock in frames of .1 s until `done` after one, for at most `limit` seconds. */
   const until = (p, done, limit = 30) => { for (let t = 0; t < limit; t += .1) { p.step(.1); if (done()) return; } };
@@ -451,15 +459,50 @@ describe("Coo's earlier bubbles", () => {
     expect(p.bubble.hidden).toBe(true);
   });
 
-  it('with the arrows off a say bubble shows none and goes on with the pointer on it', () => {
+  it('with the arrows off a say bubble shows its copy button but no arrows, and still stays while the pointer is on it', () => {
     const p = arrowsPage();
     p.onOrder({ t: 'prefs', showReplyArrows: false });
     say(p, 's', '一', '二');
     until(p, () => text(p) === '二');
-    expect(nav(p).hidden).toBe(true);
+    expect([prev(p), p.bubble.querySelector('.b-pos'), next(p)].map((el) => el.hidden)).toEqual([true, true, true]);
+    expect(copy(p).hidden).toBe(false);
+    expect(p.clickable(copy(p))).toBe(true);
     point(p, true);
     until(p, () => p.bubble.hidden);
-    expect(p.bubble.hidden).toBe(true);
+    expect(text(p)).toBe('二');
+  });
+
+  it('copies the whole reply, lines still to come included, or only the text selected in the bubble', async () => {
+    const p = arrowsPage();
+    const copied = clipboard(p);
+    say(p, 's', '第一句', '第二句', '第三句');
+    until(p, () => text(p) === '第二句');
+    copy(p).click();
+    await settle();
+    expect(copied).toEqual(['第一句\n第二句\n第三句']);
+    const box = p.bubble.querySelector('.b-text');
+    const range = p.doc.createRange();
+    range.setStart(box.firstChild, 1);
+    range.setEnd(box.firstChild, 3);
+    p.win.getSelection().removeAllRanges();
+    p.win.getSelection().addRange(range);
+    copy(p).click();
+    await settle();
+    expect(copied[1]).toBe('二句');
+  });
+
+  it('copies the reply an earlier bubble belongs to while looking back', async () => {
+    const p = arrowsPage();
+    const copied = clipboard(p);
+    say(p, 'a', '一', '二');
+    until(p, () => text(p) === '二');
+    say(p, 'b', '三');
+    until(p, () => text(p) === '三');
+    prev(p).click();
+    expect(text(p)).toBe('二');
+    copy(p).click();
+    await settle();
+    expect(copied).toEqual(['一\n二']);
   });
 
   it('offers the replies action once a line was shown, and only while the arrows are on', () => {

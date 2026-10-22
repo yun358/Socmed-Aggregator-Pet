@@ -20,6 +20,9 @@ export default {
   'bubble.next': 'Next reply',
   /** The count after the position under a speech bubble: bubbles still to come. */
   'bubble.waiting': '{n} more to come',
+  /** The copy button of a speech bubble: the selected text, else every line of the reply. */
+  'bubble.copy': 'Copy the reply, or the selected text',
+  'bubble.copied': 'Copied',
 
   // what the person said: a sentence being heard; how many images a chat-page message carries
   'heard.more': 'Listening…',

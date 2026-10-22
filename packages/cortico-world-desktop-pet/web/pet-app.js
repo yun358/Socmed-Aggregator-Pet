@@ -44,7 +44,7 @@ const prefs = {
   statusBubble: true,
   /** What the person typed, said or sent from the chat page stays above Coo (see lines); off, speech shows only while it is heard. */
   saidBubbles: true,
-  /** Arrows under Coo's say bubbles go back through its earlier ones (see replies), and a say bubble stays while the pointer is on it. */
+  /** Arrows under Coo's say bubbles go back through its earlier ones (see replies). */
   showReplyArrows: true,
   /** Draw at the moving frame rate while the body rests too. */
   /** Frames a second while the body moves; 0 follows the display. */
@@ -448,7 +448,7 @@ function stepDialog(dt) {
       let lead = 0;
       for (const a of b.actions || []) { acts.push(a); lead = .45; }
       it.shown = 0; it.acc = 0; it.fired = 0; it.startAt = T + lead;
-      if (b.text) { keepReply(b.text); openBubble('say', `<p class="b-text"></p>${navHtml()}`); drawNav(); sfx.pop(); } else { bubble.hidden = true; }
+      if (b.text) { keepReply(b.text, it); openBubble('say', `<p class="b-text"></p>${navHtml()}`); drawNav(); sfx.pop(); } else { bubble.hidden = true; }
       return;
     }
     const b = it.beats[it.i];
@@ -566,8 +566,8 @@ function dismissAsk() {
 }
 
 /*
- * ---------- Coo's earlier bubbles: the arrows of a say bubble while `prefs.showReplyArrows` is on ----------
- * `replies` holds the text of each say bubble shown, oldest first. Browsing them is an item of its own
+ * ---------- Coo's earlier bubbles: the arrows of a say bubble while `prefs.showReplyArrows` is on, and its copy button ----------
+ * `replies` holds the text of each say bubble shown, oldest first, and `replySays` the say each came from. Browsing them is an item of its own
  * (`kind: 'replay'`, `pos` the entry shown, `right` the right edge layout keeps the bubble at), so queued items wait, the status bubble stays away and the body
  * stays put; the say that was on screen waits in `live`. Moving forward past the newest entry ends browsing:
  * `live` comes back with its current line typed out and held anew from then, or the bubble closes. Browsing also
@@ -577,32 +577,37 @@ function dismissAsk() {
 const MAX_REPLIES = 50;
 const BROWSE_IDLE = 8;
 const replies = [];
+const replySays = [];
 /** Whether the pointer is on Coo's bubble: its enter and leave events, corrected by the window's cursor reports. */
 let onBubble = false;
 bubble.addEventListener('pointerenter', () => { onBubble = true; });
 bubble.addEventListener('pointerleave', () => { onBubble = false; });
 bubble.addEventListener('click', (e) => {
   // the icons let the pointer through (pet.css), so a disabled button gets no click
-  const b = e.target.closest('.b-prev, .b-next');
+  const b = e.target.closest('.b-prev, .b-next, .b-copy');
   if (!b) return;
   sfx.tick();
-  if (b.classList.contains('b-prev')) goBack(); else goForward();
+  if (b.classList.contains('b-copy')) void copyReply(b);
+  else if (b.classList.contains('b-prev')) goBack(); else goForward();
 });
+// pressing the copy button leaves the selection it copies in place
+bubble.addEventListener('mousedown', (e) => { if (e.target.closest('.b-copy')) e.preventDefault(); });
 
 /** An ask, a confirmation or a dialog step waits in the queue. */
 const asking = () => queue.some((q) => q.kind !== 'say');
-/** A say bubble stays while the pointer is on it, with the arrows on or when it has a link to click, unless a question or dialog step waits behind it. */
-const held = () => onBubble && !bubble.hidden && !asking() && (prefs.showReplyArrows || !!bubble.querySelector('a'));
+/** A say bubble, which always has its copy button to click, stays while the pointer is on it, unless a question or dialog step waits behind it. */
+const held = () => onBubble && !bubble.hidden && !asking();
 
-function keepReply(text) {
+function keepReply(text, say) {
   replies.push(text);
-  if (replies.length > MAX_REPLIES) replies.shift();
+  replySays.push(say);
+  if (replies.length > MAX_REPLIES) { replies.shift(); replySays.shift(); }
   // the hover buttons are drawn again only when their list changes, and the first entry makes `replies` available
   if (replies.length === 1) refreshButtons();
 }
 /** A say closed before its end keeps the lines it had not shown yet. */
 function keepUnshown(it) {
-  for (const b of it.beats.slice(it.i + 1)) if (b.text) keepReply(b.text);
+  for (const b of it.beats.slice(it.i + 1)) if (b.text) keepReply(b.text, it);
 }
 /** Where a say's current line stands among `replies`: the newest entry, or past the end while its beat has no text. */
 const liveAt = (it) => (it.beats[it.i].text ? replies.length - 1 : replies.length);
@@ -615,18 +620,21 @@ function waitingLines() {
   return n;
 }
 
-const navHtml = () => `<div class="b-nav" hidden><button class="b-prev" type="button" aria-label="${esc(t('bubble.prev'))}" title="${esc(t('bubble.prev'))}">${ICONS.chevronLeft}</button><span class="b-pos"></span><button class="b-next" type="button" aria-label="${esc(t('bubble.next'))}" title="${esc(t('bubble.next'))}">${ICONS.chevronRight}</button></div>`;
+const navHtml = () => `<div class="b-nav"><button class="b-prev" type="button" aria-label="${esc(t('bubble.prev'))}" title="${esc(t('bubble.prev'))}">${ICONS.chevronLeft}</button><span class="b-pos"></span><button class="b-next" type="button" aria-label="${esc(t('bubble.next'))}" title="${esc(t('bubble.next'))}">${ICONS.chevronRight}</button>${copyHtml()}</div>`;
+const copyHtml = () => `<button class="b-copy" type="button" aria-label="${esc(t('bubble.copy'))}" title="${esc(t('bubble.copy'))}">${ICONS.copy}</button>`;
 /**
- * The arrows of the say bubble on screen, hidden with a single entry, nothing browsed and nothing to come; the
- * label counts the bubbles still to come. Forward is off on the newest entry when nothing comes after it.
+ * The row under the say bubble on screen: its copy button, and the arrows, which are hidden with the switch off or
+ * with a single entry, nothing browsed and nothing to come. The label counts the bubbles still to come. Forward is
+ * off on the newest entry when nothing comes after it.
  */
 function drawNav() {
   const nav = bubble.querySelector('.b-nav');
   if (!nav) return;
   const browsing = item?.kind === 'replay', n = replies.length;
   const waiting = waitingLines();
-  nav.hidden = !prefs.showReplyArrows || (!browsing && n < 2 && !waiting);
-  if (nav.hidden) return;
+  const arrows = prefs.showReplyArrows && (browsing || n >= 2 || waiting > 0);
+  for (const el of nav.querySelectorAll('.b-prev, .b-pos, .b-next')) el.hidden = !arrows;
+  if (!arrows) return;
   const pos = browsing ? item.pos : n - 1;
   const label = nav.querySelector('.b-pos');
   label.textContent = `${pos + 1}/${n}${waiting ? ` +${waiting}` : ''}`;
@@ -634,6 +642,34 @@ function drawNav() {
   nav.querySelector('.b-prev').disabled = pos === 0 || asking();
   const last = browsing ? pos + 1 >= (item.live ? liveAt(item.live) : n) : true;
   nav.querySelector('.b-next').disabled = last && !waiting && !(browsing && item.live);
+}
+/** The whole reply `say` gave: every line of it kept in `replies`, and those it has still to show. */
+function wholeReply(say) {
+  const lines = replies.filter((_, i) => replySays[i] === say);
+  const live = item?.kind === 'replay' ? item.live : item;
+  if (live === say) lines.push(...say.beats.slice(say.i + 1).map((b) => b.text).filter(Boolean));
+  return lines.join('\n');
+}
+/** What the copy button copies: the text selected in the bubble, else the whole reply the bubble is part of. */
+function copyText() {
+  const box = bubble.querySelector('.b-text');
+  const sel = document.getSelection();
+  if (box && sel && !sel.isCollapsed && box.contains(sel.anchorNode) && box.contains(sel.focusNode)) return sel.toString();
+  const say = item?.kind === 'replay' ? replySays[item.pos] : item?.kind === 'say' ? item : null;
+  return say ? wholeReply(say) : box?.textContent ?? '';
+}
+/** Puts `copyText()` on the clipboard through the window process (the page's own clipboard needs the keyboard), and shows it was copied. */
+async function copyReply(button) {
+  const text = copyText();
+  if (!text) return;
+  try {
+    if (host?.copyText) host.copyText(text); else await navigator.clipboard.writeText(text);
+  } catch {
+    return;
+  }
+  button.innerHTML = ICONS.check;
+  button.title = t('bubble.copied');
+  setTimeout(() => { if (button.isConnected) { button.innerHTML = ICONS.copy; button.title = t('bubble.copy'); } }, 1200);
 }
 /** `text` in full in Coo's say bubble: the one on screen, or a new one. */
 function showSay(text) {
