@@ -1,0 +1,21 @@
+{
+  "code": 0,
+  "message": "0",
+  "ttl": 1,
+  "data": {
+    "bvid": "BV1TEST00001",
+    "aid": 100000001,
+    "videos": 2,
+    "title": "夜市探店 & 小吃",
+    "pubdate": 1792634400,
+    "desc": "一条合成的简介",
+    "duration": 3725,
+    "owner": { "mid": 20000001, "name": "测试UP主", "face": "" },
+    "stat": { "view": 12345, "like": 400, "reply": 30 },
+    "cid": 700000001,
+    "pages": [
+      { "cid": 700000001, "page": 1, "part": "上", "duration": 1800 },
+      { "cid": 700000002, "page": 2, "part": "下", "duration": 1925 }
+    ]
+  }
+}

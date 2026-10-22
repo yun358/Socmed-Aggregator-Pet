@@ -1,0 +1,136 @@
+import type { Translation } from 'cortico/core/language.ts';
+import type { SocialText } from './index.ts';
+
+const ko: Translation<SocialText> = {
+  platforms: { reddit: 'Reddit', x: 'X', facebook: 'Facebook', threads: 'Threads', instagram: 'Instagram', youtube: 'YouTube', bilibili: '빌리빌리', rednote: '샤오훙수' },
+
+  console: {
+    label: '소셜 미디어',
+    browser: '브라우저',
+    browserMissing: 'Chrome, Edge, Brave, Chromium을 찾지 못했습니다',
+    panel: { title: '소셜 미디어', description: 'Coo가 읽는 양의 한도, 로그인, 매일 자동 스크롤, 누적 시간' },
+    envPrompt: { title: '소셜 미디어', description: 'Coo가 읽을 수 있는 플랫폼, 요청당 한도, 이미지 처리 방식을 알려 줍니다' },
+    vars: {
+      'social.platforms': '켜져 있는 플랫폼',
+      'social.maxPosts': '요청당 읽는 게시물 수',
+      'social.maxSec': '요청당 쓰는 시간(초)',
+      'social.images': '이미지 처리 방식',
+      'social.autoscroll': '매일 자동 스크롤 작업',
+    },
+    storage: {
+      profile: { label: '브라우저 프로필(플랫폼 로그인)', note: '지운 뒤에는 모든 플랫폼에 다시 로그인해야 합니다' },
+      ocr: { label: 'OCR 언어 데이터', note: '다음에 이미지를 읽을 때 다시 다운로드합니다' },
+      digests: { label: '매일 자동 스크롤 실행 기록' },
+      cleared: '지웠습니다',
+    },
+  },
+
+  config: {
+    group: '소셜 미디어',
+    maxPosts: { title: '요청당 게시물 수', description: 'Coo가 요청 하나에 답하려고 읽는 게시물이나 동영상의 최대 개수(그 요청 안의 모든 읽기를 합친 수)' },
+    maxSec: { title: '요청당 시간', description: 'Coo가 요청 하나에 답하려고 읽는 데 쓰는 최대 초' },
+    images: { title: '이미지', description: 'ocr: 이 컴퓨터에서 이미지 속 글자를 읽습니다. model: 이미지를 모델에게 보여 줍니다(비용이 더 듭니다). skip: 텍스트만 읽고 이미지가 있는 게시물은 건너뜁니다' },
+    maxTranscriptChars: { title: '한 번에 읽는 스크립트 글자 수', description: '동영상 스크립트를 한 번에 읽는 최대 글자 수. 나머지는 이어서 나눠 읽습니다' },
+    showBrowser: { title: '브라우저 표시', description: 'Coo가 읽는 동안 Coo의 브라우저 창을 보여 줍니다' },
+    browserFile: { title: '브라우저 경로', description: '비워 두면 Chrome, Edge, Brave, Chromium을 찾습니다' },
+    platformEnabled: (name: string) => `${name}: 켜기`,
+    autoscrollEnabled: { title: '매일 자동 스크롤', description: '매일 정한 시각에 게시물을 읽고, 그 뒤 Coo가 요약을 알려 줍니다' },
+    autoscrollMaxMinutes: { title: '작업당 시간', description: '매일 자동 스크롤 작업 하나에 쓰는 최대 분' },
+  },
+
+  sources: { feed: '피드', search: '검색', account: '계정', community: '커뮤니티' },
+
+  panel: {
+    limitsTitle: '요청마다',
+    limitsDesc: 'Coo가 요청 하나에 답하려고 얼마나, 얼마 동안 읽을 수 있는지 정합니다.',
+    posts: '게시물',
+    postsSuffix: '개',
+    time: '시간',
+    timeSuffix: '초',
+    images: '이미지',
+    imageModes: { ocr: '글자 읽기', model: 'Coo에게 보여 주기', skip: '텍스트만' },
+    imageHints: {
+      ocr: '이 컴퓨터에서 이미지 속 글자를 읽습니다(OCR). 언어 데이터는 처음 쓸 때 다운로드합니다.',
+      model: '이미지를 모델에게 보여 줍니다. 글자가 없는 이미지도 이해하지만 비용이 더 듭니다.',
+      skip: '이미지가 있는 게시물은 건너뛰고 텍스트 게시물만 읽습니다. token을 가장 적게 씁니다.',
+    },
+    transcript: '스크립트',
+    transcriptSuffix: '자/회',
+
+    platformsTitle: '플랫폼',
+    platformsDesc: 'Coo는 여기서 켠 플랫폼만, 평소 쓰는 브라우저와 따로 떨어진 자체 브라우저에서 읽습니다. 플랫폼마다 한 번만 로그인하면 됩니다.',
+    loggedIn: '로그인됨',
+    loggedOut: '로그인하지 않음',
+    unchecked: '확인 안 함',
+    login: '로그인',
+    checkLogins: '로그인 확인',
+    checking: '확인 중…',
+    browser: '브라우저',
+    browserFound: (path: string) => `${path} 사용 중`,
+    browserMissing: 'Chrome, Edge, Brave, Chromium을 찾지 못했습니다. 이 중 하나를 설치하거나 브라우저 경로를 입력하세요.',
+    browserFileMissing: '이 경로에 파일이 없습니다. 비우면 브라우저를 자동으로 찾습니다.',
+    browserPathPlaceholder: '자동으로 찾음',
+    showBrowser: '브라우저 표시',
+    showBrowserCheck: 'Coo가 읽는 동안 Coo의 브라우저 창 보이기',
+    showBrowserHint: '숨겨진 브라우저를 거부하는 플랫폼이 있습니다. 인증 화면이나 빈 결과가 보이면 켜세요.',
+    loginOpened: (name: string) => `${name} 로그인 창을 열었습니다. 로그인한 뒤 창을 닫으세요.`,
+
+    autoscrollTitle: '매일 자동 스크롤',
+    autoscrollDesc: '매일 정한 시각에 정한 수의 게시물을 읽고, 그 뒤 Coo가 요약을 알려 줍니다.',
+    autoscrollOn: '켜기',
+    autoscrollCheck: '매일 자동으로 스크롤',
+    maxMinutes: '작업당 최대',
+    maxMinutesSuffix: '분',
+    jobPlatform: '플랫폼',
+    jobSource: '출처',
+    jobQuery: '읽을 대상',
+    queryPlaceholder: { feed: '', search: '검색어', account: '계정 또는 프로필 링크', community: '커뮤니티(예: r/wallstreetbets)' },
+    jobPosts: '게시물',
+    jobAt: '시각',
+    jobTextOnly: '텍스트만',
+    addJob: '작업 추가',
+    removeJob: '삭제',
+    runNow: '지금 실행',
+    running: '실행 중…',
+    noJobs: '설정된 작업이 없습니다.',
+    jobsSaved: '저장됨',
+    jobInvalid: '검색, 계정, 커뮤니티 작업마다 읽을 대상을 입력하세요.',
+    recentRuns: '최근 실행',
+    runAt: '시각',
+    runJob: '작업',
+    runResult: '결과',
+    runPosts: (n: number) => `게시물 ${n}개`,
+    runFailed: '실행하지 못했습니다',
+    noRuns: '아직 실행한 적이 없습니다.',
+
+    lifetimeTitle: '누적 시간',
+    lifetimeDesc: (since: string) => `${since}부터 Coo가 각 플랫폼에서 보낸 시간.`,
+    platform: '플랫폼',
+    timeSpent: '시간',
+    postsRead: '게시물과 동영상',
+    transcripts: '스크립트',
+    lastRead: '마지막으로 읽음',
+    total: '합계',
+    never: '—',
+    reset: '다시 세기',
+    resetConfirm: '누적 시간을 0으로 되돌리고 지금부터 다시 셀까요?',
+
+    saveFailed: (err: string) => `저장하지 못했습니다: ${err}`,
+    readFailed: (err: string) => `설정을 읽지 못했습니다: ${err}`,
+    outOfRange: (min: number, max: number) => `${min}~${max} 사이의 정수를 입력하세요`,
+    busy: '브라우저가 백그라운드에서 읽는 중입니다. 끝난 뒤 다시 시도하세요.',
+    loginOpen: '로그인 창이 이미 열려 있습니다. 먼저 닫으세요. Mac에서는 Cmd+Q로 그 브라우저를 종료하세요.',
+    platformOff: (name: string) => `${name}이(가) 꺼져 있습니다.`,
+    jobRunning: '이미 실행 중인 항목이 있습니다.',
+    notRunning: '소셜 미디어 World가 실행 중이 아닙니다.',
+    noSuchJob: '실행하기 전에 항목을 저장하세요.',
+    duration: (ms: number) => {
+      const m = Math.round(ms / 60000);
+      if (m < 1) return `${Math.round(ms / 1000)}초`;
+      if (m < 60) return `${m}분`;
+      return `${Math.floor(m / 60)}시간 ${m % 60}분`;
+    },
+  },
+};
+
+export default ko;

@@ -1,0 +1,54 @@
+{
+  "code": 0,
+  "message": "0",
+  "ttl": 1,
+  "data": {
+    "seid": "1000000000000000001",
+    "page": 1,
+    "pagesize": 20,
+    "numResults": 3,
+    "numPages": 1,
+    "result": [
+      {
+        "type": "video",
+        "id": 100000001,
+        "author": "测试UP主",
+        "mid": 20000001,
+        "typename": "日常",
+        "arcurl": "http://www.bilibili.com/video/av100000001",
+        "aid": 100000001,
+        "bvid": "BV1TEST00001",
+        "title": "<em class=\"keyword\">夜市</em>探店 &amp; 小吃",
+        "description": "一条  合成的\n简介",
+        "pic": "//i0.hdslb.com/bfs/archive/fixture1.jpg",
+        "play": 12345,
+        "video_review": 10,
+        "favorites": 20,
+        "tag": "夜市,小吃",
+        "review": 30,
+        "pubdate": 1792634400,
+        "senddate": 1792634400,
+        "duration": "12:34",
+        "like": 400
+      },
+      {
+        "type": "ketang",
+        "id": 300000001,
+        "title": "付费课程",
+        "bvid": "",
+        "duration": "0:00"
+      },
+      {
+        "type": "video",
+        "id": 100000002,
+        "author": "另一位UP主",
+        "bvid": "BV1TEST00002",
+        "title": "第二个<em class=\"keyword\">夜市</em>视频",
+        "description": "",
+        "play": 56,
+        "pubdate": 1792548000,
+        "duration": "3:05"
+      }
+    ]
+  }
+}

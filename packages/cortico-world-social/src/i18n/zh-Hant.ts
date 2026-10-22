@@ -1,0 +1,136 @@
+import type { Translation } from 'cortico/core/language.ts';
+import type { SocialText } from './index.ts';
+
+const zhHant: Translation<SocialText> = {
+  platforms: { reddit: 'Reddit', x: 'X', facebook: 'Facebook', threads: 'Threads', instagram: 'Instagram', youtube: 'YouTube', bilibili: '嗶哩嗶哩', rednote: '小紅書' },
+
+  console: {
+    label: '社群媒體',
+    browser: '瀏覽器',
+    browserMissing: '找不到 Chrome、Edge、Brave 或 Chromium',
+    panel: { title: '社群媒體', description: 'Coo 代你瀏覽各平台的上限、登入、每日自動瀏覽與累計時間' },
+    envPrompt: { title: '社群媒體', description: '告訴 Coo 能讀取哪些平台、每次請求的上限與圖片的處理方式' },
+    vars: {
+      'social.platforms': '開啟的平台',
+      'social.maxPosts': '每次請求最多讀取的貼文數',
+      'social.maxSec': '每次請求最多花費的秒數',
+      'social.images': '圖片的處理方式',
+      'social.autoscroll': '每日自動瀏覽的設定',
+    },
+    storage: {
+      profile: { label: '瀏覽器設定檔（各平台的登入）', note: '清除後各平台都要重新登入' },
+      ocr: { label: 'OCR 語言資料', note: '下次辨識圖片時重新下載' },
+      digests: { label: '每日自動瀏覽的紀錄' },
+      cleared: '已清除',
+    },
+  },
+
+  config: {
+    group: '社群媒體',
+    maxPosts: { title: '每次請求的貼文數', description: '為回答一次請求，Coo 最多讀取多少則貼文或影片（一次請求內的所有讀取加總）' },
+    maxSec: { title: '每次請求的時間', description: '為回答一次請求，Coo 最多花費多少秒瀏覽' },
+    images: { title: '圖片', description: 'ocr：在這台電腦上辨識圖片裡的文字；model：把圖片直接交給模型查看（費用較高）；skip：只讀取文字，略過含圖片的貼文' },
+    maxTranscriptChars: { title: '逐字稿每次的字數', description: '影片逐字稿每次讀取的最多字數，其餘部分分次讀取' },
+    showBrowser: { title: '顯示瀏覽器', description: 'Coo 瀏覽時顯示瀏覽器視窗' },
+    browserFile: { title: '瀏覽器路徑', description: '留空時自動尋找 Chrome、Edge、Brave 或 Chromium' },
+    platformEnabled: (name: string) => `${name}：開啟`,
+    autoscrollEnabled: { title: '每日自動瀏覽', description: '每天依設定的時間讀取貼文，讀完後 Coo 告訴你摘要' },
+    autoscrollMaxMinutes: { title: '每項最長時間', description: '每日自動瀏覽的每一項最多花費多少分鐘' },
+  },
+
+  sources: { feed: '首頁推薦', search: '搜尋', account: '帳號', community: '社群' },
+
+  panel: {
+    limitsTitle: '每次請求',
+    limitsDesc: '為回答你的一次請求，Coo 最多讀取多少、讀取多久。',
+    posts: '貼文數',
+    postsSuffix: '則',
+    time: '時間',
+    timeSuffix: '秒',
+    images: '圖片',
+    imageModes: { ocr: '辨識文字', model: '交給 Coo 查看', skip: '純文字' },
+    imageHints: {
+      ocr: '在這台電腦上辨識圖片裡的文字（OCR），第一次使用時下載語言資料。',
+      model: '把圖片直接交給模型查看，也能理解沒有文字的圖片，費用較高。',
+      skip: '略過含圖片的貼文，只讀取純文字貼文，最節省 token。',
+    },
+    transcript: '逐字稿',
+    transcriptSuffix: '字／次',
+
+    platformsTitle: '平台',
+    platformsDesc: 'Coo 只讀取這裡開啟的平台，在自己的瀏覽器裡瀏覽，與你平常用的瀏覽器分開；每個平台登入一次即可。',
+    loggedIn: '已登入',
+    loggedOut: '未登入',
+    unchecked: '未檢查',
+    login: '登入',
+    checkLogins: '檢查登入',
+    checking: '檢查中…',
+    browser: '瀏覽器',
+    browserFound: (path: string) => `使用 ${path}`,
+    browserMissing: '找不到 Chrome、Edge、Brave 或 Chromium。請安裝其中一個，或填寫瀏覽器的路徑。',
+    browserFileMissing: '這個路徑下沒有檔案。清空後會自動尋找。',
+    browserPathPlaceholder: '自動尋找',
+    showBrowser: '顯示瀏覽器',
+    showBrowserCheck: 'Coo 瀏覽時顯示瀏覽器視窗',
+    showBrowserHint: '有些平台不接受隱藏的瀏覽器；遇到驗證或空白結果時請開啟。',
+    loginOpened: (name: string) => `已開啟${name}的登入視窗。登入後關閉視窗。`,
+
+    autoscrollTitle: '每日自動瀏覽',
+    autoscrollDesc: '每天到點讀取設定數量的貼文，讀完後 Coo 告訴你摘要。',
+    autoscrollOn: '開啟',
+    autoscrollCheck: '每天自動瀏覽',
+    maxMinutes: '每項最多',
+    maxMinutesSuffix: '分鐘',
+    jobPlatform: '平台',
+    jobSource: '來源',
+    jobQuery: '內容',
+    queryPlaceholder: { feed: '', search: '搜尋的內容', account: '帳號或個人頁面連結', community: '社群，如 r/wallstreetbets' },
+    jobPosts: '貼文數',
+    jobAt: '時間',
+    jobTextOnly: '純文字',
+    addJob: '新增一項',
+    removeJob: '刪除',
+    runNow: '立即執行',
+    running: '執行中…',
+    noJobs: '還沒有設定。',
+    jobsSaved: '已儲存',
+    jobInvalid: '每個搜尋、帳號或社群的項目都要填寫讀取的內容。',
+    recentRuns: '最近的執行',
+    runAt: '時間',
+    runJob: '項目',
+    runResult: '結果',
+    runPosts: (n: number) => `${n} 則`,
+    runFailed: '無法執行',
+    noRuns: '還沒有執行過。',
+
+    lifetimeTitle: '累計時間',
+    lifetimeDesc: (since: string) => `自 ${since} 起，Coo 在各平台瀏覽的時間。`,
+    platform: '平台',
+    timeSpent: '時間',
+    postsRead: '貼文與影片',
+    transcripts: '逐字稿',
+    lastRead: '上次讀取',
+    total: '合計',
+    never: '—',
+    reset: '重新計數',
+    resetConfirm: '把累計時間歸零，從現在重新計數？',
+
+    saveFailed: (err: string) => `儲存失敗：${err}`,
+    readFailed: (err: string) => `讀取設定失敗：${err}`,
+    outOfRange: (min: number, max: number) => `請填寫 ${min} 到 ${max} 之間的整數`,
+    busy: '瀏覽器正在背景讀取，讀完後再試。',
+    loginOpen: '登入視窗已經開著。請先關閉；Mac 上要用 Cmd+Q 結束那個瀏覽器。',
+    platformOff: (name: string) => `${name}已關閉。`,
+    jobRunning: '已經有一項在執行。',
+    notRunning: '社群媒體 World 沒有在執行。',
+    noSuchJob: '請先儲存這一項再執行。',
+    duration: (ms: number) => {
+      const m = Math.round(ms / 60000);
+      if (m < 1) return `${Math.round(ms / 1000)} 秒`;
+      if (m < 60) return `${m} 分鐘`;
+      return `${Math.floor(m / 60)} 小時 ${m % 60} 分鐘`;
+    },
+  },
+};
+
+export default zhHant;

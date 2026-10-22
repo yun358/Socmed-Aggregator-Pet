@@ -1,0 +1,22 @@
+{
+  "playabilityStatus": { "status": "OK", "playableInEmbed": true },
+  "videoDetails": {
+    "videoId": "fixtureVid1",
+    "title": "Harbour festival recap",
+    "lengthSeconds": "3725",
+    "channelId": "UCfixture0000000000000001",
+    "shortDescription": "Highlights from the harbour festival.",
+    "viewCount": "1234",
+    "author": "Fixture Channel"
+  },
+  "captions": {
+    "playerCaptionsTracklistRenderer": {
+      "captionTracks": [
+        { "baseUrl": "https://www.youtube.com/api/timedtext?v=fixtureVid1&lang=fr", "name": { "simpleText": "French" }, "vssId": ".fr", "languageCode": "fr", "isTranslatable": true },
+        { "baseUrl": "https://www.youtube.com/api/timedtext?v=fixtureVid1&lang=en&kind=asr", "name": { "simpleText": "English (auto-generated)" }, "vssId": "a.en", "languageCode": "en", "kind": "asr", "isTranslatable": true },
+        { "baseUrl": "https://www.youtube.com/api/timedtext?v=fixtureVid1&lang=en-GB", "name": { "runs": [{ "text": "English (United Kingdom)" }] }, "vssId": ".en-GB", "languageCode": "en-GB", "isTranslatable": true },
+        { "name": { "simpleText": "Broken track" }, "languageCode": "de" }
+      ]
+    }
+  }
+}

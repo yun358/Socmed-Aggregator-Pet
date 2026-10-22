@@ -1,0 +1,136 @@
+import type { Translation } from 'cortico/core/language.ts';
+import type { SocialText } from './index.ts';
+
+const es419: Translation<SocialText> = {
+  platforms: { reddit: 'Reddit', x: 'X', facebook: 'Facebook', threads: 'Threads', instagram: 'Instagram', youtube: 'YouTube', bilibili: 'Bilibili', rednote: 'Rednote' },
+
+  console: {
+    label: 'Redes sociales',
+    browser: 'Navegador',
+    browserMissing: 'No se encontró Chrome, Edge, Brave ni Chromium',
+    panel: { title: 'Redes sociales', description: 'Límites de lectura de Coo, inicios de sesión, el desplazamiento automático diario y el contador acumulado' },
+    envPrompt: { title: 'Redes sociales', description: 'Le dice a Coo qué plataformas puede leer, los límites por solicitud y cómo se tratan las imágenes' },
+    vars: {
+      'social.platforms': 'Las plataformas activadas',
+      'social.maxPosts': 'Publicaciones por solicitud',
+      'social.maxSec': 'Segundos por solicitud',
+      'social.images': 'Cómo se tratan las imágenes',
+      'social.autoscroll': 'Las tareas del desplazamiento automático diario',
+    },
+    storage: {
+      profile: { label: 'Perfil del navegador (sesiones en las plataformas)', note: 'Después hay que volver a iniciar sesión en cada plataforma' },
+      ocr: { label: 'Datos de idioma de OCR', note: 'Se descargan de nuevo la próxima vez que se lea una imagen' },
+      digests: { label: 'Ejecuciones del desplazamiento automático diario' },
+      cleared: 'Borrado',
+    },
+  },
+
+  config: {
+    group: 'Redes sociales',
+    maxPosts: { title: 'Publicaciones por solicitud', description: 'La cantidad máxima de publicaciones o videos que Coo lee para responder una solicitud, sumando todas sus lecturas' },
+    maxSec: { title: 'Tiempo por solicitud', description: 'La cantidad máxima de segundos que Coo pasa leyendo para responder una solicitud' },
+    images: { title: 'Imágenes', description: 'ocr: leer el texto de las imágenes en esta computadora; model: mostrar las imágenes al modelo (cuesta más); skip: solo texto, se omiten las publicaciones con imágenes' },
+    maxTranscriptChars: { title: 'Caracteres de transcripción por lectura', description: 'La cantidad máxima de caracteres de la transcripción de un video por lectura; el resto se lee en las partes siguientes' },
+    showBrowser: { title: 'Mostrar el navegador', description: 'Mostrar la ventana del navegador de Coo mientras lee' },
+    browserFile: { title: 'Ruta del navegador', description: 'Vacío: se busca Chrome, Edge, Brave o Chromium' },
+    platformEnabled: (name: string) => `${name}: activado`,
+    autoscrollEnabled: { title: 'Desplazamiento automático diario', description: 'Lee publicaciones todos los días a las horas fijadas; después Coo te cuenta un resumen' },
+    autoscrollMaxMinutes: { title: 'Minutos por tarea', description: 'La cantidad máxima de minutos que dura una tarea del desplazamiento automático diario' },
+  },
+
+  sources: { feed: 'Feed', search: 'Búsqueda', account: 'Cuenta', community: 'Comunidad' },
+
+  panel: {
+    limitsTitle: 'Cada solicitud',
+    limitsDesc: 'Cuánto puede leer Coo, y durante cuánto tiempo, para responder una solicitud.',
+    posts: 'Publicaciones',
+    postsSuffix: 'publicaciones',
+    time: 'Tiempo',
+    timeSuffix: 'segundos',
+    images: 'Imágenes',
+    imageModes: { ocr: 'Leer texto', model: 'Mostrar a Coo', skip: 'Solo texto' },
+    imageHints: {
+      ocr: 'Lee el texto de las imágenes en esta computadora (OCR); los datos de idioma se descargan la primera vez.',
+      model: 'Muestra las imágenes al modelo, que también entiende imágenes sin texto; cuesta más.',
+      skip: 'Omite las publicaciones con imágenes y lee solo las de texto; usa la menor cantidad de tokens.',
+    },
+    transcript: 'Transcripciones',
+    transcriptSuffix: 'caracteres por lectura',
+
+    platformsTitle: 'Plataformas',
+    platformsDesc: 'Coo lee las plataformas activadas aquí, en un navegador propio, aparte del que usas tú; inicia sesión una vez por plataforma.',
+    loggedIn: 'Sesión iniciada',
+    loggedOut: 'Sin sesión',
+    unchecked: 'Sin verificar',
+    login: 'Iniciar sesión',
+    checkLogins: 'Verificar sesiones',
+    checking: 'Verificando…',
+    browser: 'Navegador',
+    browserFound: (path: string) => `Usa ${path}`,
+    browserMissing: 'No se encontró Chrome, Edge, Brave ni Chromium. Instala uno o escribe la ruta de un navegador.',
+    browserFileMissing: 'No hay ningún archivo en esta ruta. Déjala vacía para buscar un navegador automáticamente.',
+    browserPathPlaceholder: 'Se busca automáticamente',
+    showBrowser: 'Mostrar el navegador',
+    showBrowserCheck: 'Mostrar la ventana del navegador de Coo mientras lee',
+    showBrowserHint: 'Algunas plataformas rechazan un navegador oculto; actívalo cuando veas verificaciones o resultados vacíos.',
+    loginOpened: (name: string) => `La ventana para iniciar sesión en ${name} está abierta. Ciérrala cuando hayas iniciado sesión.`,
+
+    autoscrollTitle: 'Desplazamiento automático diario',
+    autoscrollDesc: 'Lee una cantidad fija de publicaciones todos los días a su hora; después Coo te cuenta un resumen.',
+    autoscrollOn: 'Activado',
+    autoscrollCheck: 'Desplazarse automáticamente todos los días',
+    maxMinutes: 'Cada tarea como máximo',
+    maxMinutesSuffix: 'minutos',
+    jobPlatform: 'Plataforma',
+    jobSource: 'Origen',
+    jobQuery: 'Qué leer',
+    queryPlaceholder: { feed: '', search: 'Términos de búsqueda', account: 'Cuenta o enlace del perfil', community: 'Comunidad, como r/wallstreetbets' },
+    jobPosts: 'Publicaciones',
+    jobAt: 'Hora',
+    jobTextOnly: 'Solo texto',
+    addJob: 'Agregar una tarea',
+    removeJob: 'Quitar',
+    runNow: 'Ejecutar ahora',
+    running: 'Ejecutando…',
+    noJobs: 'No hay tareas configuradas.',
+    jobsSaved: 'Guardado',
+    jobInvalid: 'Indica qué leer en cada tarea de búsqueda, cuenta o comunidad.',
+    recentRuns: 'Ejecuciones recientes',
+    runAt: 'Cuándo',
+    runJob: 'Tarea',
+    runResult: 'Resultado',
+    runPosts: (n: number) => `${n} ${n === 1 ? 'publicación' : 'publicaciones'}`,
+    runFailed: 'No se pudo ejecutar',
+    noRuns: 'Todavía no hay ejecuciones.',
+
+    lifetimeTitle: 'Contador acumulado',
+    lifetimeDesc: (since: string) => `Tiempo que Coo pasó en cada plataforma desde el ${since}.`,
+    platform: 'Plataforma',
+    timeSpent: 'Tiempo',
+    postsRead: 'Publicaciones y videos',
+    transcripts: 'Transcripciones',
+    lastRead: 'Última lectura',
+    total: 'Total',
+    never: '—',
+    reset: 'Reiniciar',
+    resetConfirm: '¿Poner el contador acumulado en cero y volver a contar desde ahora?',
+
+    saveFailed: (err: string) => `No se pudo guardar: ${err}`,
+    readFailed: (err: string) => `No se pudo leer la configuración: ${err}`,
+    outOfRange: (min: number, max: number) => `Escribe un número entero de ${min} a ${max}`,
+    busy: 'El navegador está leyendo en segundo plano; vuelve a intentarlo cuando termine.',
+    loginOpen: 'Ya hay una ventana de inicio de sesión abierta. Ciérrala primero; en Mac, cierra ese navegador con Cmd+Q.',
+    platformOff: (name: string) => `${name} está desactivado.`,
+    jobRunning: 'Ya hay una tarea en curso.',
+    notRunning: 'El World de redes sociales no está en ejecución.',
+    noSuchJob: 'Guarda la tarea antes de ejecutarla.',
+    duration: (ms: number) => {
+      const m = Math.round(ms / 60000);
+      if (m < 1) return `${Math.round(ms / 1000)} s`;
+      if (m < 60) return `${m} min`;
+      return `${Math.floor(m / 60)} h ${m % 60} min`;
+    },
+  },
+};
+
+export default es419;

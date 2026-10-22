@@ -1,0 +1,20 @@
+/* The social panel; the settings window's own classes (companion-row and the like) style the rest. */
+/* a platform: its switch, its login and the login button on one line, centred on the name */
+.companion-row:has(> .companion-control.social-platform > .check:first-child) { align-items: center; padding: 6px 0; }
+.social-platform { display: flex; align-items: center; gap: 12px; }
+.companion-control > .home-note.social-bad, .social-table td.social-bad { color: var(--danger); }
+.social-table th.num, .social-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.social-table tr.social-total td { font-weight: 600; }
+/* the daily jobs: one line each, framed like a table; a narrow window wraps a line */
+.social-jobs { border: 1px solid var(--line); border-radius: 11px; background: var(--sheet); }
+.social-job { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 10px 12px; }
+.social-job + .social-job { border-top: 1px solid var(--line); }
+/* a fixed width, so the query fields of all jobs start in one column */
+.social-job > select.field { flex: none; width: 8.5em; }
+.social-job > .social-query { flex: 1 1 12em; min-width: 0; }
+.social-job > .social-query[aria-invalid="true"] { border-color: var(--danger); }
+.social-jobposts { display: inline-flex; align-items: center; gap: 8px; }
+.social-jobposts > input { width: 84px; }
+.social-job > .check { gap: 8px; font-size: 13.5px; white-space: nowrap; }
+.social-jobacts { display: inline-flex; gap: 4px; margin-left: auto; white-space: nowrap; }
+.social-job > input[type=time] { width: 120px; }

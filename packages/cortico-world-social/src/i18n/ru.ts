@@ -1,0 +1,140 @@
+import type { Translation } from 'cortico/core/language.ts';
+import type { SocialText } from './index.ts';
+
+const ru: Translation<SocialText> = {
+  platforms: { reddit: 'Reddit', x: 'X', facebook: 'Facebook', threads: 'Threads', instagram: 'Instagram', youtube: 'YouTube', bilibili: 'Bilibili', rednote: 'Rednote' },
+
+  console: {
+    label: 'Соцсети',
+    browser: 'Браузер',
+    browserMissing: 'Не найден ни Chrome, ни Edge, ни Brave, ни Chromium',
+    panel: { title: 'Соцсети', description: 'Ограничения на чтение для Coo, входы, ежедневная автопрокрутка и общий счётчик' },
+    envPrompt: { title: 'Соцсети', description: 'Сообщает Coo, какие платформы можно читать, ограничения на один запрос и как обрабатываются изображения' },
+    vars: {
+      'social.platforms': 'Включённые платформы',
+      'social.maxPosts': 'Сколько постов читать на один запрос',
+      'social.maxSec': 'Сколько секунд тратить на один запрос',
+      'social.images': 'Как обрабатываются изображения',
+      'social.autoscroll': 'Задания ежедневной автопрокрутки',
+    },
+    storage: {
+      profile: { label: 'Профиль браузера (входы на платформы)', note: 'После очистки на каждой платформе нужно войти заново' },
+      ocr: { label: 'Языковые данные OCR', note: 'Загрузятся заново, когда нужно будет прочитать изображение' },
+      digests: { label: 'Запуски ежедневной автопрокрутки' },
+      cleared: 'Очищено',
+    },
+  },
+
+  config: {
+    group: 'Соцсети',
+    maxPosts: { title: 'Постов на запрос', description: 'Сколько постов или видео Coo читает самое большее, чтобы ответить на один запрос, все чтения вместе' },
+    maxSec: { title: 'Время на запрос', description: 'Сколько секунд Coo самое большее тратит на чтение, чтобы ответить на один запрос' },
+    images: { title: 'Изображения', description: 'ocr: читать текст на изображениях на этом компьютере; model: показывать изображения модели (дороже); skip: только текст, посты с изображениями пропускаются' },
+    maxTranscriptChars: { title: 'Символов расшифровки за раз', description: 'Сколько символов расшифровки видео читается за один раз самое большее; остальное читается следующими частями' },
+    showBrowser: { title: 'Показывать браузер', description: 'Показывать окно браузера Coo во время чтения' },
+    browserFile: { title: 'Путь к браузеру', description: 'Если пусто, ищется Chrome, Edge, Brave или Chromium' },
+    platformEnabled: (name: string) => `${name}: включено`,
+    autoscrollEnabled: { title: 'Ежедневная автопрокрутка', description: 'Каждый день в заданное время читает посты; потом Coo рассказывает вам краткое содержание' },
+    autoscrollMaxMinutes: { title: 'Минут на задание', description: 'Сколько минут самое большее занимает одно задание ежедневной автопрокрутки' },
+  },
+
+  sources: { feed: 'Лента', search: 'Поиск', account: 'Аккаунт', community: 'Сообщество' },
+
+  panel: {
+    limitsTitle: 'На один запрос',
+    limitsDesc: 'Сколько и как долго Coo может читать, чтобы ответить на один запрос.',
+    posts: 'Посты',
+    postsSuffix: 'постов',
+    time: 'Время',
+    timeSuffix: 'сек.',
+    images: 'Изображения',
+    imageModes: { ocr: 'Читать текст', model: 'Показывать Coo', skip: 'Только текст' },
+    imageHints: {
+      ocr: 'Читает текст на изображениях на этом компьютере (OCR); языковые данные загружаются при первом использовании.',
+      model: 'Показывает изображения модели, которая понимает и изображения без текста; дороже.',
+      skip: 'Пропускает посты с изображениями и читает только текстовые; расходует меньше всего token.',
+    },
+    transcript: 'Расшифровки',
+    transcriptSuffix: 'символов за раз',
+
+    platformsTitle: 'Платформы',
+    platformsDesc: 'Coo читает включённые здесь платформы в собственном браузере, отдельном от вашего; войдите один раз на каждой платформе.',
+    loggedIn: 'Вход выполнен',
+    loggedOut: 'Вход не выполнен',
+    unchecked: 'Не проверено',
+    login: 'Войти',
+    checkLogins: 'Проверить входы',
+    checking: 'Проверка…',
+    browser: 'Браузер',
+    browserFound: (path: string) => `Используется ${path}`,
+    browserMissing: 'Не найден ни Chrome, ни Edge, ни Brave, ни Chromium. Установите один из них или укажите путь к браузеру.',
+    browserFileMissing: 'По этому пути нет файла. Очистите поле, чтобы браузер искался автоматически.',
+    browserPathPlaceholder: 'Определяется автоматически',
+    showBrowser: 'Показывать браузер',
+    showBrowserCheck: 'Показывать окно браузера Coo во время чтения',
+    showBrowserHint: 'Некоторые платформы не пускают скрытый браузер; включите это, если видите проверки или пустые результаты.',
+    loginOpened: (name: string) => `Открыто окно входа в ${name}. Закройте его, когда войдёте.`,
+
+    autoscrollTitle: 'Ежедневная автопрокрутка',
+    autoscrollDesc: 'Каждый день в своё время читает заданное число постов; потом Coo рассказывает вам краткое содержание.',
+    autoscrollOn: 'Включено',
+    autoscrollCheck: 'Прокручивать автоматически каждый день',
+    maxMinutes: 'Каждое задание не дольше',
+    maxMinutesSuffix: 'мин',
+    jobPlatform: 'Платформа',
+    jobSource: 'Источник',
+    jobQuery: 'Что читать',
+    queryPlaceholder: { feed: '', search: 'Поисковый запрос', account: 'Аккаунт или ссылка на профиль', community: 'Сообщество, например r/wallstreetbets' },
+    jobPosts: 'Посты',
+    jobAt: 'Время',
+    jobTextOnly: 'Только текст',
+    addJob: 'Добавить задание',
+    removeJob: 'Удалить',
+    runNow: 'Запустить сейчас',
+    running: 'Выполняется…',
+    noJobs: 'Заданий нет.',
+    jobsSaved: 'Сохранено',
+    jobInvalid: 'Укажите, что читать, для каждого задания поиска, аккаунта или сообщества.',
+    recentRuns: 'Последние запуски',
+    runAt: 'Когда',
+    runJob: 'Задание',
+    runResult: 'Результат',
+    runPosts: (n: number) => {
+      const d = n % 10;
+      const h = n % 100;
+      return `${n} ${d === 1 && h !== 11 ? 'пост' : d >= 2 && d <= 4 && (h < 12 || h > 14) ? 'поста' : 'постов'}`;
+    },
+    runFailed: 'Не удалось запустить',
+    noRuns: 'Запусков пока нет.',
+
+    lifetimeTitle: 'Общий счётчик',
+    lifetimeDesc: (since: string) => `Время, которое Coo провёл на каждой платформе с ${since}.`,
+    platform: 'Платформа',
+    timeSpent: 'Время',
+    postsRead: 'Посты и видео',
+    transcripts: 'Расшифровки',
+    lastRead: 'Последнее чтение',
+    total: 'Всего',
+    never: '—',
+    reset: 'Сбросить',
+    resetConfirm: 'Обнулить общий счётчик и начать считать заново с этого момента?',
+
+    saveFailed: (err: string) => `Не удалось сохранить: ${err}`,
+    readFailed: (err: string) => `Не удалось прочитать настройки: ${err}`,
+    outOfRange: (min: number, max: number) => `Введите целое число от ${min} до ${max}`,
+    busy: 'Браузер читает в фоне; попробуйте снова, когда он закончит.',
+    loginOpen: 'Окно входа уже открыто. Сначала закройте его; на Mac завершите этот браузер через Cmd+Q.',
+    platformOff: (name: string) => `${name} выключен.`,
+    jobRunning: 'Задание уже выполняется.',
+    notRunning: 'World соцсетей не запущен.',
+    noSuchJob: 'Сохраните задание перед запуском.',
+    duration: (ms: number) => {
+      const m = Math.round(ms / 60000);
+      if (m < 1) return `${Math.round(ms / 1000)} с`;
+      if (m < 60) return `${m} мин`;
+      return `${Math.floor(m / 60)} ч ${m % 60} мин`;
+    },
+  },
+};
+
+export default ru;

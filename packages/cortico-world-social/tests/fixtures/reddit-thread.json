@@ -1,0 +1,42 @@
+[
+  {
+    "kind": "Listing",
+    "data": {
+      "after": null,
+      "children": [
+        {
+          "kind": "t3",
+          "data": {
+            "id": "fx0002",
+            "name": "t3_fx0002",
+            "title": "Quarterly numbers are out",
+            "selftext": "Revenue rose 12%. Margins held steady.",
+            "author": "fixture_alice",
+            "subreddit_name_prefixed": "r/fixturetown",
+            "score": 420,
+            "num_comments": 37,
+            "created_utc": 1792634400,
+            "permalink": "/r/fixturetown/comments/fx0002/quarterly_numbers_are_out/",
+            "url": "https://www.reddit.com/r/fixturetown/comments/fx0002/quarterly_numbers_are_out/",
+            "domain": "self.fixturetown",
+            "is_video": false
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "Listing",
+    "data": {
+      "after": null,
+      "children": [
+        { "kind": "t1", "data": { "id": "c1", "author": "fixture_gus", "body": "Better than   last quarter.", "score": 120 } },
+        { "kind": "t1", "data": { "id": "c2", "author": "[deleted]", "body": "[deleted]", "score": 4 } },
+        { "kind": "t1", "data": { "id": "c3", "author": "fixture_hal", "body": "[removed]", "score": 2 } },
+        { "kind": "t1", "data": { "id": "c4", "author": "fixture_ivy", "body": "Guidance for next year is lower.", "score": 64 } },
+        { "kind": "t1", "data": { "id": "c5", "author": "fixture_jon", "body": "Holding my shares.", "score": 30 } },
+        { "kind": "more", "data": { "count": 31, "children": ["c6", "c7"] } }
+      ]
+    }
+  }
+]

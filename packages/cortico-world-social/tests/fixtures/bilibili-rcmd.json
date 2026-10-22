@@ -1,0 +1,47 @@
+{
+  "code": 0,
+  "message": "0",
+  "ttl": 1,
+  "data": {
+    "item": [
+      {
+        "id": 100000003,
+        "bvid": "BV1TEST00003",
+        "cid": 500000003,
+        "goto": "av",
+        "uri": "http://www.bilibili.com/video/BV1TEST00003",
+        "pic": "http://i0.hdslb.com/bfs/archive/fixture3.jpg",
+        "title": "推荐视频一",
+        "duration": 754,
+        "pubdate": 1792634400,
+        "owner": { "mid": 20000003, "name": "推荐UP主", "face": "" },
+        "stat": { "view": 98765, "like": 321, "danmaku": 45 },
+        "is_followed": 0
+      },
+      {
+        "id": 0,
+        "bvid": "",
+        "goto": "ad",
+        "title": "",
+        "duration": 0
+      },
+      {
+        "id": 600000001,
+        "bvid": "",
+        "goto": "live",
+        "title": "直播间",
+        "owner": { "name": "主播" }
+      },
+      {
+        "id": 100000004,
+        "bvid": "BV1TEST00004",
+        "goto": "av",
+        "title": "推荐视频二",
+        "duration": 3725,
+        "pubdate": 1792548000,
+        "owner": { "name": "推荐UP主二" },
+        "stat": { "view": 10 }
+      }
+    ]
+  }
+}

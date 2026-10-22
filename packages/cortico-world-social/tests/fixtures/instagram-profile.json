@@ -1,0 +1,84 @@
+{
+  "data": {
+    "user": {
+      "id": "9000000001",
+      "username": "fixture.cafe",
+      "full_name": "Fixture Cafe",
+      "biography": "A synthetic cafe account.",
+      "edge_owner_to_timeline_media": {
+        "count": 5,
+        "page_info": { "has_next_page": true, "end_cursor": "fixture-cursor" },
+        "edges": [
+          {
+            "node": {
+              "__typename": "GraphImage",
+              "id": "8000000001",
+              "shortcode": "FXimg001",
+              "display_url": "https://scontent.cdninstagram.com/v/fixture001.jpg?stp=dst-jpg",
+              "accessibility_caption": "Photo of a menu board with prices.",
+              "is_video": false,
+              "edge_media_to_caption": { "edges": [{ "node": { "text": "New  menu\n\n\nfrom Monday" } }] },
+              "edge_media_to_comment": { "count": 4 },
+              "edge_liked_by": { "count": 210 },
+              "taken_at_timestamp": 1792634400
+            }
+          },
+          {
+            "node": {
+              "__typename": "GraphVideo",
+              "id": "8000000002",
+              "shortcode": "FXvid002",
+              "display_url": "https://scontent.cdninstagram.com/v/fixture002.jpg",
+              "is_video": true,
+              "video_view_count": 900,
+              "edge_media_to_caption": { "edges": [] },
+              "edge_media_to_comment": { "count": 1 },
+              "edge_media_preview_like": { "count": 33 },
+              "taken_at_timestamp": 1792548000
+            }
+          },
+          {
+            "node": {
+              "__typename": "GraphSidecar",
+              "id": "8000000003",
+              "shortcode": "FXcar003",
+              "display_url": "https://scontent.cdninstagram.com/v/fixture003-cover.jpg",
+              "is_video": false,
+              "edge_media_to_caption": { "edges": [{ "node": { "text": "Two dishes and a clip" } }] },
+              "edge_sidecar_to_children": {
+                "edges": [
+                  { "node": { "__typename": "GraphImage", "id": "8000000031", "display_url": "https://scontent.cdninstagram.com/v/fixture031.jpg", "is_video": false, "accessibility_caption": "Photo of noodles." } },
+                  { "node": { "__typename": "GraphVideo", "id": "8000000032", "display_url": "https://scontent.cdninstagram.com/v/fixture032.jpg", "is_video": true } },
+                  { "node": { "__typename": "GraphImage", "id": "8000000033", "display_url": "https://scontent.cdninstagram.com/v/fixture033.jpg", "is_video": false } }
+                ]
+              },
+              "edge_media_to_comment": { "count": 0 },
+              "edge_media_preview_like": { "count": 12 },
+              "taken_at_timestamp": 1792461600
+            }
+          },
+          {
+            "node": {
+              "__typename": "GraphSidecar",
+              "id": "8000000004",
+              "shortcode": "FXcar004",
+              "display_url": "https://scontent.cdninstagram.com/v/fixture004-cover.jpg",
+              "is_video": false,
+              "edge_media_to_caption": { "edges": [{ "node": { "text": "Two clips from the kitchen" } }] },
+              "edge_sidecar_to_children": {
+                "edges": [
+                  { "node": { "__typename": "GraphVideo", "id": "8000000041", "display_url": "https://scontent.cdninstagram.com/v/fixture041.jpg", "is_video": true } },
+                  { "node": { "__typename": "GraphVideo", "id": "8000000042", "display_url": "https://scontent.cdninstagram.com/v/fixture042.jpg", "is_video": true } }
+                ]
+              },
+              "edge_media_to_comment": { "count": 2 },
+              "edge_media_preview_like": { "count": 40 },
+              "taken_at_timestamp": 1792375200
+            }
+          }
+        ]
+      }
+    }
+  },
+  "status": "ok"
+}

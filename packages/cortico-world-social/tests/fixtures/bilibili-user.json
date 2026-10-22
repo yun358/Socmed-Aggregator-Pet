@@ -1,0 +1,14 @@
+{
+  "code": 0,
+  "message": "0",
+  "ttl": 1,
+  "data": {
+    "seid": "1000000000000000002",
+    "page": 1,
+    "numResults": 2,
+    "result": [
+      { "type": "bili_user", "mid": 20000001, "uname": "<em class=\"keyword\">测试</em>UP主", "fans": 1000, "videos": 12 },
+      { "type": "bili_user", "mid": 20000009, "uname": "测试UP主的粉丝", "fans": 3, "videos": 0 }
+    ]
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "name": "cortico-world-social",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Cortico World: reads Reddit, X, Facebook, Threads, Instagram, YouTube, Bilibili and Rednote in an installed Chromium-based browser for the bot, within per-request limits; video transcripts, OCR of post images, a daily autoscroll and a lifetime time counter per platform",
+  "author": "Pal AI Lab",
+  "license": "AGPL-3.0-or-later",
+  "keywords": [
+    "cortico-world",
+    "cortico",
+    "social-media",
+    "transcript",
+    "ocr"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "cortico": {
+    "kind": "world",
+    "api": 6,
+    "webUiClient": "dist/webui.js",
+    "webUiStyle": "dist/webui.css",
+    "describe": "describe.json"
+  },
+  "files": [
+    "src",
+    "dist",
+    "README.md",
+    "THIRD_PARTY_NOTICES.md",
+    "CHANGELOG.md",
+    "describe.json"
+  ],
+  "scripts": {
+    "build": "node scripts/build-webui.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "playwright-core": "1.64.0",
+    "tesseract.js": "7.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "esbuild": "^0.28.2",
+    "jsdom": "^30.1.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

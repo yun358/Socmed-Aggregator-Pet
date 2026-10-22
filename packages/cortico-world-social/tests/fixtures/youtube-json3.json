@@ -1,0 +1,11 @@
+{
+  "wireMagic": "pb3",
+  "pens": [{}],
+  "events": [
+    { "tStartMs": 0, "dDurationMs": 4000, "id": 1, "wpWinPosId": 1, "wsWinStyleId": 1 },
+    { "tStartMs": 1200, "dDurationMs": 3000, "wWinId": 1, "segs": [{ "utf8": "welcome" }, { "utf8": " to the", "tOffsetMs": 400 }, { "utf8": " harbour", "tOffsetMs": 800 }] },
+    { "tStartMs": 4100, "dDurationMs": 10, "wWinId": 1, "aAppend": 1, "segs": [{ "utf8": "\n" }] },
+    { "tStartMs": 4600, "dDurationMs": 3000, "wWinId": 1, "segs": [{ "utf8": "the boats\nleave at" }, { "utf8": " noon" }] },
+    { "tStartMs": 65400, "dDurationMs": 3000, "wWinId": 1, "segs": [{ "utf8": "[Music]" }] }
+  ]
+}

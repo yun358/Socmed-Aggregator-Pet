@@ -1,0 +1,125 @@
+{
+  "responseContext": { "visitorData": "fixture" },
+  "contents": {
+    "twoColumnSearchResultsRenderer": {
+      "primaryContents": {
+        "sectionListRenderer": {
+          "contents": [
+            {
+              "itemSectionRenderer": {
+                "contents": [
+                  {
+                    "adSlotRenderer": {
+                      "fulfillmentContent": {
+                        "fulfilledLayout": {
+                          "inFeedAdLayoutRenderer": {
+                            "renderingContent": {
+                              "videoRenderer": { "videoId": "fixtureAd01", "title": { "simpleText": "Sponsored video" } }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "videoRenderer": {
+                      "videoId": "fixtureVid1",
+                      "title": { "runs": [{ "text": "Harbour " }, { "text": "festival recap" }] },
+                      "ownerText": { "runs": [{ "text": "Fixture Channel" }] },
+                      "longBylineText": { "runs": [{ "text": "Fixture Channel (long)" }] },
+                      "publishedTimeText": { "simpleText": "2 days ago" },
+                      "lengthText": { "simpleText": "12:34" },
+                      "viewCountText": { "simpleText": "1,234 views" },
+                      "detailedMetadataSnippets": [{ "snippetText": { "runs": [{ "text": "Highlights from the " }, { "text": "harbour", "bold": true }, { "text": " festival." }] } }]
+                    }
+                  },
+                  {
+                    "lockupViewModel": {
+                      "contentId": "fixtureVid2",
+                      "contentType": "LOCKUP_CONTENT_TYPE_VIDEO",
+                      "contentImage": {
+                        "thumbnailViewModel": {
+                          "image": { "sources": [{ "url": "https://i.ytimg.com/vi/fixtureVid2/hq720.jpg", "width": 720, "height": 404 }] },
+                          "overlays": [
+                            { "thumbnailOverlayBadgeViewModel": { "thumbnailBadges": [{ "thumbnailBadgeViewModel": { "text": "1:02:03", "badgeStyle": "THUMBNAIL_OVERLAY_BADGE_STYLE_DEFAULT" } }] } }
+                          ]
+                        }
+                      },
+                      "metadata": {
+                        "lockupMetadataViewModel": {
+                          "title": { "content": "Night market walk" },
+                          "metadata": {
+                            "contentMetadataViewModel": {
+                              "metadataRows": [
+                                { "metadataParts": [{ "text": { "content": "Second Fixture Channel" } }] },
+                                { "metadataParts": [{ "text": { "content": "5.1K views" } }, { "text": { "content": "3 weeks ago" } }] }
+                              ],
+                              "delimiter": " • "
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "lockupViewModel": {
+                      "contentId": "PLfixturePlaylist",
+                      "contentType": "LOCKUP_CONTENT_TYPE_PLAYLIST",
+                      "metadata": { "lockupMetadataViewModel": { "title": { "content": "A playlist" } } }
+                    }
+                  },
+                  {
+                    "reelShelfRenderer": {
+                      "title": { "simpleText": "Shorts" },
+                      "items": [
+                        {
+                          "reelItemRenderer": {
+                            "videoId": "fixtureSht1",
+                            "headline": { "simpleText": "Festival in 30 seconds" },
+                            "viewCountText": { "simpleText": "88K views" }
+                          }
+                        },
+                        {
+                          "shortsLockupViewModel": {
+                            "entityId": "shorts-shelf-item-fixtureSht2",
+                            "onTap": { "innertubeCommand": { "reelWatchEndpoint": { "videoId": "fixtureSht2" } } },
+                            "overlayMetadata": { "primaryText": { "content": "Lantern parade" }, "secondaryText": { "content": "12K views" } }
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "videoRenderer": {
+                      "videoId": "fixtureVid1",
+                      "title": { "runs": [{ "text": "Harbour festival recap" }] },
+                      "ownerText": { "runs": [{ "text": "Fixture Channel" }] }
+                    }
+                  },
+                  {
+                    "videoRenderer": {
+                      "videoId": "fixtureNoTl",
+                      "title": { "runs": [] }
+                    }
+                  },
+                  {
+                    "channelRenderer": {
+                      "channelId": "UCfixture0000000000000001",
+                      "title": { "simpleText": "Fixture Channel" }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "continuationItemRenderer": {
+                "trigger": "CONTINUATION_TRIGGER_ON_ITEM_SHOWN",
+                "continuationEndpoint": { "continuationCommand": { "token": "fixture-token", "request": "CONTINUATION_REQUEST_TYPE_SEARCH" } }
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

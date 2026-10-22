@@ -1,0 +1,55 @@
+{
+  "metadata": {
+    "channelMetadataRenderer": {
+      "title": "Fixture Channel",
+      "externalId": "UCfixture0000000000000001",
+      "vanityChannelUrl": "http://www.youtube.com/@fixturechannel"
+    }
+  },
+  "contents": {
+    "twoColumnBrowseResultsRenderer": {
+      "tabs": [
+        {
+          "tabRenderer": {
+            "title": "Videos",
+            "selected": true,
+            "content": {
+              "richGridRenderer": {
+                "contents": [
+                  {
+                    "richItemRenderer": {
+                      "content": {
+                        "videoRenderer": {
+                          "videoId": "fixtureCh01",
+                          "title": { "runs": [{ "text": "Newest upload" }] },
+                          "publishedTimeText": { "simpleText": "5 hours ago" },
+                          "lengthText": { "simpleText": "8:05" },
+                          "viewCountText": { "simpleText": "900 views" },
+                          "descriptionSnippet": { "runs": [{ "text": "What changed this week." }] }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "richItemRenderer": {
+                      "content": {
+                        "videoRenderer": {
+                          "videoId": "fixtureCh02",
+                          "title": { "runs": [{ "text": "Older upload" }] },
+                          "publishedTimeText": { "simpleText": "1 month ago" },
+                          "lengthText": { "simpleText": "15:00" },
+                          "viewCountText": { "simpleText": "4,000 views" }
+                        }
+                      }
+                    }
+                  },
+                  { "continuationItemRenderer": { "continuationEndpoint": { "continuationCommand": { "token": "fixture-more" } } } }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

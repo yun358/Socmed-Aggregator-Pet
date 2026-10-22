@@ -1,0 +1,136 @@
+import type { Translation } from 'cortico/core/language.ts';
+import type { SocialText } from './index.ts';
+
+const ja: Translation<SocialText> = {
+  platforms: { reddit: 'Reddit', x: 'X', facebook: 'Facebook', threads: 'Threads', instagram: 'Instagram', youtube: 'YouTube', bilibili: 'ビリビリ動画', rednote: '小紅書（RED）' },
+
+  console: {
+    label: 'ソーシャルメディア',
+    browser: 'ブラウザー',
+    browserMissing: 'Chrome、Edge、Brave、Chromium が見つかりません',
+    panel: { title: 'ソーシャルメディア', description: 'Coo が読む量の上限、ログイン、毎日の自動スクロール、累計時間' },
+    envPrompt: { title: 'ソーシャルメディア', description: 'Coo が読めるプラットフォーム、1 回のリクエストの上限、画像の扱い方を伝えます' },
+    vars: {
+      'social.platforms': 'オンになっているプラットフォーム',
+      'social.maxPosts': '1 回のリクエストで読む投稿の数',
+      'social.maxSec': '1 回のリクエストにかける秒数',
+      'social.images': '画像の扱い方',
+      'social.autoscroll': '毎日の自動スクロールのジョブ',
+    },
+    storage: {
+      profile: { label: 'ブラウザーのプロファイル（各プラットフォームのログイン）', note: '消去すると、どのプラットフォームにもログインし直す必要があります' },
+      ocr: { label: 'OCR の言語データ', note: '次に画像を読むときにもう一度ダウンロードします' },
+      digests: { label: '毎日の自動スクロールの実行記録' },
+      cleared: '消去しました',
+    },
+  },
+
+  config: {
+    group: 'ソーシャルメディア',
+    maxPosts: { title: 'リクエストごとの投稿数', description: '1 回のリクエストに答えるために Coo が読む投稿や動画の上限。そのリクエスト内のすべての読み込みの合計です' },
+    maxSec: { title: 'リクエストごとの時間', description: '1 回のリクエストに答えるために Coo が読むのにかける最大秒数' },
+    images: { title: '画像', description: 'ocr：このコンピューター上で画像内の文字を読み取ります。model：画像をモデルに見せます（費用が高くなります）。skip：テキストのみで、画像付きの投稿は除きます' },
+    maxTranscriptChars: { title: '1 回に読む文字起こしの文字数', description: '動画の文字起こしを 1 回に読む最大文字数。残りは続けて分けて読みます' },
+    showBrowser: { title: 'ブラウザーを表示', description: 'Coo が読んでいる間、Coo のブラウザーのウィンドウを表示します' },
+    browserFile: { title: 'ブラウザーのパス', description: '空欄なら Chrome、Edge、Brave、Chromium を探します' },
+    platformEnabled: (name: string) => `${name}：オン`,
+    autoscrollEnabled: { title: '毎日の自動スクロール', description: '毎日決めた時刻に投稿を読み、そのあと Coo が要約を伝えます' },
+    autoscrollMaxMinutes: { title: 'ジョブごとの時間', description: '毎日の自動スクロールのジョブ 1 つにかける最大分数' },
+  },
+
+  sources: { feed: 'フィード', search: '検索', account: 'アカウント', community: 'コミュニティ' },
+
+  panel: {
+    limitsTitle: '1 回のリクエスト',
+    limitsDesc: '1 回のリクエストに答えるために Coo が読める量と時間。',
+    posts: '投稿数',
+    postsSuffix: '件',
+    time: '時間',
+    timeSuffix: '秒',
+    images: '画像',
+    imageModes: { ocr: '文字を読む', model: 'Coo に見せる', skip: 'テキストのみ' },
+    imageHints: {
+      ocr: 'このコンピューター上で画像内の文字を読み取ります（OCR）。言語データは初めて使うときにダウンロードします。',
+      model: '画像をモデルに見せます。文字のない画像も理解できますが、費用が高くなります。',
+      skip: '画像付きの投稿を除き、テキストの投稿だけを読みます。token の消費がいちばん少なくなります。',
+    },
+    transcript: '文字起こし',
+    transcriptSuffix: '文字／回',
+
+    platformsTitle: 'プラットフォーム',
+    platformsDesc: 'Coo はここでオンにしたプラットフォームだけを、あなたが使うブラウザーとは別の、自分専用のブラウザーで読みます。ログインはプラットフォームごとに 1 回です。',
+    loggedIn: 'ログイン済み',
+    loggedOut: '未ログイン',
+    unchecked: '未確認',
+    login: 'ログイン',
+    checkLogins: 'ログインを確認',
+    checking: '確認中…',
+    browser: 'ブラウザー',
+    browserFound: (path: string) => `${path} を使用`,
+    browserMissing: 'Chrome、Edge、Brave、Chromium が見つかりません。いずれかをインストールするか、ブラウザーのパスを入力してください。',
+    browserFileMissing: 'このパスにファイルがありません。空欄にするとブラウザーを自動で探します。',
+    browserPathPlaceholder: '自動で検出',
+    showBrowser: 'ブラウザーを表示',
+    showBrowserCheck: 'Coo が読んでいる間、Coo のブラウザーのウィンドウを表示する',
+    showBrowserHint: '非表示のブラウザーを受け付けないプラットフォームがあります。確認画面や空の結果が出るときはオンにしてください。',
+    loginOpened: (name: string) => `${name} のログインウィンドウを開きました。ログインしたら閉じてください。`,
+
+    autoscrollTitle: '毎日の自動スクロール',
+    autoscrollDesc: '毎日決めた時刻に決めた数の投稿を読み、そのあと Coo が要約を伝えます。',
+    autoscrollOn: 'オン',
+    autoscrollCheck: '毎日自動でスクロールする',
+    maxMinutes: 'ジョブごとの上限',
+    maxMinutesSuffix: '分',
+    jobPlatform: 'プラットフォーム',
+    jobSource: 'ソース',
+    jobQuery: '読む対象',
+    queryPlaceholder: { feed: '', search: '検索語', account: 'アカウントまたはプロフィールのリンク', community: 'コミュニティ（例：r/wallstreetbets）' },
+    jobPosts: '投稿数',
+    jobAt: '時刻',
+    jobTextOnly: 'テキストのみ',
+    addJob: 'ジョブを追加',
+    removeJob: '削除',
+    runNow: '今すぐ実行',
+    running: '実行中…',
+    noJobs: 'まだ設定されていません。',
+    jobsSaved: '保存しました',
+    jobInvalid: '検索・アカウント・コミュニティのジョブには、読む対象を入力してください。',
+    recentRuns: '最近の実行',
+    runAt: '日時',
+    runJob: 'ジョブ',
+    runResult: '結果',
+    runPosts: (n: number) => `${n} 件`,
+    runFailed: '実行できませんでした',
+    noRuns: 'まだ実行していません。',
+
+    lifetimeTitle: '累計時間',
+    lifetimeDesc: (since: string) => `${since} から Coo が各プラットフォームで過ごした時間。`,
+    platform: 'プラットフォーム',
+    timeSpent: '時間',
+    postsRead: '投稿と動画',
+    transcripts: '文字起こし',
+    lastRead: '最終閲覧',
+    total: '合計',
+    never: '—',
+    reset: 'リセット',
+    resetConfirm: '累計時間をゼロに戻し、今から数え直しますか？',
+
+    saveFailed: (err: string) => `保存できませんでした：${err}`,
+    readFailed: (err: string) => `設定を読み込めませんでした：${err}`,
+    outOfRange: (min: number, max: number) => `${min}〜${max} の整数を入力してください`,
+    busy: 'ブラウザーがバックグラウンドで読み込み中です。終わってからもう一度お試しください。',
+    loginOpen: 'ログインウィンドウがすでに開いています。先に閉じてください。Mac では Cmd+Q でそのブラウザーを終了します。',
+    platformOff: (name: string) => `${name} はオフです。`,
+    jobRunning: 'すでに実行中の項目があります。',
+    notRunning: 'ソーシャルメディアの World が動いていません。',
+    noSuchJob: '実行する前に項目を保存してください。',
+    duration: (ms: number) => {
+      const m = Math.round(ms / 60000);
+      if (m < 1) return `${Math.round(ms / 1000)} 秒`;
+      if (m < 60) return `${m} 分`;
+      return `${Math.floor(m / 60)} 時間 ${m % 60} 分`;
+    },
+  },
+};
+
+export default ja;

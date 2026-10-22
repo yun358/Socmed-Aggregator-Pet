@@ -1,0 +1,27 @@
+{
+  "actions": [
+    {
+      "updateEngagementPanelAction": {
+        "content": {
+          "transcriptRenderer": {
+            "content": {
+              "transcriptSearchPanelRenderer": {
+                "body": {
+                  "transcriptSegmentListRenderer": {
+                    "initialSegments": [
+                      { "transcriptSegmentRenderer": { "startMs": "0", "endMs": "2500", "snippet": { "runs": [{ "text": "first line" }] }, "startTimeText": { "simpleText": "0:00" } } },
+                      { "transcriptSectionHeaderRenderer": { "startMs": "2500", "snippet": { "simpleText": "Chapter 1" } } },
+                      { "transcriptSegmentRenderer": { "startMs": "2600", "endMs": "5000", "snippet": { "runs": [{ "text": "second " }, { "text": "line" }] } } },
+                      { "transcriptSegmentRenderer": { "startMs": "91500", "endMs": "93000", "snippet": { "runs": [{ "text": "  " }] } } },
+                      { "transcriptSegmentRenderer": { "startMs": "125600", "endMs": "128000", "snippet": { "simpleText": "last line" } } }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

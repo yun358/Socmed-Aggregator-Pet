@@ -1,0 +1,100 @@
+{
+  "data": {
+    "name": "fixturefood",
+    "top": {
+      "sections": [
+        {
+          "layout_type": "media_grid",
+          "layout_content": {
+            "medias": [
+              {
+                "media": {
+                  "pk": "7000000001",
+                  "id": "7000000001_9000000002",
+                  "code": "FXtag001",
+                  "media_type": 1,
+                  "taken_at": 1792634400,
+                  "like_count": 57,
+                  "comment_count": 6,
+                  "user": { "pk": "9000000002", "username": "fixture.eater" },
+                  "caption": { "pk": "1", "text": "Best   dumplings\non the street" },
+                  "accessibility_caption": "Photo of a plate of dumplings.",
+                  "image_versions2": {
+                    "candidates": [
+                      { "width": 1080, "height": 1080, "url": "https://scontent.cdninstagram.com/v/fixturetag001-1080.jpg" },
+                      { "width": 320, "height": 320, "url": "https://scontent.cdninstagram.com/v/fixturetag001-320.jpg" }
+                    ]
+                  }
+                }
+              },
+              {
+                "media": {
+                  "pk": "7000000002",
+                  "code": "FXtag002",
+                  "media_type": 2,
+                  "taken_at": 1792548000,
+                  "like_count": 9,
+                  "comment_count": 0,
+                  "user": { "username": "fixture.eater" },
+                  "caption": null,
+                  "image_versions2": { "candidates": [{ "width": 640, "height": 1136, "url": "https://scontent.cdninstagram.com/v/fixturetag002-cover.jpg" }] },
+                  "video_versions": [{ "type": 101, "url": "https://scontent.cdninstagram.com/v/fixturetag002.mp4" }]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "recent": {
+      "sections": [
+        {
+          "layout_type": "media_grid",
+          "layout_content": {
+            "medias": [
+              {
+                "media": {
+                  "pk": "7000000003",
+                  "code": "FXtag003",
+                  "media_type": 8,
+                  "taken_at": 1792461600,
+                  "user": { "username": "fixture.baker" },
+                  "caption": { "text": "Bakery haul" },
+                  "carousel_media": [
+                    { "pk": "7000000031", "media_type": 1, "accessibility_caption": "Photo of bread.", "image_versions2": { "candidates": [{ "url": "https://scontent.cdninstagram.com/v/fixturetag031.jpg" }] } },
+                    { "pk": "7000000032", "media_type": 2, "image_versions2": { "candidates": [{ "url": "https://scontent.cdninstagram.com/v/fixturetag032-cover.jpg" }] } },
+                    { "pk": "7000000033", "media_type": 1, "image_versions2": { "candidates": [{ "url": "https://scontent.cdninstagram.com/v/fixturetag033.jpg" }] } }
+                  ]
+                }
+              },
+              {
+                "media": {
+                  "pk": "7000000001",
+                  "code": "FXtag001",
+                  "media_type": 1,
+                  "user": { "username": "fixture.eater" },
+                  "caption": { "text": "Best dumplings on the street" },
+                  "image_versions2": { "candidates": [{ "url": "https://scontent.cdninstagram.com/v/fixturetag001-1080.jpg" }] }
+                }
+              },
+              {
+                "media": {
+                  "pk": "7000000004",
+                  "code": "FXtag004",
+                  "media_type": 8,
+                  "user": { "username": "fixture.baker" },
+                  "caption": { "text": "Two clips" },
+                  "carousel_media": [
+                    { "pk": "7000000041", "media_type": 2, "image_versions2": { "candidates": [{ "url": "https://scontent.cdninstagram.com/v/fixturetag041-cover.jpg" }] } },
+                    { "pk": "7000000042", "media_type": 2, "image_versions2": { "candidates": [{ "url": "https://scontent.cdninstagram.com/v/fixturetag042-cover.jpg" }] } }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "status": "ok"
+}

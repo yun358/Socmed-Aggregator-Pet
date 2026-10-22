@@ -1,0 +1,174 @@
+{
+  "kind": "Listing",
+  "data": {
+    "after": "t3_fx0008",
+    "dist": 7,
+    "children": [
+      {
+        "kind": "t3",
+        "data": {
+          "id": "fx0001",
+          "name": "t3_fx0001",
+          "title": "Weekly discussion thread",
+          "selftext": "Rules and links for the week.",
+          "author": "fixture_mod",
+          "subreddit_name_prefixed": "r/fixturetown",
+          "stickied": true,
+          "score": 12,
+          "num_comments": 400,
+          "created_utc": 1792600000,
+          "permalink": "/r/fixturetown/comments/fx0001/weekly_discussion_thread/",
+          "url": "https://www.reddit.com/r/fixturetown/comments/fx0001/weekly_discussion_thread/",
+          "domain": "self.fixturetown",
+          "is_video": false
+        }
+      },
+      {
+        "kind": "t3",
+        "data": {
+          "id": "fx0002",
+          "name": "t3_fx0002",
+          "title": "  Quarterly numbers   are out ",
+          "selftext": "Revenue rose 12%.\n\n\nMargins   held steady.",
+          "author": "fixture_alice",
+          "subreddit_name_prefixed": "r/fixturetown",
+          "stickied": false,
+          "score": 420,
+          "num_comments": 37,
+          "created_utc": 1792634400,
+          "permalink": "/r/fixturetown/comments/fx0002/quarterly_numbers_are_out/",
+          "url": "https://www.reddit.com/r/fixturetown/comments/fx0002/quarterly_numbers_are_out/",
+          "domain": "self.fixturetown",
+          "is_video": false
+        }
+      },
+      {
+        "kind": "t3",
+        "data": {
+          "id": "fx0003",
+          "name": "t3_fx0003",
+          "title": "A short clip",
+          "selftext": "",
+          "author": "fixture_bob",
+          "subreddit_name_prefixed": "r/fixturetown",
+          "score": 88,
+          "num_comments": 5,
+          "created_utc": 1792634500,
+          "permalink": "/r/fixturetown/comments/fx0003/a_short_clip/",
+          "url_overridden_by_dest": "https://v.redd.it/fixtureclip01",
+          "url": "https://v.redd.it/fixtureclip01",
+          "domain": "v.redd.it",
+          "post_hint": "hosted:video",
+          "is_video": true
+        }
+      },
+      {
+        "kind": "t3",
+        "data": {
+          "id": "fx0004",
+          "name": "t3_fx0004",
+          "title": "Menu board at the corner shop",
+          "selftext": "",
+          "author": "fixture_carol",
+          "subreddit_name_prefixed": "r/fixturetown",
+          "score": 99,
+          "num_comments": 3,
+          "created_utc": 1792634600,
+          "permalink": "/r/fixturetown/comments/fx0004/menu_board_at_the_corner_shop/",
+          "url_overridden_by_dest": "https://i.redd.it/fixturemenu.png?width=640&amp;format=png",
+          "url": "https://i.redd.it/fixturemenu.png?width=640&amp;format=png",
+          "domain": "i.redd.it",
+          "post_hint": "image",
+          "is_video": false
+        }
+      },
+      {
+        "kind": "t3",
+        "data": {
+          "id": "fx0005",
+          "name": "t3_fx0005",
+          "title": "Two photos from the market",
+          "selftext": "",
+          "author": "fixture_dan",
+          "subreddit_name_prefixed": "r/fixturetown",
+          "score": 51,
+          "num_comments": 8,
+          "created_utc": 1792634700,
+          "permalink": "/r/fixturetown/comments/fx0005/two_photos_from_the_market/",
+          "url": "https://www.reddit.com/gallery/fx0005",
+          "domain": "reddit.com",
+          "is_gallery": true,
+          "is_video": false,
+          "gallery_data": {
+            "items": [
+              { "media_id": "fxmediab", "id": 2, "caption": "Fruit stall" },
+              { "media_id": "fxmediaa", "id": 1 }
+            ]
+          },
+          "media_metadata": {
+            "fxmediaa": { "status": "valid", "e": "Image", "m": "image/jpg", "s": { "u": "https://preview.redd.it/fxmediaa.jpg?width=1080&amp;format=pjpg", "x": 1080, "y": 720 } },
+            "fxmediab": { "status": "valid", "e": "Image", "m": "image/jpg", "s": { "u": "https://preview.redd.it/fxmediab.jpg?width=1080&format=pjpg", "x": 1080, "y": 720 } }
+          }
+        }
+      },
+      {
+        "kind": "t3",
+        "data": {
+          "id": "fx0006",
+          "name": "t3_fx0006",
+          "title": "An article about the harbour",
+          "selftext": "",
+          "author": "fixture_erin",
+          "subreddit_name_prefixed": "r/fixturetown",
+          "score": 7,
+          "num_comments": 0,
+          "created_utc": 1792634800,
+          "permalink": "/r/fixturetown/comments/fx0006/an_article_about_the_harbour/",
+          "url_overridden_by_dest": "https://news.example.org/harbour-story",
+          "url": "https://news.example.org/harbour-story",
+          "domain": "news.example.org",
+          "post_hint": "link",
+          "is_video": false
+        }
+      },
+      {
+        "kind": "t3",
+        "data": {
+          "id": "fx0007",
+          "name": "t3_fx0007",
+          "title": "Watch this talk",
+          "selftext": "",
+          "author": "fixture_fay",
+          "subreddit_name_prefixed": "r/fixturetown",
+          "score": 3,
+          "num_comments": 1,
+          "created_utc": 1792634900,
+          "permalink": "/r/fixturetown/comments/fx0007/watch_this_talk/",
+          "url_overridden_by_dest": "https://www.youtube.com/watch?v=fixtureTalk",
+          "url": "https://www.youtube.com/watch?v=fixtureTalk",
+          "domain": "youtube.com",
+          "post_hint": "rich:video",
+          "is_video": false
+        }
+      },
+      {
+        "kind": "t3",
+        "data": {
+          "id": "fx0008",
+          "name": "t3_fx0008",
+          "title": "Deleted account post",
+          "selftext": "Still here.",
+          "author": "[deleted]",
+          "subreddit_name_prefixed": "r/fixturetown",
+          "score": 0,
+          "num_comments": 2,
+          "created_utc": 1792635000,
+          "permalink": "/r/fixturetown/comments/fx0008/deleted_account_post/",
+          "url": "https://www.reddit.com/r/fixturetown/comments/fx0008/deleted_account_post/",
+          "domain": "self.fixturetown",
+          "is_video": false
+        }
+      }
+    ]
+  }
+}
