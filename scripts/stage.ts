@@ -73,8 +73,11 @@ if (css.status !== 0) process.exit(css.status ?? 1);
 rmSync(entry);
 
 const pet = join(ROOT, 'packages', 'cortico-world-desktop-pet');
-const panel = spawnSync(process.execPath, [join(pet, 'scripts', 'build-webui.mjs')], { cwd: pet, stdio: 'inherit' });
-if (panel.status !== 0) process.exit(panel.status ?? 1);
+const social = join(ROOT, 'packages', 'cortico-world-social');
+for (const pkg of [pet, social]) {
+  const panel = spawnSync(process.execPath, [join(pkg, 'scripts', 'build-webui.mjs')], { cwd: pkg, stdio: 'inherit' });
+  if (panel.status !== 0) process.exit(panel.status ?? 1);
+}
 
 const esbuild = await import('esbuild');
 const PANELS_OUT = join(ROOT, 'build', 'panels', 'coopanion');
@@ -122,6 +125,7 @@ writeFileSync(windowEntry, [
   ...['styles.css', 'features/home/home.css', 'features/chat/chat.css', 'companion.css'].map((f) => `@import "${slash(join(WINDOW, f))}";`),
   `@source "${slash(WINDOW)}";`,
   `@source "${slash(join(pet, 'src', 'webui'))}";`,
+  `@source "${slash(join(social, 'src', 'webui'))}";`,
   '',
 ].join('\n'));
 const windowCss = spawnSync(process.execPath, [cli, '-i', windowEntry, '-o', join(WINDOW_OUT, 'styles.css'), '--minify'], { cwd: WINDOW_OUT, stdio: 'inherit' });
