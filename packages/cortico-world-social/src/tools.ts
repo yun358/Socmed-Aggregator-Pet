@@ -18,7 +18,7 @@ export const SOCIAL_TOOL_DECLS: ReadonlyArray<Omit<ToolDef, 'handler'>> = [
         source: { type: 'string', enum: [...SOURCE_KINDS], description: "feed: the platform's own feed or recommendations (personal when logged in). search: posts matching query. account: posts of the account in query (handle, name, id or profile link). community: the subreddit or Facebook group in query." },
         query: { type: 'string', description: 'Search terms, account or community; leave out for feed. Reddit search accepts subreddit:name to stay in one subreddit; Instagram search takes #tag for a hashtag; a Rednote account is its profile link.' },
         sort: { type: 'string', description: 'Optional order. Reddit listings: hot, new, top, rising; Reddit search: relevance, top, new, comments. X search: top or latest. YouTube and Bilibili search: relevance, date or views. Threads search: top or recent.' },
-        period: { type: 'string', enum: ['hour', 'day', 'week', 'month', 'year', 'all'], description: 'For Reddit top: the period ranked.' },
+        period: { type: 'string', enum: ['hour', 'day', 'week', 'month', 'year', 'all'], description: 'For Reddit top: the period ranked. For YouTube search: only videos uploaded within the last day, week, month or year.' },
         max_posts: { type: 'integer', minimum: 1, description: 'How many to return; by default all the request has left.' },
       },
       required: ['platform', 'source'],

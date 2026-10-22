@@ -47,7 +47,7 @@
               "year",
               "all"
             ],
-            "description": "For Reddit top: the period ranked."
+            "description": "For Reddit top: the period ranked. For YouTube search: only videos uploaded within the last day, week, month or year."
           },
           "max_posts": {
             "type": "integer",

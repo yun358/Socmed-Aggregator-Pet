@@ -239,6 +239,17 @@ describe.skipIf(!EXE)('adapters through the World', () => {
       expect(r.text).not.toContain('FIXTUREAD01');
     });
 
+    it('searches only videos uploaded within the period asked for, and names it in the receipt', async () => {
+      const asked: string[] = [];
+      const { call } = await makeWorld((u, request) => {
+        if (u.origin === YT && u.pathname === '/results') asked.push(u.searchParams.get('sp') ?? '');
+        return youtube(u, request);
+      });
+      const r = await call('social_browse', { platform: 'youtube', source: 'search', query: 'fixture riots', period: 'week' });
+      expect(r.text.startsWith(`[social_browse] YouTube, ${t.source('search', 'fixture riots', undefined, 'week')}:`)).toBe(true);
+      expect(asked[0]).toBe('EgQIAxAB');
+    });
+
     it('loads more results as it scrolls, from the continuation the page fetches', async () => {
       const video = (id: string, title: string) => ({ videoRenderer: { videoId: id, title: runs(title), ownerText: runs('Fixture News'), lengthText: { simpleText: '1:00' } } });
       const first = { contents: { twoColumnSearchResultsRenderer: { primaryContents: { sectionListRenderer: { contents: [
