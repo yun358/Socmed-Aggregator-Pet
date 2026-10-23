@@ -14,8 +14,9 @@ A fork of [Coopanion](https://github.com/Pal-AI-Lab/Coopanion), the desktop pet,
 - **Lifetime counter**: how much time Coo has spent on each platform.
 - **Reply arrows**: ‹ and › on Coo's speech bubble to go back when it talks too fast.
 - **Copy button**: copies Coo's whole reply, or just the text you selected.
+- **Saved conversations**: start a new conversation or go back to an old one, as in a chat app. Ask Coo ("let's start a new conversation"), or use the **Conversations** page in settings. Coo can open your last 20 (set 0–100 there); older ones open from that page. Saving can be turned off there too.
 
-Everything is set up on the **Social media** page in settings. Some platforms need a login: click **Log in** there.
+The social media features are set up on the **Social media** page in settings. Some platforms need a login: click **Log in** there.
 
 ## Build
 
