@@ -31,8 +31,8 @@
  * page is where both of them edit it.
  *
  * The parent (Electron main) gets `{ type: 'companion:ready', port, dataDir, keyMissing, language }` once the
- * console listens, `{ type: 'companion:language', language }` after the app language changes, `{ type: 'companion:open', path }` to show the settings window at a console
- * route, `{ type: 'companion:browse', url }` to open the ChatGPT sign-in page in the system browser,
+ * console listens, `{ type: 'companion:language', language }` after the app language changes, `{ type: 'companion:open', path, keep? }` to show the settings window at a console
+ * route (with `keep`, a window already open is brought forward as it is), `{ type: 'companion:browse', url }` to open the ChatGPT sign-in page in the system browser,
  * `{ type: 'companion:hide' }` to put it away (the introduction runs again on the desktop)
  * and `{ type: 'companion:quit' }` to quit the whole app; it asks for a clean stop with
  * `{ type: 'companion:shutdown' }`. A start that cannot go on says why before it exits:
@@ -474,7 +474,12 @@ export async function main(): Promise<void> {
     conversations: () => conversations,
     speechTools: () => new Set(core?.loop.getToolSchemas().filter((s) => s.tags.includes('speak')).map((s) => s.name) ?? []),
   });
-  const SOCIAL = socialDefinition({ modelLanguage: () => modelLanguage(config?.language), language });
+  const SOCIAL = socialDefinition({
+    modelLanguage: () => modelLanguage(config?.language),
+    language,
+    // a comment draft waits on the Social media page
+    showDrafts: () => process.send?.({ type: 'companion:open', path: '#/social', keep: true }),
+  });
   /** Coopanion's config group; the console reads this object, retitled in place when the app language changes. */
   const settingsGroup = companionGroup('zh');
   const base = await cormini();
