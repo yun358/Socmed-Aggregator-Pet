@@ -8,7 +8,7 @@ const de: Translation<SocialText> = {
     label: 'Soziale Medien',
     browser: 'Browser',
     browserMissing: 'Kein Chrome, Edge, Brave oder Chromium gefunden',
-    panel: { title: 'Soziale Medien', description: 'Grenzen für Coos Lesen, Anmeldungen, das tägliche Auto-Scrollen und der Gesamtzähler' },
+    panel: { title: 'Soziale Medien', description: 'Grenzen für Coos Lesen, Anmeldungen, das tägliche Auto-Scrollen, Kommentarentwürfe und der Gesamtzähler' },
     envPrompt: { title: 'Soziale Medien', description: 'Nennt Coo die lesbaren Plattformen, die Grenzen pro Anfrage und den Umgang mit Bildern' },
     vars: {
       'social.platforms': 'Die eingeschalteten Plattformen',
@@ -16,6 +16,7 @@ const de: Translation<SocialText> = {
       'social.maxSec': 'Sekunden pro Anfrage',
       'social.images': 'Der Umgang mit Bildern',
       'social.autoscroll': 'Die Aufträge des täglichen Auto-Scrollens',
+      'social.comments': 'Ob Kommentarentwürfe an sind, und das Tageslimit',
     },
     storage: {
       profile: { label: 'Browserprofil (Anmeldungen bei den Plattformen)', note: 'Danach braucht jede Plattform eine neue Anmeldung' },
@@ -36,6 +37,8 @@ const de: Translation<SocialText> = {
     platformEnabled: (name: string) => `${name}: an`,
     autoscrollEnabled: { title: 'Tägliches Auto-Scrollen', description: 'Liest jeden Tag zu den eingestellten Zeiten Beiträge; danach gibt dir Coo eine Zusammenfassung' },
     autoscrollMaxMinutes: { title: 'Minuten pro Auftrag', description: 'Höchstens so viele Minuten dauert ein Auftrag des täglichen Auto-Scrollens' },
+    commentsEnabled: { title: 'Kommentarentwürfe', description: 'Auf deine Bitte entwirft Coo Kommentare zu Reddit-Beiträgen und -Kommentaren; jeder wird erst gepostet, wenn du ihn selbst postest' },
+    commentsPerDay: { title: 'Kommentare pro Tag', description: 'Wie viele von Coo entworfene Kommentare an einem Tag höchstens gepostet werden können' },
   },
 
   sources: { feed: 'Feed', search: 'Suche', account: 'Konto', community: 'Community' },
@@ -130,6 +133,41 @@ const de: Translation<SocialText> = {
       if (m < 60) return `${m} min`;
       return `${Math.floor(m / 60)} h ${m % 60} min`;
     },
+  },
+
+  comments: {
+    waitingTitle: 'Kommentare, die auf dich warten',
+    waitingDesc: 'Von Coo entworfen. Jeder wird erst mit deiner Reddit-Anmeldung gepostet, wenn du auf „Posten“ klickst.',
+    replyTo: 'Antwort auf',
+    draftedAt: (when: string) => `Entworfen ${when}`,
+    post: 'Posten',
+    posting: 'Wird gepostet…',
+    discard: 'Verwerfen',
+    posted: 'Gepostet',
+
+    title: 'Kommentare',
+    desc: 'Wenn du Coo um einen Kommentar bittest, entwirft Coo einen Kommentar zu einem Reddit-Beitrag oder -Kommentar. Entwürfe erscheinen oben auf dieser Seite, wo du sie bearbeitest, postest oder verwirfst.',
+    enabled: 'Entwürfe',
+    enabledCheck: 'Coo Kommentare entwerfen lassen',
+    enabledHint: 'Kommentare werden aus Coos Browser mit deiner Reddit-Anmeldung gepostet. Die Regeln von Reddit erlauben kein automatisiertes Posten; poste also nur, was du auch selbst schreiben würdest.',
+    perDay: 'Pro Tag höchstens',
+    perDaySuffix: 'Kommentare',
+    today: (n: number) => `Heute gepostet: ${n}`,
+    recent: 'Gepostete Kommentare',
+    when: 'Wann',
+    on: 'Antwort auf',
+    comment: 'Kommentar',
+    edited: '(vor dem Posten bearbeitet)',
+    nonePosted: 'Noch keine Kommentare gepostet.',
+
+    gone: 'Dieser Entwurf wartet nicht mehr.',
+    empty: 'Der Kommentar ist leer.',
+    tooLong: (max: number) => `Reddit nimmt höchstens ${max} Zeichen.`,
+    dayFull: (max: number) => `Heute wurden schon ${max} Kommentare gepostet, das unten eingestellte Tageslimit.`,
+    login: 'Reddit verlangt eine Anmeldung: Klicke unter „Plattformen“ neben Reddit auf „Anmelden“ und poste danach noch einmal.',
+    blocked: (detail: string) => `Reddit hat die Anfrage abgelehnt${detail ? ` (${detail})` : ''}; versuche es später noch einmal.`,
+    refused: (detail: string) => `Reddit hat den Kommentar nicht angenommen: ${detail}`,
+    timeUp: 'Reddit hat nicht rechtzeitig geantwortet, und der Kommentar ist vielleicht schon gepostet. Sieh im Beitrag nach, bevor du noch einmal postest.',
   },
 };
 

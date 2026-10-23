@@ -8,7 +8,7 @@ const es419: Translation<SocialText> = {
     label: 'Redes sociales',
     browser: 'Navegador',
     browserMissing: 'No se encontró Chrome, Edge, Brave ni Chromium',
-    panel: { title: 'Redes sociales', description: 'Límites de lectura de Coo, inicios de sesión, el desplazamiento automático diario y el contador acumulado' },
+    panel: { title: 'Redes sociales', description: 'Límites de lectura de Coo, inicios de sesión, el desplazamiento automático diario, los borradores de comentarios y el contador acumulado' },
     envPrompt: { title: 'Redes sociales', description: 'Le dice a Coo qué plataformas puede leer, los límites por solicitud y cómo se tratan las imágenes' },
     vars: {
       'social.platforms': 'Las plataformas activadas',
@@ -16,6 +16,7 @@ const es419: Translation<SocialText> = {
       'social.maxSec': 'Segundos por solicitud',
       'social.images': 'Cómo se tratan las imágenes',
       'social.autoscroll': 'Las tareas del desplazamiento automático diario',
+      'social.comments': 'Si los borradores de comentarios están activados, y el límite diario',
     },
     storage: {
       profile: { label: 'Perfil del navegador (sesiones en las plataformas)', note: 'Después hay que volver a iniciar sesión en cada plataforma' },
@@ -36,6 +37,8 @@ const es419: Translation<SocialText> = {
     platformEnabled: (name: string) => `${name}: activado`,
     autoscrollEnabled: { title: 'Desplazamiento automático diario', description: 'Lee publicaciones todos los días a las horas fijadas; después Coo te cuenta un resumen' },
     autoscrollMaxMinutes: { title: 'Minutos por tarea', description: 'La cantidad máxima de minutos que dura una tarea del desplazamiento automático diario' },
+    commentsEnabled: { title: 'Borradores de comentarios', description: 'Cuando lo pides, Coo redacta comentarios en publicaciones o comentarios de Reddit; cada uno se publica solo cuando tú lo publicas' },
+    commentsPerDay: { title: 'Comentarios por día', description: 'Cuántos comentarios redactados por Coo se pueden publicar como máximo en un día' },
   },
 
   sources: { feed: 'Feed', search: 'Búsqueda', account: 'Cuenta', community: 'Comunidad' },
@@ -130,6 +133,41 @@ const es419: Translation<SocialText> = {
       if (m < 60) return `${m} min`;
       return `${Math.floor(m / 60)} h ${m % 60} min`;
     },
+  },
+
+  comments: {
+    waitingTitle: 'Comentarios que esperan tu revisión',
+    waitingDesc: 'Redactados por Coo. Cada uno se publica con tu sesión de Reddit solo cuando haces clic en «Publicar».',
+    replyTo: 'Respuesta a',
+    draftedAt: (when: string) => `Redactado el ${when}`,
+    post: 'Publicar',
+    posting: 'Publicando…',
+    discard: 'Descartar',
+    posted: 'Publicado',
+
+    title: 'Comentarios',
+    desc: 'Cuando le pides a Coo que comente, Coo redacta un comentario en una publicación o un comentario de Reddit. Los borradores aparecen arriba en esta página, donde los editas, publicas o descartas.',
+    enabled: 'Borradores',
+    enabledCheck: 'Permitir que Coo redacte comentarios',
+    enabledHint: 'Los comentarios se publican desde el navegador de Coo con tu sesión de Reddit. Las reglas de Reddit no permiten publicar de forma automatizada, así que publica solo lo que escribirías tú.',
+    perDay: 'Por día, como máximo',
+    perDaySuffix: 'comentarios',
+    today: (n: number) => `Publicados hoy: ${n}`,
+    recent: 'Comentarios publicados',
+    when: 'Cuándo',
+    on: 'Respuesta a',
+    comment: 'Comentario',
+    edited: '(editado antes de publicar)',
+    nonePosted: 'Todavía no se publicó ningún comentario.',
+
+    gone: 'Este borrador ya no está en espera.',
+    empty: 'El comentario está vacío.',
+    tooLong: (max: number) => `Reddit acepta como máximo ${max} caracteres.`,
+    dayFull: (max: number) => `Hoy ya se publicaron ${max} comentarios, el límite diario que fijaste abajo.`,
+    login: 'Reddit pide iniciar sesión: haz clic en «Iniciar sesión» junto a Reddit en «Plataformas» y vuelve a publicar.',
+    blocked: (detail: string) => `Reddit rechazó la solicitud${detail ? ` (${detail})` : ''}; vuelve a intentarlo más tarde.`,
+    refused: (detail: string) => `Reddit no aceptó el comentario: ${detail}`,
+    timeUp: 'Reddit no respondió a tiempo, y es posible que el comentario se haya publicado. Revisa la publicación antes de volver a publicar.',
   },
 };
 

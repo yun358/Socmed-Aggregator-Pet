@@ -134,7 +134,10 @@ it('is a page of the normal mode, and mounts the social World\'s panel from the 
   expect(W.ENTRIES.find((e) => e.route === W.socialPage.route)).toMatchObject({ basic: true, page: W.socialPage });
   const { root, imported } = await mountPage();
   expect(imported).toEqual([expect.stringMatching(/^\/assets\/extensions\/cortico-world-social\//)]);
-  expect([...root.querySelectorAll('.sheet h3')].map((h) => h.firstChild.textContent)).toEqual([s.limitsTitle, s.platformsTitle, s.autoscrollTitle, s.lifetimeTitle]);
+  const c = socialText(W.LANGUAGE).comments;
+  expect([...root.querySelectorAll('.sheet h3')].map((h) => h.firstChild.textContent)).toEqual([c.waitingTitle, s.limitsTitle, s.platformsTitle, s.autoscrollTitle, c.title, s.lifetimeTitle]);
+  // comment drafts show first, and only while there are any
+  expect(root.querySelector('.social-drafts').closest('.sheet').hidden).toBe(true);
   // the configured browser file is missing: the page says so and offers no login
   expect(root.textContent).toContain(s.browserFileMissing);
   expect(root.querySelector('.social-platform .btn').disabled).toBe(true);

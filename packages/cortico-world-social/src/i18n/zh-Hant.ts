@@ -8,7 +8,7 @@ const zhHant: Translation<SocialText> = {
     label: '社群媒體',
     browser: '瀏覽器',
     browserMissing: '找不到 Chrome、Edge、Brave 或 Chromium',
-    panel: { title: '社群媒體', description: 'Coo 代你瀏覽各平台的上限、登入、每日自動瀏覽與累計時間' },
+    panel: { title: '社群媒體', description: 'Coo 代你瀏覽各平台的上限、登入、每日自動瀏覽、留言草稿與累計時間' },
     envPrompt: { title: '社群媒體', description: '告訴 Coo 能讀取哪些平台、每次請求的上限與圖片的處理方式' },
     vars: {
       'social.platforms': '開啟的平台',
@@ -16,6 +16,7 @@ const zhHant: Translation<SocialText> = {
       'social.maxSec': '每次請求最多花費的秒數',
       'social.images': '圖片的處理方式',
       'social.autoscroll': '每日自動瀏覽的設定',
+      'social.comments': '留言草稿是否開啟與每天的上限',
     },
     storage: {
       profile: { label: '瀏覽器設定檔（各平台的登入）', note: '清除後各平台都要重新登入' },
@@ -36,6 +37,8 @@ const zhHant: Translation<SocialText> = {
     platformEnabled: (name: string) => `${name}：開啟`,
     autoscrollEnabled: { title: '每日自動瀏覽', description: '每天依設定的時間讀取貼文，讀完後 Coo 告訴你摘要' },
     autoscrollMaxMinutes: { title: '每項最長時間', description: '每日自動瀏覽的每一項最多花費多少分鐘' },
+    commentsEnabled: { title: '留言草稿', description: '你請 Coo 留言時，它為 Reddit 的貼文或留言起草留言；每一則都由你自己發布' },
+    commentsPerDay: { title: '每天的留言數', description: '一天最多能發布幾則 Coo 起草的留言' },
   },
 
   sources: { feed: '首頁推薦', search: '搜尋', account: '帳號', community: '社群' },
@@ -130,6 +133,41 @@ const zhHant: Translation<SocialText> = {
       if (m < 60) return `${m} 分鐘`;
       return `${Math.floor(m / 60)} 小時 ${m % 60} 分鐘`;
     },
+  },
+
+  comments: {
+    waitingTitle: '等你處理的留言',
+    waitingDesc: 'Coo 起草的留言。按下「發布」才會用你的 Reddit 登入發布。',
+    replyTo: '回覆',
+    draftedAt: (when: string) => `起草於 ${when}`,
+    post: '發布',
+    posting: '正在發布…',
+    discard: '捨棄',
+    posted: '已發布',
+
+    title: '留言',
+    desc: '你請 Coo 留言時，它為 Reddit 的貼文或留言起草留言。草稿顯示在本頁最上方，由你修改、發布或捨棄。',
+    enabled: '留言草稿',
+    enabledCheck: '允許 Coo 起草留言',
+    enabledHint: '留言透過 Coo 的瀏覽器、用你的 Reddit 登入發布。Reddit 的規則不允許自動發文，只發布你自己也會寫的留言。',
+    perDay: '每天最多',
+    perDaySuffix: '則',
+    today: (n: number) => `今天已發布 ${n} 則`,
+    recent: '已發布的留言',
+    when: '時間',
+    on: '回覆',
+    comment: '留言',
+    edited: '（修改後發布）',
+    nonePosted: '還沒有發布過留言。',
+
+    gone: '這份草稿已經不在了。',
+    empty: '留言是空的。',
+    tooLong: (max: number) => `Reddit 的留言最多 ${max} 字。`,
+    dayFull: (max: number) => `今天已經發布 ${max} 則，達到下方設定的每日上限。`,
+    login: 'Reddit 需要登入：在「平台」裡按下 Reddit 旁的「登入」，登入後再發布。',
+    blocked: (detail: string) => `Reddit 拒絕了請求${detail ? `（${detail}）` : ''}，請稍後再試。`,
+    refused: (detail: string) => `Reddit 沒有接受這則留言：${detail}`,
+    timeUp: 'Reddit 沒有及時回應，留言可能已經發布。再次發布前，先到貼文裡查看。',
   },
 };
 

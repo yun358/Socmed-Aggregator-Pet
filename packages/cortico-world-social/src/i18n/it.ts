@@ -8,7 +8,7 @@ const it: Translation<SocialText> = {
     label: 'Social media',
     browser: 'Browser',
     browserMissing: 'Nessun Chrome, Edge, Brave o Chromium trovato',
-    panel: { title: 'Social media', description: 'Limiti alla lettura di Coo, accessi, scorrimento automatico giornaliero e contatore totale' },
+    panel: { title: 'Social media', description: 'Limiti alla lettura di Coo, accessi, scorrimento automatico giornaliero, bozze di commenti e contatore totale' },
     envPrompt: { title: 'Social media', description: 'Dice a Coo quali piattaforme può leggere, i limiti per richiesta e come vengono trattate le immagini' },
     vars: {
       'social.platforms': 'Le piattaforme attive',
@@ -16,6 +16,7 @@ const it: Translation<SocialText> = {
       'social.maxSec': 'Secondi per richiesta',
       'social.images': 'Come vengono trattate le immagini',
       'social.autoscroll': 'Le attività dello scorrimento automatico giornaliero',
+      'social.comments': 'Se le bozze di commenti sono attive, e il limite giornaliero',
     },
     storage: {
       profile: { label: 'Profilo del browser (accessi alle piattaforme)', note: 'Dopo, ogni piattaforma richiede un nuovo accesso' },
@@ -36,6 +37,8 @@ const it: Translation<SocialText> = {
     platformEnabled: (name: string) => `${name}: attivo`,
     autoscrollEnabled: { title: 'Scorrimento automatico giornaliero', description: 'Legge post ogni giorno agli orari impostati; poi Coo ti fa un riassunto' },
     autoscrollMaxMinutes: { title: 'Minuti per attività', description: "Il numero massimo di minuti di un'attività dello scorrimento automatico giornaliero" },
+    commentsEnabled: { title: 'Bozze di commenti', description: 'Quando lo chiedi, Coo scrive bozze di commenti a post o commenti di Reddit; ognuna viene pubblicata solo quando la pubblichi tu' },
+    commentsPerDay: { title: 'Commenti al giorno', description: 'Quanti commenti scritti da Coo si possono pubblicare al massimo in un giorno' },
   },
 
   sources: { feed: 'Feed', search: 'Ricerca', account: 'Account', community: 'Community' },
@@ -131,6 +134,41 @@ const it: Translation<SocialText> = {
       if (m < 60) return `${m} min`;
       return `${Math.floor(m / 60)} h ${m % 60} min`;
     },
+  },
+
+  comments: {
+    waitingTitle: 'Commenti in attesa',
+    waitingDesc: 'Scritti da Coo. Ognuno viene pubblicato con il tuo accesso a Reddit solo quando fai clic su «Pubblica».',
+    replyTo: 'Risposta a',
+    draftedAt: (when: string) => `Scritto il ${when}`,
+    post: 'Pubblica',
+    posting: 'Pubblicazione…',
+    discard: 'Scarta',
+    posted: 'Pubblicato',
+
+    title: 'Commenti',
+    desc: 'Quando chiedi a Coo di commentare, Coo scrive la bozza di un commento a un post o a un commento di Reddit. Le bozze compaiono in cima a questa pagina, dove le modifichi, le pubblichi o le scarti.',
+    enabled: 'Bozze',
+    enabledCheck: 'Permetti a Coo di scrivere bozze di commenti',
+    enabledHint: 'I commenti vengono pubblicati dal browser di Coo con il tuo accesso a Reddit. Le regole di Reddit non consentono la pubblicazione automatica: pubblica solo ciò che scriveresti tu.',
+    perDay: 'Al giorno, al massimo',
+    perDaySuffix: 'commenti',
+    today: (n: number) => `Pubblicati oggi: ${n}`,
+    recent: 'Commenti pubblicati',
+    when: 'Quando',
+    on: 'Risposta a',
+    comment: 'Commento',
+    edited: '(modificato prima di pubblicarlo)',
+    nonePosted: 'Nessun commento pubblicato finora.',
+
+    gone: 'Questa bozza non è più in attesa.',
+    empty: 'Il commento è vuoto.',
+    tooLong: (max: number) => `Reddit accetta al massimo ${max} caratteri.`,
+    dayFull: (max: number) => `Oggi sono già stati pubblicati ${max} commenti, il limite giornaliero impostato qui sotto.`,
+    login: "Reddit richiede l'accesso: fai clic su «Accedi» accanto a Reddit in «Piattaforme», poi pubblica di nuovo.",
+    blocked: (detail: string) => `Reddit ha rifiutato la richiesta${detail ? ` (${detail})` : ''}; riprova più tardi.`,
+    refused: (detail: string) => `Reddit non ha accettato il commento: ${detail}`,
+    timeUp: 'Reddit non ha risposto in tempo, e il commento potrebbe essere già pubblicato. Controlla il post prima di pubblicare di nuovo.',
   },
 };
 

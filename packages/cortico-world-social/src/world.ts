@@ -4,6 +4,7 @@
  * turn of the bot: what every `social_*` read in that turn used is added up and checked against
  * `maxPosts` and `maxSec`, and starts again from nothing when the turn ends. The daily autoscroll
  * runs here, outside any turn, and tells the bot when a run's posts are ready, once it is idle.
+ * Comments the bot drafts wait for the person on the panel, which alone posts them (`comments.ts`).
  */
 import { existsSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
@@ -15,7 +16,8 @@ import type { DeepPartial } from 'cortico/world.ts';
 import { DigestStore, digestId, dueJobs, jobKey, localClock, type Digest } from './autoscroll.ts';
 import { BrowserBusy, BrowserMissing, Interrupted, LoginWindowOpen, SocialBrowser, TimeUp, type PageLimits, type PageSession } from './browser.ts';
 import { Collector, Deadline, PlatformBlocked, type StopReason } from './collect.ts';
-import { MAX_JOBS, JOB_POSTS_CAP, MAX_POSTS_CAP, MAX_SEC_CAP, SOCIAL_ID, SOURCE_KINDS, parseJobs, socialConfigGroup, type AutoscrollJob, type ImageMode, type SocialConfigSection } from './config.ts';
+import { CommentRefused, CommentStore, DRAFTS_MAX, type CommentDraft, type PostedComment } from './comments.ts';
+import { COMMENTS_PER_DAY_CAP, MAX_JOBS, JOB_POSTS_CAP, MAX_POSTS_CAP, MAX_SEC_CAP, SOCIAL_ID, SOURCE_KINDS, parseJobs, socialConfigGroup, type AutoscrollJob, type ImageMode, type SocialConfigSection } from './config.ts';
 import { findBrowser } from './find-browser.ts';
 import { socialText, type SocialText } from './i18n/index.ts';
 import { readImages } from './images.ts';
@@ -24,6 +26,7 @@ import { MODEL_TEXT, type Limits, type ModelLanguage, type ModelText } from './m
 import { Ocr, ocrLanguagesFor } from './ocr.ts';
 import { ADAPTERS, platformOf, type Adapter, type BrowseRequest, type TranscriptResult } from './platforms/index.ts';
 import { bilibiliVideoId } from './platforms/bilibili-parse.ts';
+import { REDDIT_COMMENT_MAX, postRedditComment, redditReplyTarget } from './platforms/reddit.ts';
 import { youtubeVideoId } from './platforms/youtube-parse.ts';
 import { PLATFORM_IDS, VIDEO_PLATFORMS, type PlatformId, type Post, type Transcript } from './posts.ts';
 import { COMMENT_TEXT_MAX, localStamp, oneLine, renderPage, renderPost, renderTranscript } from './render.ts';
@@ -48,6 +51,10 @@ const READ_TEXT_MAX = 20000;
 const LOGIN_CHECK_MS = 20_000;
 /** Transcripts kept for `from_sec` follow-ups without reloading the video. */
 const TRANSCRIPT_CACHE = 4;
+/** Time posting one comment may take. */
+const POST_MS = 30_000;
+/** Posted comments the panel lists. */
+const POSTED_SHOWN = 10;
 
 export interface SocialWorldOptions {
   /** The live `worlds.social` section; every key is read at use. */
@@ -62,6 +69,8 @@ export interface SocialWorldOptions {
   modelLanguage?(): ModelLanguage;
   /** The app language: OCR languages follow it. */
   language?(): Language;
+  /** Brings up the panel where a new draft waits for the person. */
+  showDrafts?(): void;
   /** Tests lend a browser and OCR of their own. */
   browser?: SocialBrowser;
   ocr?: Ocr;
@@ -74,6 +83,7 @@ export interface SocialPanelState {
     maxPosts: number; maxSec: number; images: ImageMode; maxTranscriptChars: number; showBrowser: boolean; browserFile: string;
     platforms: Record<PlatformId, boolean>;
     autoscroll: { enabled: boolean; maxMinutes: number };
+    comments: { enabled: boolean; maxPerDay: number };
   };
   jobs: AutoscrollJob[];
   /** The browser that will be run, null when none is found. */
@@ -84,7 +94,16 @@ export interface SocialPanelState {
   digests: ReturnType<DigestStore['list']>;
   /** The job running now. */
   running: string | null;
-  caps: { maxPosts: number; maxSec: number; jobPosts: number; jobs: number };
+  comments: {
+    drafts: CommentDraft[];
+    /** The last posted, newest first. */
+    posted: PostedComment[];
+    /** Posted today, by the local date. */
+    today: number;
+    /** Drafts being posted now. */
+    posting: string[];
+  };
+  caps: { maxPosts: number; maxSec: number; jobPosts: number; jobs: number; commentsPerDay: number };
 }
 
 /** What reading a call's images gave: the images to attach, and why OCR could not run, if it could not. */
@@ -100,6 +119,8 @@ interface Gathered extends ImagesFound {
 }
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : '');
+/** An error's first line without terminal colors; Playwright adds a call log on further lines. */
+const firstLine = (err: unknown): string => String((err as Error)?.message ?? err).replace(/\u001b\[[\d;]*m/g, '').split('\n')[0].trim();
 const int = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? Math.floor(v) : undefined);
 
 export class SocialWorld implements World {
@@ -122,6 +143,9 @@ export class SocialWorld implements World {
   private readonly ocr: Ocr;
   private readonly lifetime: Lifetime;
   private readonly digests: DigestStore;
+  private readonly comments: CommentStore;
+  /** Drafts being posted now; posting or discarding one of them is refused until that ends. */
+  private readonly posting = new Set<string>();
 
   constructor(private readonly opts: SocialWorldOptions) {
     this.browser = opts.browser ?? new SocialBrowser({
@@ -134,6 +158,7 @@ export class SocialWorld implements World {
     this.ocr = opts.ocr ?? new Ocr({ dataDir: opts.ocrDir });
     this.lifetime = new Lifetime(join(opts.dataDir, `${SOCIAL_ID}-lifetime.json`), this.now, (m) => this.host?.log.warn(m));
     this.digests = new DigestStore(join(opts.dataDir, `${SOCIAL_ID}-digests`));
+    this.comments = new CommentStore(join(opts.dataDir, `${SOCIAL_ID}-comments.json`), this.now, (m) => this.host?.log.warn(m));
   }
 
   private get cfg(): SocialConfigSection { return this.opts.cfg; }
@@ -212,6 +237,7 @@ export class SocialWorld implements World {
       social_read: (a, s) => this.read(a, s),
       social_transcript: (a, s) => this.transcript(a, s),
       social_login: (a) => this.login(a),
+      social_comment: async (a) => this.draftComment(a),
       social_stats: async () => this.stats(),
       social_digest: async (a) => this.digest(a),
     };
@@ -235,9 +261,7 @@ export class SocialWorld implements World {
     if (err instanceof BrowserBusy) return t.busy(err.pages);
     if (err instanceof LoginWindowOpen) return t.loginWindowOpen;
     if (err instanceof PlatformBlocked) return t.blocked(t.platform[err.platform], err.platform, err.kind, err.detail);
-    // Playwright adds a call log on further lines, with terminal colors
-    const message = String((err as Error)?.message ?? err).replace(/\u001b\[[\d;]*m/g, '').split('\n')[0].trim();
-    return t.error(message);
+    return t.error(firstLine(err));
   }
 
   /** A platform argument the person allows, or the receipt that refuses it. */
@@ -462,6 +486,72 @@ export class SocialWorld implements World {
     return t.loginOpened(t.platform[platform]);
   }
 
+  /* ---------- comments ---------- */
+
+  /** A draft for the person to post, after the checks a post would fail later; the panel is brought up. */
+  private draftComment(args: Record<string, unknown>): string {
+    const t = this.t;
+    const notRun = (why: string) => t.notRun('social_comment', why);
+    if (!this.cfg.comments.enabled) return notRun(t.commentsOff);
+    const url = str(args.url).trim();
+    const owner = platformOf(url);
+    if (owner !== 'reddit') return notRun(owner ? t.commentRedditOnly : t.notPlatformUrl);
+    const picked = this.platformArg('social_comment', owner);
+    if ('refusal' in picked) return picked.refusal;
+    const target = redditReplyTarget(url);
+    if (!target) return notRun(ADAPTERS.reddit.shareLink?.(new URL(url)) ? t.commentShareLink : t.commentNoTarget);
+    const text = str(args.text).trim();
+    if (!text) return notRun(t.commentEmpty);
+    if (text.length > REDDIT_COMMENT_MAX) return notRun(t.commentTooLong(REDDIT_COMMENT_MAX));
+    if (this.comments.drafts().length >= DRAFTS_MAX) return notRun(t.commentDraftsFull(DRAFTS_MAX));
+    if (this.comments.today(this.opts.timezone) >= this.cfg.comments.maxPerDay) return notRun(t.commentDayFull(this.cfg.comments.maxPerDay));
+    const draft = this.comments.add({ platform: owner, url, target, text });
+    this.opts.showDrafts?.();
+    return t.commentDrafted(draft.id);
+  }
+
+  /**
+   * Posts draft `id` with the text the person left in it, and tells the bot. A failure is worded for
+   * the panel and keeps the draft for another try.
+   */
+  private async postComment(id: unknown, text: unknown, s: SocialText['comments'], p: SocialText['panel']): Promise<void> {
+    const draft = typeof id === 'string' ? this.comments.draft(id) : undefined;
+    if (!draft) throw new Error(s.gone);
+    if (this.posting.has(draft.id)) throw new Error(s.posting);
+    const body = str(text).trim();
+    if (!body) throw new Error(s.empty);
+    if (body.length > REDDIT_COMMENT_MAX) throw new Error(s.tooLong(REDDIT_COMMENT_MAX));
+    if (!this.cfg.platforms[draft.platform]?.enabled) throw new Error(p.platformOff(socialText(this.opts.language?.() ?? 'zh').platforms[draft.platform]));
+    if (this.comments.today(this.opts.timezone) + this.posting.size >= this.cfg.comments.maxPerDay) throw new Error(s.dayFull(this.cfg.comments.maxPerDay));
+    this.posting.add(draft.id);
+    let link: string | null;
+    try {
+      ({ link } = await this.browser.withPage((page) => postRedditComment(page, draft.target, body), this.pageLimits(new Deadline(POST_MS, this.now))));
+    } catch (err) {
+      if (err instanceof PlatformBlocked) throw new Error(err.kind === 'login' ? s.login : s.blocked(err.detail));
+      if (err instanceof CommentRefused) throw new Error(s.refused(err.detail));
+      if (err instanceof TimeUp) throw new Error(s.timeUp);
+      // the panel words these three itself
+      if (err instanceof BrowserMissing || err instanceof BrowserBusy || err instanceof LoginWindowOpen) throw err;
+      throw new Error(firstLine(err));
+    } finally {
+      this.posting.delete(draft.id);
+    }
+    const edited = body !== draft.text;
+    this.comments.record(draft.id, { platform: draft.platform, url: draft.url, link, text: body, edited });
+    await this.push(`${SOCIAL_ID}.comment`, this.t.commentPosted(draft.url, link, edited ? oneLine(body, COMMENT_TEXT_MAX) : null), 'flush', 'internal')
+      .catch((err: Error) => this.host?.log.warn(`social event not sent: ${err.message}`));
+  }
+
+  /** Throws away draft `id` and tells the bot with the next batch. */
+  private async discardComment(id: unknown, s: SocialText['comments']): Promise<void> {
+    if (typeof id === 'string' && this.posting.has(id)) throw new Error(s.posting);
+    const draft = typeof id === 'string' ? this.comments.remove(id) : undefined;
+    if (!draft) throw new Error(s.gone);
+    await this.push(`${SOCIAL_ID}.comment`, this.t.commentDiscarded(draft.url), 'piggyback', 'internal')
+      .catch((err: Error) => this.host?.log.warn(`social event not sent: ${err.message}`));
+  }
+
   /** After a login window closes: whether a login holds, told to the bot (with the next batch when the person opened it). */
   private async loginClosed(platform: PlatformId, fromPanel: boolean): Promise<void> {
     let holds = false;
@@ -634,6 +724,7 @@ export class SocialWorld implements World {
       'social.maxSec': String(this.cfg.maxSec),
       'social.images': t.envImages[this.cfg.images],
       'social.autoscroll': t.envAutoscroll(this.jobLines()),
+      'social.comments': t.envComments(this.cfg.comments.enabled, this.cfg.comments.maxPerDay),
     };
   }
 
@@ -651,6 +742,7 @@ export class SocialWorld implements World {
         maxPosts: c.maxPosts, maxSec: c.maxSec, images: c.images, maxTranscriptChars: c.maxTranscriptChars, showBrowser: c.showBrowser, browserFile: c.browserFile,
         platforms: Object.fromEntries(PLATFORM_IDS.map((p) => [p, c.platforms[p]?.enabled !== false])) as Record<PlatformId, boolean>,
         autoscroll: { enabled: c.autoscroll.enabled, maxMinutes: c.autoscroll.maxMinutes },
+        comments: { enabled: c.comments.enabled, maxPerDay: c.comments.maxPerDay },
       },
       jobs: this.jobs(),
       browser: findBrowser(c.browserFile),
@@ -659,7 +751,8 @@ export class SocialWorld implements World {
       lifetime: this.lifetime.snapshot(),
       digests: this.digests.list(10),
       running: this.running,
-      caps: { maxPosts: MAX_POSTS_CAP, maxSec: MAX_SEC_CAP, jobPosts: JOB_POSTS_CAP, jobs: MAX_JOBS },
+      comments: { drafts: this.comments.drafts(), posted: this.comments.posted(POSTED_SHOWN), today: this.comments.today(this.opts.timezone), posting: [...this.posting] },
+      caps: { maxPosts: MAX_POSTS_CAP, maxSec: MAX_SEC_CAP, jobPosts: JOB_POSTS_CAP, jobs: MAX_JOBS, commentsPerDay: COMMENTS_PER_DAY_CAP },
     };
   }
 
@@ -668,7 +761,7 @@ export class SocialWorld implements World {
     if (panel !== 'social') throw new Error(`unknown panel ${panel}`);
     const s = socialText(language).panel;
     try {
-      return await this.panelCall(method, args, s);
+      return await this.panelCall(method, args, s, socialText(language).comments);
     } catch (err) {
       if (err instanceof BrowserMissing) throw new Error(err.configured ? s.browserFileMissing : s.browserMissing);
       if (err instanceof BrowserBusy) throw new Error(s.busy);
@@ -677,7 +770,7 @@ export class SocialWorld implements World {
     }
   }
 
-  private async panelCall(method: string, args: unknown[], s: SocialText['panel']): Promise<unknown> {
+  private async panelCall(method: string, args: unknown[], s: SocialText['panel'], c: SocialText['comments']): Promise<unknown> {
     switch (method) {
       case 'state':
         return this.panelState();
@@ -703,6 +796,12 @@ export class SocialWorld implements World {
       }
       case 'resetLifetime':
         this.lifetime.reset();
+        return this.panelState();
+      case 'commentPost':
+        await this.postComment(args[0], args[1], c, s);
+        return this.panelState();
+      case 'commentDiscard':
+        await this.discardComment(args[0], c);
         return this.panelState();
       default:
         throw new Error(`unknown method ${method}`);
@@ -743,7 +842,7 @@ export class SocialWorld implements World {
         ...c.envPrompt,
         path: this.envPromptFile(),
         role: 'envPrompt',
-        vars: ['social.platforms', 'social.maxPosts', 'social.maxSec', 'social.images', 'social.autoscroll']
+        vars: ['social.platforms', 'social.maxPosts', 'social.maxSec', 'social.images', 'social.autoscroll', 'social.comments']
           .map((name) => ({ name, description: c.vars[name] ?? name, ...(name === 'social.autoscroll' ? { multiline: true } : {}) })),
       }],
     };

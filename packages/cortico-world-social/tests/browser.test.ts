@@ -1,8 +1,9 @@
 /**
  * SocialBrowser and its pages in a real Chromium: the read's time and interruption bound every page
  * operation, resources come from the browser outside the page, logins are read from the profile's
- * cookies, a login window encrypts them as the automated browser does, and the browser closes itself
- * once no page is open. Skipped when no Chromium-based browser is installed.
+ * cookies, a login window encrypts them as the automated browser does, a comment is posted from a
+ * page with its form and headers, and the browser closes itself once no page is open. Skipped when
+ * no Chromium-based browser is installed.
  */
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -11,6 +12,7 @@ import type { BrowserContext } from 'playwright-core';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { IMAGE_ACCEPT, Interrupted, SocialBrowser, TimeUp, loginArgs, noPasswordOffer, publicHttps, type PageLimits } from '../src/browser.ts';
 import { Deadline } from '../src/collect.ts';
+import { postRedditComment } from '../src/platforms/reddit.ts';
 import { FixtureBrowser, FixtureServer, findTestBrowser, html, solidPng } from './helpers/live-browser.ts';
 
 const EXE = findTestBrowser();
@@ -185,6 +187,25 @@ describe.skipIf(!EXE)('SocialBrowser', () => {
       { name: 'elsewhere', value: '1', domain: 'otherfixture.test', path: '/', expires: later },
     ]);
     expect((await b.cookieNames('.fixture.test')).sort()).toEqual(['session', 'sub']);
+  });
+
+  it('posts a Reddit comment from a reddit.com page, sending the form with the modhash header', async () => {
+    const REDDIT = 'https://www.reddit.com';
+    const sent: Array<{ method: string; headers: Record<string, string>; body: string | null }> = [];
+    const answer = (value: unknown) => ({ body: JSON.stringify(value), contentType: 'application/json' });
+    browser.router = (u, request) => {
+      if (u.href === `${REDDIT}/robots.txt`) return { body: 'User-agent: *', contentType: 'text/plain' };
+      if (u.href === `${REDDIT}/api/me.json`) return answer({ kind: 't2', data: { name: 'fixture_alice', modhash: 'fixturehash' } });
+      if (u.href !== `${REDDIT}/api/comment`) return null;
+      sent.push({ method: request.method(), headers: request.headers(), body: request.postData() });
+      return answer({ json: { errors: [], data: { things: [{ kind: 't1', data: { id: 'def456', permalink: '/r/fixture/comments/abc123/x/def456/' } }] } } });
+    };
+    expect(await browser.withPage((page) => postRedditComment(page, 't3_abc123', 'Worth the wait.\n\nGo early.'), ample))
+      .toEqual({ link: `${REDDIT}/r/fixture/comments/abc123/x/def456/` });
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.method).toBe('POST');
+    expect(sent[0]!.headers).toMatchObject({ 'x-modhash': 'fixturehash', 'content-type': 'application/x-www-form-urlencoded' });
+    expect(Object.fromEntries(new URLSearchParams(sent[0]!.body ?? ''))).toEqual({ api_type: 'json', raw_json: '1', thing_id: 't3_abc123', text: 'Worth the wait.\n\nGo early.' });
   });
 
   it("starts a login window with the switches that choose the automated browser's cookie key", async () => {

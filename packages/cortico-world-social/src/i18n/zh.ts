@@ -5,7 +5,7 @@ const zh = {
     label: '社交媒体',
     browser: '浏览器',
     browserMissing: '没有找到 Chrome、Edge、Brave 或 Chromium',
-    panel: { title: '社交媒体', description: 'Coo 替你浏览各平台的上限、登录、每日自动浏览与累计用时' },
+    panel: { title: '社交媒体', description: 'Coo 替你浏览各平台的上限、登录、每日自动浏览、评论草稿与累计用时' },
     envPrompt: { title: '社交媒体', description: '告诉 Coo 能读取哪些平台、每次请求的上限与图片怎样处理' },
     vars: {
       'social.platforms': '开着的平台',
@@ -13,6 +13,7 @@ const zh = {
       'social.maxSec': '每次请求最多用的秒数',
       'social.images': '图片的处理方式',
       'social.autoscroll': '每日自动浏览的设置',
+      'social.comments': '评论草稿是否打开与每天的上限',
     } as Record<string, string>,
     storage: {
       profile: { label: '浏览器资料（各平台的登录）', note: '清除后各平台都要重新登录' },
@@ -33,6 +34,8 @@ const zh = {
     platformEnabled: (name: string) => `${name}：开启`,
     autoscrollEnabled: { title: '每日自动浏览', description: '每天按设置的时间读取帖子，读完后 Coo 告诉你摘要' },
     autoscrollMaxMinutes: { title: '每项最多用时', description: '每日自动浏览的每一项最多花多少分钟' },
+    commentsEnabled: { title: '评论草稿', description: '你请 Coo 评论时，它为 Reddit 的帖子或评论起草评论；每一条都由你自己发出' },
+    commentsPerDay: { title: '每天的评论数', description: '一天里最多能发出多少条 Coo 起草的评论' },
   },
 
   sources: { feed: '首页推荐', search: '搜索', account: '账号', community: '社区' },
@@ -127,6 +130,41 @@ const zh = {
       if (m < 60) return `${m} 分钟`;
       return `${Math.floor(m / 60)} 小时 ${m % 60} 分钟`;
     },
+  },
+
+  comments: {
+    waitingTitle: '等你处理的评论',
+    waitingDesc: 'Coo 起草的评论。点击「发出」才会用你的 Reddit 登录发出。',
+    replyTo: '回复',
+    draftedAt: (when: string) => `起草于 ${when}`,
+    post: '发出',
+    posting: '正在发出…',
+    discard: '丢弃',
+    posted: '已发出',
+
+    title: '评论',
+    desc: '你请 Coo 评论时，它为 Reddit 的帖子或评论起草评论。草稿显示在本页最上方，由你修改、发出或丢弃。',
+    enabled: '评论草稿',
+    enabledCheck: '允许 Coo 起草评论',
+    enabledHint: '评论通过 Coo 的浏览器、用你的 Reddit 登录发出。Reddit 的规则不允许自动发帖，只发出你自己也会写的评论。',
+    perDay: '每天最多',
+    perDaySuffix: '条',
+    today: (n: number) => `今天已发出 ${n} 条`,
+    recent: '发出的评论',
+    when: '时间',
+    on: '回复',
+    comment: '评论',
+    edited: '（修改后发出）',
+    nonePosted: '还没有发出过评论。',
+
+    gone: '这份草稿已经不在了。',
+    empty: '评论是空的。',
+    tooLong: (max: number) => `Reddit 的评论最多 ${max} 字。`,
+    dayFull: (max: number) => `今天已经发出 ${max} 条，到了下方设置的每日上限。`,
+    login: 'Reddit 需要登录：在「平台」里点击 Reddit 旁的「登录」，登录后再发出。',
+    blocked: (detail: string) => `Reddit 拒绝了请求${detail ? `（${detail}）` : ''}，请稍后再试。`,
+    refused: (detail: string) => `Reddit 没有接受这条评论：${detail}`,
+    timeUp: 'Reddit 没有及时回应，评论可能已经发出。再次发出前，先在帖子里查看。',
   },
 };
 

@@ -1,6 +1,8 @@
 /** Tool declarations; `SocialWorld.tools()` binds the handlers. Descriptions are English whatever the model-text language. */
 import type { ToolDef } from 'cortico/core/types.ts';
+import { DRAFTS_MAX } from './comments.ts';
 import { SOURCE_KINDS } from './config.ts';
+import { REDDIT_COMMENT_MAX } from './platforms/reddit.ts';
 import { PLATFORM_IDS } from './posts.ts';
 
 export const COMMENTS_MAX = 30;
@@ -60,6 +62,19 @@ export const SOCIAL_TOOL_DECLS: ReadonlyArray<Omit<ToolDef, 'handler'>> = [
         platform: { type: 'string', enum: [...PLATFORM_IDS] },
       },
       required: ['platform'],
+    },
+  },
+  {
+    name: 'social_comment',
+    tags: ['act'],
+    description: `Draft a comment on a Reddit post, or a reply to a Reddit comment, for the person to post. This call posts nothing: the draft waits on the Social media page of the settings window, where the person edits it, posts it or discards it, and an event says which. Draft only when the person asks you to comment, written as they want it said. At most ${DRAFTS_MAX} drafts wait at a time.`,
+    parameters: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'The link of the post or comment to reply to, as a receipt gave it.' },
+        text: { type: 'string', description: `The comment, in Reddit's Markdown; at most ${REDDIT_COMMENT_MAX} characters.` },
+      },
+      required: ['url', 'text'],
     },
   },
   {

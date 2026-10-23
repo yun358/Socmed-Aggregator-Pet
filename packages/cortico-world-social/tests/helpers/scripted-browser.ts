@@ -15,9 +15,12 @@ export class TestClock {
   readonly read = (): number => this.now;
 }
 
+/** What `fetchText` was asked to send besides a GET. */
+export type FetchInit = Parameters<PageSession['fetchText']>[1];
+
 export interface PageScript {
-  /** The answer to `fetchText(url)`; a 404 when absent. */
-  fetch?(url: string): FetchedText | undefined | Promise<FetchedText | undefined>;
+  /** The answer to `fetchText(url, init)`; a 404 when absent. */
+  fetch?(url: string, init?: FetchInit): FetchedText | undefined | Promise<FetchedText | undefined>;
   /** The answer to `fetchRaw(url)`; null (not fetched) when absent. */
   raw?(url: string): { bytes: Uint8Array; mime: string } | null | undefined;
   /** Where `goto(url)` ends up; `url` itself when absent. */
@@ -67,11 +70,11 @@ class ScriptedPage implements PageSession {
     return await this.browser.script.run(fn as (...args: never[]) => unknown, arg) as R;
   }
 
-  async fetchText(url: string): Promise<FetchedText> {
+  async fetchText(url: string, init?: FetchInit): Promise<FetchedText> {
     this.check();
     this.browser.requests.push(url);
     this.spend();
-    return (await this.browser.script.fetch?.(url)) ?? { status: 404, text: '' };
+    return (await this.browser.script.fetch?.(url, init)) ?? { status: 404, text: '' };
   }
 
   async fetchRaw(url: string): Promise<{ bytes: Uint8Array; mime: string } | null> {

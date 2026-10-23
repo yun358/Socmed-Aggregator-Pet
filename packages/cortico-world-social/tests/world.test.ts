@@ -1,7 +1,7 @@
 /**
  * SocialWorld without a browser: the tools, the per-request limits, refusals, blocks and
- * interruptions, the lifetime counter, the panel and the daily autoscroll. Pages are
- * `ScriptedBrowser` pages answering Reddit's and Bilibili's JSON, timed on a test clock.
+ * interruptions, the lifetime counter, the panel, the daily autoscroll and comment drafts. Pages
+ * are `ScriptedBrowser` pages answering Reddit's and Bilibili's JSON, timed on a test clock.
  */
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -14,13 +14,15 @@ import type { ToolOutcome } from 'cortico/core/types.ts';
 import { dryMountWorld } from 'cortico/extensions/dry-mount.ts';
 import { DigestStore, digestId, jobKey, localClock } from '../src/autoscroll.ts';
 import type { FetchedText } from '../src/browser.ts';
-import { JOB_POSTS_CAP, MAX_JOBS, MAX_POSTS_CAP, MAX_SEC_CAP, SOCIAL_DEFAULTS, parseJobs, type AutoscrollJob, type SocialConfigSection } from '../src/config.ts';
+import { DRAFTS_MAX } from '../src/comments.ts';
+import { COMMENTS_PER_DAY_CAP, JOB_POSTS_CAP, MAX_JOBS, MAX_POSTS_CAP, MAX_SEC_CAP, SOCIAL_DEFAULTS, parseJobs, type AutoscrollJob, type SocialConfigSection } from '../src/config.ts';
 import { SOCIAL } from '../src/definition.ts';
 import { findBrowser } from '../src/find-browser.ts';
 import { socialText } from '../src/i18n/index.ts';
 import { MODEL_TEXT, type ModelLanguage } from '../src/model-text.ts';
 import { Ocr, OcrImageError } from '../src/ocr.ts';
 import { ADAPTERS } from '../src/platforms/index.ts';
+import { REDDIT_COMMENT_MAX } from '../src/platforms/reddit.ts';
 import { PLATFORM_IDS } from '../src/posts.ts';
 import { COMMENT_TEXT_MAX, clock, localStamp } from '../src/render.ts';
 import { SOCIAL_TOOL_DECLS } from '../src/tools.ts';
@@ -547,6 +549,7 @@ describe('panel and daily autoscroll', () => {
         maxPosts: cfg.maxPosts, maxSec: cfg.maxSec, images: cfg.images, maxTranscriptChars: cfg.maxTranscriptChars, showBrowser: cfg.showBrowser, browserFile: cfg.browserFile,
         platforms: Object.fromEntries(PLATFORM_IDS.map((p) => [p, true])),
         autoscroll: { enabled: cfg.autoscroll.enabled, maxMinutes: cfg.autoscroll.maxMinutes },
+        comments: { enabled: cfg.comments.enabled, maxPerDay: cfg.comments.maxPerDay },
       },
       jobs: [],
       browser: findBrowser(cfg.browserFile),
@@ -555,7 +558,8 @@ describe('panel and daily autoscroll', () => {
       lifetime: expect.objectContaining({ sinceAt: expect.any(String) }),
       digests: [],
       running: null,
-      caps: { maxPosts: MAX_POSTS_CAP, maxSec: MAX_SEC_CAP, jobPosts: JOB_POSTS_CAP, jobs: MAX_JOBS },
+      comments: { drafts: [], posted: [], today: 0, posting: [] },
+      caps: { maxPosts: MAX_POSTS_CAP, maxSec: MAX_SEC_CAP, jobPosts: JOB_POSTS_CAP, jobs: MAX_JOBS, commentsPerDay: COMMENTS_PER_DAY_CAP },
     });
   });
 
@@ -672,6 +676,7 @@ describe('environment prompt', () => {
       'social.maxSec': String(cfg.maxSec),
       'social.images': t.envImages.skip,
       'social.autoscroll': t.envAutoscroll([]),
+      'social.comments': t.envComments(cfg.comments.enabled, cfg.comments.maxPerDay),
     });
     const doc = world.webUi('en').promptDocs![0]!;
     expect(doc.vars?.map((v) => v.name).sort()).toEqual(Object.keys(vars).sort());
@@ -686,6 +691,13 @@ describe('environment prompt', () => {
     expect((await world.envPromptVars())['social.autoscroll']).toBe(t.envAutoscroll([]));
     cfg.autoscroll.enabled = true;
     expect((await world.envPromptVars())['social.autoscroll']).toBe(t.envAutoscroll([t.jobLine('08:30', 'YouTube', t.source('search', 'fixture news'), 10, false)]));
+  });
+
+  it('says whether comment drafts are on, with the daily limit', async () => {
+    const { world, cfg } = await makeWorld({}, (c) => { c.comments.maxPerDay = 4; });
+    expect((await world.envPromptVars())['social.comments']).toBe(t.envComments(false, 4));
+    cfg.comments.enabled = true;
+    expect((await world.envPromptVars())['social.comments']).toBe(t.envComments(true, 4));
   });
 });
 
@@ -719,5 +731,147 @@ describe('model language', () => {
     expect((await call('social_browse', { platform: 'reddit', source: 'search' })).text).toBe(t.notRun('social_browse', t.needQuery));
     language = 'zh';
     expect((await call('social_browse', { platform: 'reddit', source: 'search' })).text).toBe(MODEL_TEXT.zh.notRun('social_browse', MODEL_TEXT.zh.needQuery));
+  });
+});
+
+describe('comments', () => {
+  const POST = postUrl('r1');
+  const ME = `${REDDIT}/api/me.json`;
+  const COMMENT = `${REDDIT}/api/comment`;
+  const c = socialText('en').comments;
+  const linkOf = (n: number) => `${REDDIT}/r/fixture/comments/r1/fixture_r1/k${n}/`;
+  /** Reddit with a login: keeps the text of each comment posted and answers the nth as `answer(n)` says. */
+  const commenting = (answer = (n: number): FetchedText => json({ json: { errors: [], data: { things: [{ kind: 't1', data: { id: `k${n}`, link_id: 't3_r1', permalink: `/r/fixture/comments/r1/fixture_r1/k${n}/` } }] } } })) => {
+    const sent: string[] = [];
+    const script: PageScript = {
+      fetch: (url, init) => {
+        if (url === ME) return json({ kind: 't2', data: { name: 'fixture_alice', modhash: 'fixturehash' } });
+        if (url !== COMMENT) return undefined;
+        sent.push(new URLSearchParams(init?.body).get('text') ?? '');
+        return answer(sent.length);
+      },
+    };
+    return { script, sent };
+  };
+  const on = (cfg: SocialConfigSection) => { cfg.comments.enabled = true; };
+  const draftIds = async (made: Made) => (await made.panel('state')).comments.drafts.map((d) => d.id);
+
+  it('drafts nothing while drafting is off', async () => {
+    const made = await makeWorld();
+    expect((await made.call('social_comment', { url: POST, text: 'Worth the wait.' })).text).toBe(t.notRun('social_comment', t.commentsOff));
+    expect(await draftIds(made)).toEqual([]);
+  });
+
+  it('keeps a draft for the person and brings up the panel once, posting nothing', async () => {
+    let shown = 0;
+    const { script, sent } = commenting();
+    const made = await makeWorld(script, on, { showDrafts: () => { shown++; } });
+    const r = await made.call('social_comment', { url: POST, text: '  Worth the wait.  ' });
+    const { drafts } = (await made.panel('state')).comments;
+    expect(drafts).toMatchObject([{ platform: 'reddit', url: POST, target: 't3_r1', text: 'Worth the wait.' }]);
+    expect(r.text).toBe(t.commentDrafted(drafts[0]!.id));
+    expect(shown).toBe(1);
+    expect(sent).toEqual([]);
+    expect(made.browser.requests).toEqual([]);
+  });
+
+  it('refuses another platform, a link elsewhere, a share link, an empty or too long text, and drafts past their limit', async () => {
+    const made = await makeWorld({}, on);
+    const refused = async (args: Record<string, unknown>) => (await made.call('social_comment', args)).text;
+    expect(await refused({ url: 'https://www.youtube.com/watch?v=aaaaaaaaaaa', text: 'x' })).toBe(t.notRun('social_comment', t.commentRedditOnly));
+    expect(await refused({ url: 'https://fixture.test/post/1', text: 'x' })).toBe(t.notRun('social_comment', t.notPlatformUrl));
+    expect(await refused({ url: `${REDDIT}/r/fixture/s/AbCdEf123`, text: 'x' })).toBe(t.notRun('social_comment', t.commentShareLink));
+    expect(await refused({ url: `${REDDIT}/r/fixture/`, text: 'x' })).toBe(t.notRun('social_comment', t.commentNoTarget));
+    expect(await refused({ url: 'javascript://www.reddit.com/r/fixture/comments/r1/x/%0Aalert(1)', text: 'x' })).toBe(t.notRun('social_comment', t.commentNoTarget));
+    expect(await refused({ url: POST, text: '   ' })).toBe(t.notRun('social_comment', t.commentEmpty));
+    expect(await refused({ url: POST, text: 'x'.repeat(REDDIT_COMMENT_MAX + 1) })).toBe(t.notRun('social_comment', t.commentTooLong(REDDIT_COMMENT_MAX)));
+    for (let i = 0; i < DRAFTS_MAX; i++) await made.call('social_comment', { url: POST, text: `draft ${i}` });
+    expect(await refused({ url: POST, text: 'one more' })).toBe(t.notRun('social_comment', t.commentDraftsFull(DRAFTS_MAX)));
+    expect(await draftIds(made)).toHaveLength(DRAFTS_MAX);
+  });
+
+  it('refuses a draft on Reddit while Reddit is turned off', async () => {
+    const made = await makeWorld({}, (cfg) => { on(cfg); cfg.platforms.reddit.enabled = false; });
+    expect((await made.call('social_comment', { url: POST, text: 'x' })).text).toBe(t.notRun('social_comment', t.platformOff('Reddit')));
+  });
+
+  it('posts the text the person left in the draft, tells the bot at once and lists the comment', async () => {
+    const { script, sent } = commenting();
+    const made = await makeWorld(script, on);
+    await made.call('social_comment', { url: POST, text: 'Worth the wait.' });
+    const [id] = await draftIds(made);
+    const state = await made.panel('commentPost', id, ' Worth the wait, honestly. ');
+    expect(sent).toEqual(['Worth the wait, honestly.']);
+    expect(state.comments.drafts).toEqual([]);
+    expect(state.comments.posted).toMatchObject([{ platform: 'reddit', url: POST, link: linkOf(1), text: 'Worth the wait, honestly.', edited: true }]);
+    expect(state.comments.today).toBe(1);
+    expect(made.host.events).toMatchObject([{ type: 'social.comment', origin: 'internal', text: t.commentPosted(POST, linkOf(1), 'Worth the wait, honestly.') }]);
+    expect(made.host.pushOpts).toEqual([{ trigger: 'flush' }]);
+  });
+
+  it('says nothing of an edit when the person posts the draft as written', async () => {
+    const { script } = commenting();
+    const made = await makeWorld(script, on);
+    await made.call('social_comment', { url: POST, text: 'Worth the wait.' });
+    const [id] = await draftIds(made);
+    expect((await made.panel('commentPost', id, 'Worth the wait.')).comments.posted[0]!.edited).toBe(false);
+    expect(made.host.events[0]!.text).toBe(t.commentPosted(POST, linkOf(1), null));
+  });
+
+  it('tells the bot of a discarded draft with the next batch', async () => {
+    const { script, sent } = commenting();
+    const made = await makeWorld(script, on);
+    await made.call('social_comment', { url: POST, text: 'Worth the wait.' });
+    const [id] = await draftIds(made);
+    expect((await made.panel('commentDiscard', id)).comments.drafts).toEqual([]);
+    expect(sent).toEqual([]);
+    expect(made.host.events).toMatchObject([{ type: 'social.comment', text: t.commentDiscarded(POST) }]);
+    expect(made.host.pushOpts).toEqual([{ trigger: 'piggyback' }]);
+    await expect(made.panel('commentPost', id, 'Worth the wait.')).rejects.toThrow(c.gone);
+  });
+
+  it("keeps a draft Reddit turned down and gives Reddit's reason in the panel's words", async () => {
+    const { script } = commenting(() => json({ json: { errors: [['THREAD_LOCKED', 'Comments are locked.', 'parent']] } }));
+    const made = await makeWorld(script, on);
+    await made.call('social_comment', { url: POST, text: 'Worth the wait.' });
+    const [id] = await draftIds(made);
+    await expect(made.panel('commentPost', id, 'Worth the wait.')).rejects.toThrow(c.refused('THREAD_LOCKED: Comments are locked.'));
+    expect(await draftIds(made)).toEqual([id]);
+    expect(made.host.events).toEqual([]);
+  });
+
+  it('asks for a Reddit login in the panel when the browser has none', async () => {
+    const made = await makeWorld(site({ [ME]: () => json({}) }), on);
+    await made.call('social_comment', { url: POST, text: 'Worth the wait.' });
+    const [id] = await draftIds(made);
+    await expect(made.panel('commentPost', id, 'Worth the wait.')).rejects.toThrow(c.login);
+    expect(made.browser.requests).not.toContain(COMMENT);
+  });
+
+  it('stops at the daily limit, both drafting and posting', async () => {
+    const { script, sent } = commenting();
+    const made = await makeWorld(script, (cfg) => { on(cfg); cfg.comments.maxPerDay = 1; });
+    await made.call('social_comment', { url: POST, text: 'one' });
+    await made.call('social_comment', { url: POST, text: 'two' });
+    const [a, b] = await draftIds(made);
+    await made.panel('commentPost', a, 'one');
+    await expect(made.panel('commentPost', b, 'two')).rejects.toThrow(c.dayFull(1));
+    expect((await made.call('social_comment', { url: POST, text: 'three' })).text).toBe(t.notRun('social_comment', t.commentDayFull(1)));
+    expect(sent).toEqual(['one']);
+  });
+
+  it('keeps drafts and the posted comments across a restart', async () => {
+    const { script } = commenting();
+    const first = await makeWorld(script, on);
+    await first.call('social_comment', { url: POST, text: 'one' });
+    await first.call('social_comment', { url: POST, text: 'two' });
+    const [a, b] = await draftIds(first);
+    await first.panel('commentPost', a, 'one');
+    await first.world.stop();
+    const again = await makeWorld(script, on, { dataDir: first.dataDir });
+    const { comments } = await again.panel('state');
+    expect(comments.drafts.map((d) => d.id)).toEqual([b]);
+    expect(comments.posted.map((p) => p.text)).toEqual(['one']);
+    expect(comments.today).toBe(1);
   });
 });

@@ -8,7 +8,7 @@ const fr: Translation<SocialText> = {
     label: 'Réseaux sociaux',
     browser: 'Navigateur',
     browserMissing: 'Aucun Chrome, Edge, Brave ni Chromium trouvé',
-    panel: { title: 'Réseaux sociaux', description: 'Limites de lecture de Coo, connexions, défilement automatique quotidien et compteur cumulé' },
+    panel: { title: 'Réseaux sociaux', description: 'Limites de lecture de Coo, connexions, défilement automatique quotidien, brouillons de commentaires et compteur cumulé' },
     envPrompt: { title: 'Réseaux sociaux', description: "Indique à Coo les plateformes qu'il peut lire, les limites par demande et le traitement des images" },
     vars: {
       'social.platforms': 'Les plateformes activées',
@@ -16,6 +16,7 @@ const fr: Translation<SocialText> = {
       'social.maxSec': 'Secondes par demande',
       'social.images': 'Le traitement des images',
       'social.autoscroll': 'Les tâches du défilement automatique quotidien',
+      'social.comments': 'Brouillons de commentaires activés ou non, et limite quotidienne',
     },
     storage: {
       profile: { label: 'Profil du navigateur (connexions aux plateformes)', note: 'Chaque plateforme demande ensuite une nouvelle connexion' },
@@ -36,6 +37,8 @@ const fr: Translation<SocialText> = {
     platformEnabled: (name: string) => `${name} : activé`,
     autoscrollEnabled: { title: 'Défilement automatique quotidien', description: 'Lit des publications chaque jour aux heures fixées ; Coo vous en donne ensuite un résumé' },
     autoscrollMaxMinutes: { title: 'Minutes par tâche', description: 'Le nombre maximal de minutes que prend une tâche du défilement automatique quotidien' },
+    commentsEnabled: { title: 'Brouillons de commentaires', description: "À votre demande, Coo rédige des commentaires sur des publications ou des commentaires Reddit ; chacun n'est publié que lorsque vous le publiez vous-même" },
+    commentsPerDay: { title: 'Commentaires par jour', description: 'Le nombre maximal de commentaires rédigés par Coo qui peuvent être publiés en un jour' },
   },
 
   sources: { feed: "Fil d'actualité", search: 'Recherche', account: 'Compte', community: 'Communauté' },
@@ -130,6 +133,41 @@ const fr: Translation<SocialText> = {
       if (m < 60) return `${m} min`;
       return `${Math.floor(m / 60)} h ${m % 60} min`;
     },
+  },
+
+  comments: {
+    waitingTitle: 'Commentaires en attente',
+    waitingDesc: 'Rédigés par Coo. Chacun est publié avec votre compte Reddit seulement quand vous cliquez sur « Publier ».',
+    replyTo: 'Réponse à',
+    draftedAt: (when: string) => `Rédigé le ${when}`,
+    post: 'Publier',
+    posting: 'Publication…',
+    discard: 'Supprimer',
+    posted: 'Publié',
+
+    title: 'Commentaires',
+    desc: 'Quand vous demandez à Coo de commenter, Coo rédige un commentaire sur une publication ou un commentaire Reddit. Les brouillons apparaissent en haut de cette page, où vous les modifiez, les publiez ou les supprimez.',
+    enabled: 'Brouillons',
+    enabledCheck: 'Autoriser Coo à rédiger des commentaires',
+    enabledHint: 'Les commentaires sont publiés depuis le navigateur de Coo avec votre compte Reddit. Les règles de Reddit interdisent la publication automatisée : ne publiez que ce que vous écririez vous-même.',
+    perDay: 'Par jour, au plus',
+    perDaySuffix: 'commentaires',
+    today: (n: number) => `Publiés aujourd'hui : ${n}`,
+    recent: 'Commentaires publiés',
+    when: 'Date',
+    on: 'Réponse à',
+    comment: 'Commentaire',
+    edited: '(modifié avant publication)',
+    nonePosted: 'Aucun commentaire publié pour le moment.',
+
+    gone: "Ce brouillon n'est plus en attente.",
+    empty: 'Le commentaire est vide.',
+    tooLong: (max: number) => `Reddit accepte au plus ${max} caractères.`,
+    dayFull: (max: number) => `${max} commentaires ont été publiés aujourd'hui, la limite quotidienne réglée ci-dessous.`,
+    login: 'Reddit demande une connexion : cliquez sur « Se connecter » à côté de Reddit dans « Plateformes », puis publiez à nouveau.',
+    blocked: (detail: string) => `Reddit a refusé la requête${detail ? ` (${detail})` : ''} ; réessayez plus tard.`,
+    refused: (detail: string) => `Reddit n'a pas accepté le commentaire : ${detail}`,
+    timeUp: "Reddit n'a pas répondu à temps, et le commentaire a peut-être été publié. Vérifiez la publication avant de publier à nouveau.",
   },
 };
 

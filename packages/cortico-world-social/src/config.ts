@@ -51,12 +51,19 @@ export interface SocialConfigSection extends WorldSection {
     maxMinutes: number;
     jobs: AutoscrollJob[];
   };
+  /** Comments the bot drafts for the person to post (`comments.ts`). */
+  comments: {
+    enabled: boolean;
+    /** Comments the person may post in one day, by the local date. */
+    maxPerDay: number;
+  };
 }
 
 export const MAX_POSTS_CAP = 100;
 export const MAX_SEC_CAP = 1800;
 export const MAX_JOBS = 8;
 export const JOB_POSTS_CAP = 300;
+export const COMMENTS_PER_DAY_CAP = 50;
 
 export const SOCIAL_DEFAULTS: SocialConfigSection = {
   enabled: false,
@@ -68,6 +75,7 @@ export const SOCIAL_DEFAULTS: SocialConfigSection = {
   browserFile: '',
   platforms: Object.fromEntries(PLATFORM_IDS.map((id) => [id, { enabled: true }])) as Record<PlatformId, { enabled: boolean }>,
   autoscroll: { enabled: false, maxMinutes: 15, jobs: [] },
+  comments: { enabled: false, maxPerDay: 10 },
 };
 
 const K = `worlds.${SOCIAL_ID}`;
@@ -91,6 +99,8 @@ export function socialConfigGroup(language: Language = 'zh'): ConfigGroup {
         ...Object.fromEntries(PLATFORM_IDS.map((id) => [`${K}.platforms.${id}.enabled`, { type: 'boolean', title: c.platformEnabled(socialText(language).platforms[id]), 'x-hot': true }])),
         [`${K}.autoscroll.enabled`]: { type: 'boolean', title: c.autoscrollEnabled.title, description: c.autoscrollEnabled.description, 'x-hot': true },
         [`${K}.autoscroll.maxMinutes`]: { type: 'integer', title: c.autoscrollMaxMinutes.title, description: c.autoscrollMaxMinutes.description, minimum: 1, maximum: 120, 'x-hot': true },
+        [`${K}.comments.enabled`]: { type: 'boolean', title: c.commentsEnabled.title, description: c.commentsEnabled.description, 'x-hot': true },
+        [`${K}.comments.maxPerDay`]: { type: 'integer', title: c.commentsPerDay.title, description: c.commentsPerDay.description, minimum: 1, maximum: COMMENTS_PER_DAY_CAP, 'x-hot': true },
       },
     },
   };

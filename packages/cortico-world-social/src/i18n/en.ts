@@ -7,7 +7,7 @@ const en: SocialText = {
     label: 'Social media',
     browser: 'Browser',
     browserMissing: 'No Chrome, Edge, Brave or Chromium found',
-    panel: { title: 'Social media', description: "Limits for Coo's reading, logins, the daily autoscroll and the lifetime counter" },
+    panel: { title: 'Social media', description: "Limits for Coo's reading, logins, the daily autoscroll, comment drafts and the lifetime counter" },
     envPrompt: { title: 'Social media', description: 'Tells Coo which platforms it can read, the per-request limits and how images are handled' },
     vars: {
       'social.platforms': 'Platforms turned on',
@@ -15,6 +15,7 @@ const en: SocialText = {
       'social.maxSec': 'Seconds per request',
       'social.images': 'How images are handled',
       'social.autoscroll': 'The daily autoscroll jobs',
+      'social.comments': 'Whether comment drafts are on, and the daily limit',
     },
     storage: {
       profile: { label: 'Browser profile (platform logins)', note: 'Every platform needs a new login afterwards' },
@@ -35,6 +36,8 @@ const en: SocialText = {
     platformEnabled: (name) => `${name}: on`,
     autoscrollEnabled: { title: 'Daily autoscroll', description: 'Reads posts every day at the set times; Coo then tells you a summary' },
     autoscrollMaxMinutes: { title: 'Minutes per job', description: 'The most minutes one daily autoscroll job takes' },
+    commentsEnabled: { title: 'Comment drafts', description: 'When you ask, Coo drafts comments on Reddit posts and comments; each is posted only when you post it yourself' },
+    commentsPerDay: { title: 'Comments a day', description: 'The most comments drafted by Coo that can be posted in one day' },
   },
 
   sources: { feed: 'Feed', search: 'Search', account: 'Account', community: 'Community' },
@@ -129,6 +132,41 @@ const en: SocialText = {
       if (m < 60) return `${m} min`;
       return `${Math.floor(m / 60)} h ${m % 60} min`;
     },
+  },
+
+  comments: {
+    waitingTitle: 'Comments waiting for you',
+    waitingDesc: 'Drafted by Coo. Each goes out with your Reddit login only when you click Post.',
+    replyTo: 'Reply to',
+    draftedAt: (when) => `Drafted ${when}`,
+    post: 'Post',
+    posting: 'Posting…',
+    discard: 'Discard',
+    posted: 'Posted',
+
+    title: 'Comments',
+    desc: 'When you ask Coo to comment, it drafts a comment on a Reddit post or comment. Drafts show at the top of this page, where you edit, post or discard them.',
+    enabled: 'Drafts',
+    enabledCheck: 'Let Coo draft comments',
+    enabledHint: "Comments are posted from Coo's browser with your Reddit login. Reddit's rules don't allow automated posting, so post only what you'd write yourself.",
+    perDay: 'Each day at most',
+    perDaySuffix: 'comments',
+    today: (n) => `${n} posted today`,
+    recent: 'Posted comments',
+    when: 'When',
+    on: 'Reply to',
+    comment: 'Comment',
+    edited: '(edited before posting)',
+    nonePosted: 'No comments posted yet.',
+
+    gone: 'This draft is no longer waiting.',
+    empty: 'The comment is empty.',
+    tooLong: (max) => `Reddit takes at most ${max} characters.`,
+    dayFull: (max) => `${max} comments were posted today, the daily limit set below.`,
+    login: 'Reddit needs a login: click Log in beside Reddit under Platforms, then post again.',
+    blocked: (detail) => `Reddit refused the request${detail ? ` (${detail})` : ''}; try again later.`,
+    refused: (detail) => `Reddit didn't take the comment: ${detail}`,
+    timeUp: "Reddit didn't answer in time, and the comment may have gone out. Check the post before posting again.",
   },
 };
 

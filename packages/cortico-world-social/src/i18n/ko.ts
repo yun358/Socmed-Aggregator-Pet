@@ -8,7 +8,7 @@ const ko: Translation<SocialText> = {
     label: '소셜 미디어',
     browser: '브라우저',
     browserMissing: 'Chrome, Edge, Brave, Chromium을 찾지 못했습니다',
-    panel: { title: '소셜 미디어', description: 'Coo가 읽는 양의 한도, 로그인, 매일 자동 스크롤, 누적 시간' },
+    panel: { title: '소셜 미디어', description: 'Coo가 읽는 양의 한도, 로그인, 매일 자동 스크롤, 댓글 초안, 누적 시간' },
     envPrompt: { title: '소셜 미디어', description: 'Coo가 읽을 수 있는 플랫폼, 요청당 한도, 이미지 처리 방식을 알려 줍니다' },
     vars: {
       'social.platforms': '켜져 있는 플랫폼',
@@ -16,6 +16,7 @@ const ko: Translation<SocialText> = {
       'social.maxSec': '요청당 쓰는 시간(초)',
       'social.images': '이미지 처리 방식',
       'social.autoscroll': '매일 자동 스크롤 작업',
+      'social.comments': '댓글 초안 사용 여부와 하루 한도',
     },
     storage: {
       profile: { label: '브라우저 프로필(플랫폼 로그인)', note: '지운 뒤에는 모든 플랫폼에 다시 로그인해야 합니다' },
@@ -36,6 +37,8 @@ const ko: Translation<SocialText> = {
     platformEnabled: (name: string) => `${name}: 켜기`,
     autoscrollEnabled: { title: '매일 자동 스크롤', description: '매일 정한 시각에 게시물을 읽고, 그 뒤 Coo가 요약을 알려 줍니다' },
     autoscrollMaxMinutes: { title: '작업당 시간', description: '매일 자동 스크롤 작업 하나에 쓰는 최대 분' },
+    commentsEnabled: { title: '댓글 초안', description: '요청하면 Coo가 Reddit 게시물이나 댓글에 달 댓글의 초안을 씁니다. 각 댓글은 직접 게시할 때만 올라갑니다' },
+    commentsPerDay: { title: '하루 댓글 수', description: 'Coo가 쓴 초안을 하루에 게시할 수 있는 최대 개수' },
   },
 
   sources: { feed: '피드', search: '검색', account: '계정', community: '커뮤니티' },
@@ -130,6 +133,41 @@ const ko: Translation<SocialText> = {
       if (m < 60) return `${m}분`;
       return `${Math.floor(m / 60)}시간 ${m % 60}분`;
     },
+  },
+
+  comments: {
+    waitingTitle: '확인을 기다리는 댓글',
+    waitingDesc: 'Coo가 쓴 초안입니다. 「게시」를 클릭할 때만 내 Reddit 로그인으로 게시됩니다.',
+    replyTo: '답글 대상',
+    draftedAt: (when: string) => `${when} 작성`,
+    post: '게시',
+    posting: '게시하는 중…',
+    discard: '버리기',
+    posted: '게시했습니다',
+
+    title: '댓글',
+    desc: '댓글을 부탁하면 Coo가 Reddit 게시물이나 댓글에 달 댓글의 초안을 씁니다. 초안은 이 페이지 맨 위에 나타나며, 여기서 수정하거나 게시하거나 버릴 수 있습니다.',
+    enabled: '초안',
+    enabledCheck: 'Coo가 댓글 초안을 쓰도록 허용',
+    enabledHint: '댓글은 Coo의 브라우저에서 내 Reddit 로그인으로 게시됩니다. Reddit 규칙은 자동 게시를 허용하지 않으므로, 직접 쓸 만한 댓글만 게시하세요.',
+    perDay: '하루 최대',
+    perDaySuffix: '개',
+    today: (n: number) => `오늘 게시: ${n}개`,
+    recent: '게시한 댓글',
+    when: '시간',
+    on: '답글 대상',
+    comment: '댓글',
+    edited: '(수정 후 게시)',
+    nonePosted: '아직 게시한 댓글이 없습니다.',
+
+    gone: '이 초안은 더 이상 없습니다.',
+    empty: '댓글이 비어 있습니다.',
+    tooLong: (max: number) => `Reddit 댓글은 최대 ${max}자입니다.`,
+    dayFull: (max: number) => `오늘 이미 ${max}개를 게시해 아래에서 설정한 하루 한도에 도달했습니다.`,
+    login: 'Reddit에 로그인해야 합니다. 「플랫폼」에서 Reddit 옆의 「로그인」을 클릭해 로그인한 뒤 다시 게시하세요.',
+    blocked: (detail: string) => `Reddit이 요청을 거부했습니다${detail ? `(${detail})` : ''}. 잠시 후 다시 시도하세요.`,
+    refused: (detail: string) => `Reddit이 댓글을 받지 않았습니다: ${detail}`,
+    timeUp: 'Reddit이 제때 응답하지 않아 댓글이 이미 게시되었을 수 있습니다. 다시 게시하기 전에 게시물을 확인하세요.',
   },
 };
 

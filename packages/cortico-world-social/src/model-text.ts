@@ -104,6 +104,19 @@ const zh = {
   loginOpened: (platform: string) => `[social_login] 已在${platform}的登录页打开浏览器窗口。告诉对方在里面登录,登录完关掉窗口;之后会有事件说明登录是否生效。`,
   loginEvent: (platform: string, holds: boolean) => `[social] ${platform}的登录窗口关掉了。${holds ? '登录已生效。' : '没有发现登录。'}`,
 
+  commentDrafted: (id: string) => `[social_comment] 草稿 ${id} 在设置窗口的「社交媒体」页等对方处理:对方可以修改后发出,也可以丢弃。只有对方在那里点「发出」才会发出;事件告诉你结果之前,不要说已经发出。`,
+  commentsOff: '评论草稿在「社交媒体」页是关着的;对方可以在那里打开。',
+  commentRedditOnly: '目前只能给 Reddit 的帖子或评论起草评论。',
+  commentShareLink: '分享链接看不出指向哪条帖子。先用 social_read 打开它,再用回执里的帖子链接。',
+  commentNoTarget: '这个链接没有指向 Reddit 的帖子或评论。',
+  commentEmpty: 'text 是空的。',
+  commentTooLong: (max: number) => `评论超过了 Reddit 的 ${max} 字上限。`,
+  commentDraftsFull: (max: number) => `已经有 ${max} 份草稿在等对方处理;对方发出或丢弃一些之后才能再起草。`,
+  commentDayFull: (max: number) => `今天已经发出 ${max} 条评论,到了对方设的每日上限;对方可以在「社交媒体」页调高。`,
+  commentPosted: (url: string, link: string | null, edited: string | null) =>
+    `[social] 对方发出了你起草的评论(回复 ${url})。${edited !== null ? `发出前对方把它改成了:${edited}` : ''}${link ? `\n评论的链接:${link}` : ''}`,
+  commentDiscarded: (url: string) => `[social] 对方丢弃了你起草的评论(回复 ${url})。`,
+
   statsHead: (since: string) => `[social_stats] 自 ${since} 起在各平台读取的用时:`,
   statsLine: (platform: string, took: string, posts: number, transcripts: number, last?: string) =>
     `- ${platform}:${took},${posts} 条帖子或视频,${transcripts} 份文字稿${last ? `,上次 ${last}` : ''}`,
@@ -130,6 +143,7 @@ const zh = {
     skip: '只读文字:带图片的帖子会被略过。',
   } as Record<ImageMode, string>,
   envAutoscroll: (lines: string[]) => (lines.length ? `已设置:\n${lines.join('\n')}` : '没有设置。'),
+  envComments: (on: boolean, perDay: number) => (on ? `已打开,对方每天最多发出 ${perDay} 条。` : '已关闭:对方在「社交媒体」页打开之前,social_comment 不会执行。'),
 };
 
 export type ModelText = typeof zh;
@@ -216,6 +230,19 @@ const en: ModelText = {
   loginOpened: (platform) => `[social_login] A browser window is open at the ${platform} login page. Tell the person to log in there and close the window when done; an event will say whether a login holds.`,
   loginEvent: (platform, holds) => `[social] The ${platform} login window was closed. ${holds ? 'A login holds.' : 'No login was found.'}`,
 
+  commentDrafted: (id) => `[social_comment] Draft ${id} waits for the person on the Social media page of the settings window, where they can edit and post it, or discard it. It is posted only when they click Post there; until an event says what they did, don't say it was posted.`,
+  commentsOff: 'Drafting comments is turned off on the Social media page; the person can turn it on there.',
+  commentRedditOnly: 'Comments can be drafted on Reddit posts and comments only.',
+  commentShareLink: "A share link doesn't say which post it leads to. Open it with social_read first, then use the post link the receipt gives.",
+  commentNoTarget: 'This link names no Reddit post or comment.',
+  commentEmpty: 'text is empty.',
+  commentTooLong: (max) => `The comment is longer than Reddit's limit of ${max} characters.`,
+  commentDraftsFull: (max) => `${max} drafts already wait for the person; another can be drafted once they post or discard some.`,
+  commentDayFull: (max) => `${max} comments were posted today, the daily limit the person set; they can raise it on the Social media page.`,
+  commentPosted: (url, link, edited) =>
+    `[social] The person posted the comment you drafted (a reply to ${url}).${edited !== null ? ` They changed it before posting, to: ${edited}` : ''}${link ? `\nThe comment's link: ${link}` : ''}`,
+  commentDiscarded: (url) => `[social] The person discarded the comment you drafted (a reply to ${url}).`,
+
   statsHead: (since) => `[social_stats] Time spent reading each platform since ${since}:`,
   statsLine: (platform, took, posts, transcripts, last) =>
     `- ${platform}: ${took}, ${posts} posts or videos, ${transcripts} ${transcripts === 1 ? 'transcript' : 'transcripts'}${last ? `, last ${last}` : ''}`,
@@ -242,6 +269,7 @@ const en: ModelText = {
     skip: 'Text only: posts with images are left out.',
   },
   envAutoscroll: (lines) => (lines.length ? `Set up:\n${lines.join('\n')}` : 'Not set up.'),
+  envComments: (on, perDay) => (on ? `On; the person posts at most ${perDay} a day.` : "Off: social_comment doesn't run until the person turns it on on the Social media page."),
 };
 
 export const MODEL_TEXT: Record<ModelLanguage, ModelText> = { zh, en };

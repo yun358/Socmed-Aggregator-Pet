@@ -70,6 +70,20 @@ const CALLS: { [K in keyof ModelText]: (t: ModelText) => string[] } = {
   interruptedNothing: (t) => [t.interruptedNothing],
   loginOpened: (t) => [t.loginOpened('Instagram')],
   loginEvent: (t) => [t.loginEvent('Instagram', true), t.loginEvent('Instagram', false)],
+  commentDrafted: (t) => [t.commentDrafted('c3')],
+  commentsOff: (t) => [t.commentsOff],
+  commentRedditOnly: (t) => [t.commentRedditOnly],
+  commentShareLink: (t) => [t.commentShareLink],
+  commentNoTarget: (t) => [t.commentNoTarget],
+  commentEmpty: (t) => [t.commentEmpty],
+  commentTooLong: (t) => [t.commentTooLong(10000)],
+  commentDraftsFull: (t) => [t.commentDraftsFull(5)],
+  commentDayFull: (t) => [t.commentDayFull(10)],
+  commentPosted: (t) => [
+    t.commentPosted('https://www.reddit.com/r/fixturetown/comments/abc/x/', 'https://www.reddit.com/r/fixturetown/comments/abc/x/def/', null),
+    t.commentPosted('https://www.reddit.com/r/fixturetown/comments/abc/x/', null, 'Agreed, the ramen place is worth the wait.'),
+  ],
+  commentDiscarded: (t) => [t.commentDiscarded('https://www.reddit.com/r/fixturetown/comments/abc/x/')],
   statsHead: (t) => [t.statsHead('2026-10-01 09:00')],
   statsLine: (t) => [t.statsLine('Reddit', '5 min 2 s', 40, 1, '2026-10-22 09:00'), t.statsLine('YouTube', '2 s', 0, 0)],
   statsNone: (t) => [t.statsNone],
@@ -88,6 +102,7 @@ const CALLS: { [K in keyof ModelText]: (t: ModelText) => string[] } = {
   envPlatforms: (t) => [t.envPlatforms([]), t.envPlatforms(['Reddit', 'YouTube'])],
   envImages: (t) => IMAGE_MODES.map((m) => t.envImages[m]),
   envAutoscroll: (t) => [t.envAutoscroll([]), t.envAutoscroll(['- line'])],
+  envComments: (t) => [t.envComments(true, 10), t.envComments(false, 10)],
 };
 
 /** Han characters and the full-width punctuation Chinese text uses. */

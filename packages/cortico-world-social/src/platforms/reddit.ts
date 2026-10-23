@@ -1,10 +1,12 @@
 /**
  * Reddit through its JSON listings, fetched from a reddit.com page so the request carries the
  * browser's cookies: the front page, a subreddit, a search, a user's posts, and a post's comments.
- * Reddit serves the listings only to logged-in visitors.
+ * Reddit serves the listings only to logged-in visitors. A comment the person posts goes through the
+ * site's own comment endpoint the same way.
  */
 import type { PageSession } from '../browser.ts';
 import { PlatformBlocked, type Collector } from '../collect.ts';
+import { CommentRefused } from '../comments.ts';
 import { accountName, hostIs, type Adapter, type BrowseRequest } from './adapter.ts';
 import { parseRedditListing, parseRedditThread } from './reddit-parse.ts';
 
@@ -13,6 +15,11 @@ const PAGE_MAX = 100;
 const LISTING_SORTS = new Set(['hot', 'new', 'top', 'rising', 'controversial', 'best']);
 const SEARCH_SORTS = new Set(['relevance', 'top', 'new', 'comments', 'hot']);
 const PERIODS = new Set(['hour', 'day', 'week', 'month', 'year', 'all']);
+/** Reddit's ids of posts and comments, in base 36. */
+const THING_ID = /^[a-z0-9]{1,13}$/;
+
+/** The longest comment Reddit takes. */
+export const REDDIT_COMMENT_MAX = 10_000;
 
 /** A page on reddit.com to fetch from; robots.txt is small and needs no script. */
 async function onReddit(page: PageSession): Promise<void> {
@@ -46,6 +53,70 @@ async function getJson(page: PageSession, path: string): Promise<unknown> {
     // an HTML answer is Reddit's block or login page
     throw new PlatformBlocked('reddit', 'blocked', 'the answer was not a listing');
   }
+}
+
+/**
+ * What a reply to `url` answers: the comment the link names (`t1_<id>`), else its post (`t3_<id>`);
+ * null for a link that names neither, a share link among them, and for one that is no http(s) link.
+ */
+export function redditReplyTarget(url: string): string | null {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return null;
+  }
+  if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
+  const seg = u.pathname.split('/').filter(Boolean).map((x) => x.toLowerCase());
+  if (u.hostname === 'redd.it') return THING_ID.test(seg[0] ?? '') ? `t3_${seg[0]}` : null;
+  if (!hostIs(u, 'reddit.com')) return null;
+  if (seg[0] === 'gallery') return THING_ID.test(seg[1] ?? '') ? `t3_${seg[1]}` : null;
+  const at = seg.indexOf('comments');
+  const post = at >= 0 ? seg[at + 1] : undefined;
+  if (!post || !THING_ID.test(post)) return null;
+  // /comments/<post>/<title>/<comment>/, or /comments/<post>/comment/<comment>/
+  const comment = seg[at + 3];
+  return comment && THING_ID.test(comment) ? `t1_${comment}` : `t3_${post}`;
+}
+
+/**
+ * Posts `text` as a reply to `target` (`t3_` or `t1_`) with the browser's login, through the site's
+ * comment endpoint, which takes the login's modhash from `/api/me.json`. Returns the new comment's
+ * link when Reddit names it; throws `CommentRefused` with Reddit's reason when it turns the comment down.
+ */
+export async function postRedditComment(page: PageSession, target: string, text: string): Promise<{ link: string | null }> {
+  await onReddit(page);
+  const me = await page.fetchText(`${ORIGIN}/api/me.json`);
+  let modhash: unknown;
+  try {
+    modhash = (JSON.parse(me.text) as { data?: { modhash?: unknown } }).data?.modhash;
+  } catch {
+    // a login page
+  }
+  if (typeof modhash !== 'string' || !modhash) throw new PlatformBlocked('reddit', 'login');
+  const rep = await page.fetchText(`${ORIGIN}/api/comment`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded', 'x-modhash': modhash },
+    body: new URLSearchParams({ api_type: 'json', raw_json: '1', thing_id: target, text }).toString(),
+  });
+  if (rep.status === 401) throw new PlatformBlocked('reddit', 'login');
+  if (rep.status === 429) throw new PlatformBlocked('reddit', 'blocked', 'HTTP 429, too many requests');
+  if (rep.status >= 400) throw new CommentRefused(`HTTP ${rep.status}`);
+  let answer: { json?: { errors?: unknown[]; data?: { things?: Array<{ data?: Record<string, unknown> }> } } };
+  try {
+    answer = JSON.parse(rep.text) as typeof answer;
+  } catch {
+    throw new PlatformBlocked('reddit', 'blocked', 'the answer was not JSON');
+  }
+  const errors = Array.isArray(answer.json?.errors) ? answer.json.errors : [];
+  // each error is [code, message, field]
+  if (errors.length) throw new CommentRefused(errors.map((e) => (Array.isArray(e) ? e.slice(0, 2).filter(Boolean).join(': ') : String(e))).join('; '));
+  const d = answer.json?.data?.things?.[0]?.data;
+  const str = (v: unknown) => (typeof v === 'string' && v ? v : null);
+  const permalink = str(d?.permalink);
+  const id = str(d?.id);
+  const post = str(d?.link_id)?.replace(/^t3_/, '');
+  return { link: permalink ? ORIGIN + permalink : id && post ? `${ORIGIN}/comments/${post}/_/${id}/` : null };
 }
 
 /** The order a listing uses for `req`; Reddit's own default when it names none Reddit knows. */

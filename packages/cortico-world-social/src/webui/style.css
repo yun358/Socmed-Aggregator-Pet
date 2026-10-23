@@ -18,3 +18,10 @@
 .social-job > .check { gap: 8px; font-size: 13.5px; white-space: nowrap; }
 .social-jobacts { display: inline-flex; gap: 4px; margin-left: auto; white-space: nowrap; }
 .social-job > input[type=time] { width: 120px; }
+/* comment drafts: one framed block each, the link and time above the text */
+.social-drafts { display: flex; flex-direction: column; gap: 12px; }
+.social-draft { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 11px; background: var(--sheet); }
+.social-draft-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; font-size: 13px; }
+.social-draft-at, .social-muted { color: var(--muted-foreground); }
+.social-draft > textarea.field { width: 100%; box-sizing: border-box; }
+.social-link { overflow-wrap: anywhere; }

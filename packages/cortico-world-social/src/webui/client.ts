@@ -1,11 +1,14 @@
 /**
- * The `social` panel: the limits of one request, the platforms with their logins and the browser, the
- * daily autoscroll jobs with their recent runs, and the lifetime counter. It renders the panel's
- * `state`, read again every `POLL_MS` while mounted. Scalar settings are written through
- * `/api/config` (`ctx.setConfig`) on each change; the job list goes through the panel's `setJobs`,
- * whole, whenever every job in it is complete.
+ * The `social` panel: comment drafts waiting for the person (first, shown only while there are any),
+ * the limits of one request, the platforms with their logins and the browser, the daily autoscroll
+ * jobs with their recent runs, the comment settings with the comments posted, and the lifetime
+ * counter. It renders the panel's `state`, read again every `POLL_MS` while mounted. Scalar settings
+ * are written through `/api/config` (`ctx.setConfig`) on each change; the job list goes through the
+ * panel's `setJobs`, whole, whenever every job in it is complete. A draft is posted with the text
+ * left in its field.
  */
 import type { WebUiClientBundle, WebUiPanelContext } from 'cortico/web/shared/client-panel.ts';
+import type { CommentDraft, PostedComment } from '../comments.ts';
 import { IMAGE_MODES, SOCIAL_ID, parseJobs, socialConfigGroup, type AutoscrollJob, type ImageMode } from '../config.ts';
 import { socialText } from '../i18n/index.ts';
 import { PLATFORM_IDS, VIDEO_PLATFORMS, type PlatformId, type SourceKind } from '../posts.ts';
@@ -36,10 +39,24 @@ const NEW_JOB = { at: '09:00', maxPosts: 100 };
 
 const errText = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
+/** Characters of a link's or a comment's text shown in a line. */
+const SHOWN_MAX = 80;
+const shorten = (text: string) => (text.length > SHOWN_MAX ? `${text.slice(0, SHOWN_MAX - 1)}…` : text);
+/** A link named by its host and path. */
+const linkName = (url: string) => {
+  try {
+    const u = new URL(url);
+    return shorten(u.hostname.replace(/^www\./, '') + u.pathname.replace(/\/$/, ''));
+  } catch {
+    return shorten(url);
+  }
+};
+
 function mount(ctx: WebUiPanelContext): void {
   const { ui, signal } = ctx;
   const text = socialText(ctx.language);
   const s = text.panel;
+  const ct = text.comments;
   const doc = ctx.root.ownerDocument;
   const props = socialConfigGroup(ctx.language).schema.properties;
   const stamp = new Intl.DateTimeFormat(ctx.language, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -124,6 +141,69 @@ function mount(ctx: WebUiPanelContext): void {
     ui.checkbox(label, { onChange: (on) => void save(key, on, line) });
 
   const readMsg = ui.msgline('');
+
+  /** A link, opened in the system browser; one that is no http(s) link is shown as text. */
+  const link = (url: string, label = linkName(url)) => {
+    const a = ui.h('a', 'social-link', label);
+    a.title = url;
+    if (!/^https?:\/\//i.test(url)) return a;
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noreferrer';
+    return a;
+  };
+
+  /* ---------- comments waiting ---------- */
+  const waiting = ui.sheet({ title: ct.waitingTitle, desc: ct.waitingDesc });
+  const draftsBox = ui.h('div', 'social-drafts');
+  waiting.body.append(draftsBox);
+  waiting.el.hidden = true;
+  /** The drafts shown, by id; each stays as it is, with what the person typed, until its draft is posted or discarded. */
+  const drafts = new Map<string, { card: HTMLElement; area: HTMLTextAreaElement; post: HTMLButtonElement; discard: HTMLButtonElement; msg: HTMLElement }>();
+  /** Drafts this panel is posting or discarding now. */
+  const acting = new Set<string>();
+  const paintDraft = (id: string, posting: boolean) => {
+    const d = drafts.get(id)!;
+    d.post.disabled = d.discard.disabled = posting || acting.has(id);
+    d.post.textContent = posting ? ct.posting : ct.post;
+  };
+  /** Posts or discards a draft; the state returned is rendered, a failure shown under the draft. */
+  const act = async (id: string, method: 'commentPost' | 'commentDiscard') => {
+    const d = drafts.get(id)!;
+    acting.add(id);
+    paintDraft(id, method === 'commentPost');
+    say(d.msg, '');
+    const next = await write(() => ctx.invoke<SocialPanelState>(method, method === 'commentPost' ? [id, d.area.value] : [id]), d.msg, (e) => e);
+    acting.delete(id);
+    if (next) {
+      if (method === 'commentPost') ui.toast(ct.posted, 'ok');
+      render(next);
+    } else if (drafts.get(id) === d) paintDraft(id, false);
+  };
+  const draftCard = (draft: CommentDraft) => {
+    const head = ui.h('div', 'social-draft-head');
+    head.append(ui.h('span', null, ct.replyTo), link(draft.url), ui.h('span', 'social-draft-at', ct.draftedAt(when(draft.at))));
+    const area = ui.textarea({ value: draft.text, rows: 4 });
+    area.setAttribute('aria-label', ct.comment);
+    const msg = ui.msgline('');
+    const post = ui.button(ct.post, { variant: 'primary', size: 'sm', onClick: () => void act(draft.id, 'commentPost') });
+    const discard = ui.button(ct.discard, { size: 'sm', onClick: () => void act(draft.id, 'commentDiscard') });
+    const bar = ui.rowbar();
+    bar.append(post, discard, msg);
+    const card = ui.h('div', 'social-draft');
+    card.append(head, area, bar);
+    draftsBox.append(card);
+    drafts.set(draft.id, { card, area, post, discard, msg });
+  };
+  /** Removes the drafts gone and adds the new ones, which come last; the others keep their fields as they are. */
+  const syncDrafts = (next: SocialPanelState) => {
+    const list = next.comments.drafts;
+    const ids = new Set(list.map((d) => d.id));
+    for (const [id, d] of drafts) if (!ids.has(id)) { d.card.remove(); drafts.delete(id); }
+    for (const d of list) if (!drafts.has(d.id)) draftCard(d);
+    waiting.el.hidden = !list.length;
+    for (const id of drafts.keys()) paintDraft(id, next.comments.posting.includes(id));
+  };
 
   /* ---------- each request ---------- */
   const limits = ui.sheet({ title: s.limitsTitle, desc: s.limitsDesc });
@@ -321,6 +401,30 @@ function mount(ctx: WebUiPanelContext): void {
     for (const r of jobRows) r.paint();
   };
 
+  /* ---------- comments ---------- */
+  const comments = ui.sheet({ title: ct.title, desc: ct.desc });
+  const commentsMsg = ui.msgline('');
+  const commentsOn = switchSetting('comments.enabled', ct.enabledCheck, commentsMsg);
+  const perDay = numberSetting('comments.maxPerDay', ct.perDaySuffix, commentsMsg);
+  const today = ui.h('p', 'home-note');
+  const posted = ui.table({ head: [ct.when, ct.on, ct.comment] });
+  posted.el.classList.add('social-table');
+  comments.body.append(
+    row(ct.enabled, commentsOn.el, ct.enabledHint),
+    row(ct.perDay, perDay.box, today),
+    commentsMsg,
+    ui.section(ct.recent),
+    posted.el,
+  );
+  /** A posted comment's text on one line, linked to the comment when the platform named it. */
+  const postedText = (p: PostedComment) => {
+    const shown = shorten(p.text.replace(/\s+/g, ' '));
+    const cell = ui.h('span');
+    cell.append(p.link ? link(p.link, shown) : shown);
+    if (p.edited) cell.append(' ', ui.h('span', 'social-muted', ct.edited));
+    return cell;
+  };
+
   /* ---------- lifetime counter ---------- */
   const lifetime = ui.sheet({ title: s.lifetimeTitle, desc: s.lifetimeDesc(s.never) });
   const lifeTable = ui.table({ head: [s.platform, s.timeSpent, s.postsRead, s.transcripts, s.lastRead] });
@@ -334,7 +438,7 @@ function mount(ctx: WebUiPanelContext): void {
   }), lifeMsg);
   lifetime.body.append(lifeTable.el, lifeBar);
 
-  const sheets = [limits.el, platforms.el, autoscroll.el, lifetime.el];
+  const sheets = [waiting.el, limits.el, platforms.el, autoscroll.el, comments.el, lifetime.el];
   // nothing can be changed until the state has been read once
   for (const el of sheets) el.inert = true;
   ctx.root.append(...sheets);
@@ -372,6 +476,13 @@ function mount(ctx: WebUiPanelContext): void {
     for (const d of next.digests) {
       runs.addRow([when(d.startedAt), describe(d.job), d.error ? { text: s.runFailed, cls: 'social-bad' } : s.runPosts(d.posts)]);
     }
+
+    syncDrafts(next);
+    commentsOn.setChecked(c.comments.enabled);
+    perDay.set(c.comments.maxPerDay);
+    today.textContent = ct.today(next.comments.today);
+    posted.clear(next.comments.posted.length ? undefined : ct.nonePosted);
+    for (const p of next.comments.posted) posted.addRow([when(p.at), link(p.url), postedText(p)]);
 
     const life = next.lifetime;
     if (lifetime.desc) lifetime.desc.textContent = s.lifetimeDesc(day.format(new Date(life.sinceAt)));

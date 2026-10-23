@@ -8,7 +8,7 @@ const ja: Translation<SocialText> = {
     label: 'ソーシャルメディア',
     browser: 'ブラウザー',
     browserMissing: 'Chrome、Edge、Brave、Chromium が見つかりません',
-    panel: { title: 'ソーシャルメディア', description: 'Coo が読む量の上限、ログイン、毎日の自動スクロール、累計時間' },
+    panel: { title: 'ソーシャルメディア', description: 'Coo が読む量の上限、ログイン、毎日の自動スクロール、コメントの下書き、累計時間' },
     envPrompt: { title: 'ソーシャルメディア', description: 'Coo が読めるプラットフォーム、1 回のリクエストの上限、画像の扱い方を伝えます' },
     vars: {
       'social.platforms': 'オンになっているプラットフォーム',
@@ -16,6 +16,7 @@ const ja: Translation<SocialText> = {
       'social.maxSec': '1 回のリクエストにかける秒数',
       'social.images': '画像の扱い方',
       'social.autoscroll': '毎日の自動スクロールのジョブ',
+      'social.comments': 'コメントの下書きのオン・オフと 1 日の上限',
     },
     storage: {
       profile: { label: 'ブラウザーのプロファイル（各プラットフォームのログイン）', note: '消去すると、どのプラットフォームにもログインし直す必要があります' },
@@ -36,6 +37,8 @@ const ja: Translation<SocialText> = {
     platformEnabled: (name: string) => `${name}：オン`,
     autoscrollEnabled: { title: '毎日の自動スクロール', description: '毎日決めた時刻に投稿を読み、そのあと Coo が要約を伝えます' },
     autoscrollMaxMinutes: { title: 'ジョブごとの時間', description: '毎日の自動スクロールのジョブ 1 つにかける最大分数' },
+    commentsEnabled: { title: 'コメントの下書き', description: '頼まれると、Coo が Reddit の投稿やコメントへのコメントを下書きします。どれも、あなたが自分で投稿したときだけ投稿されます' },
+    commentsPerDay: { title: '1 日のコメント数', description: 'Coo が下書きしたコメントを 1 日に投稿できる最大数' },
   },
 
   sources: { feed: 'フィード', search: '検索', account: 'アカウント', community: 'コミュニティ' },
@@ -130,6 +133,41 @@ const ja: Translation<SocialText> = {
       if (m < 60) return `${m} 分`;
       return `${Math.floor(m / 60)} 時間 ${m % 60} 分`;
     },
+  },
+
+  comments: {
+    waitingTitle: '確認待ちのコメント',
+    waitingDesc: 'Coo が下書きしたコメントです。「投稿」をクリックしたときだけ、あなたの Reddit のログインで投稿されます。',
+    replyTo: '返信先',
+    draftedAt: (when: string) => `${when} に下書き`,
+    post: '投稿',
+    posting: '投稿中…',
+    discard: '破棄',
+    posted: '投稿しました',
+
+    title: 'コメント',
+    desc: 'コメントを頼むと、Coo が Reddit の投稿やコメントへのコメントを下書きします。下書きはこのページの一番上に表示され、編集・投稿・破棄ができます。',
+    enabled: '下書き',
+    enabledCheck: 'Coo にコメントの下書きを許可する',
+    enabledHint: 'コメントは Coo のブラウザーから、あなたの Reddit のログインで投稿されます。Reddit の規約は自動投稿を認めていないため、自分でも書く内容だけを投稿してください。',
+    perDay: '1 日の上限',
+    perDaySuffix: '件',
+    today: (n: number) => `今日の投稿：${n} 件`,
+    recent: '投稿したコメント',
+    when: '日時',
+    on: '返信先',
+    comment: 'コメント',
+    edited: '（編集して投稿）',
+    nonePosted: 'まだコメントを投稿していません。',
+
+    gone: 'この下書きはもうありません。',
+    empty: 'コメントが空です。',
+    tooLong: (max: number) => `Reddit のコメントは最大 ${max} 文字です。`,
+    dayFull: (max: number) => `今日はすでに ${max} 件投稿しました。下で設定した 1 日の上限です。`,
+    login: 'Reddit へのログインが必要です。「プラットフォーム」で Reddit の横の「ログイン」をクリックし、ログインしてからもう一度投稿してください。',
+    blocked: (detail: string) => `Reddit がリクエストを拒否しました${detail ? `（${detail}）` : ''}。しばらくしてからもう一度お試しください。`,
+    refused: (detail: string) => `Reddit はコメントを受け付けませんでした：${detail}`,
+    timeUp: 'Reddit から時間内に応答がなく、コメントが投稿された可能性があります。もう一度投稿する前に、投稿先を確認してください。',
   },
 };
 
