@@ -18,6 +18,8 @@
  *
  * - Wake-ups Coo sets for itself (`alarms.ts`): its tools, the event when one is due, and the `alarms`
  *   panel (`webui/client.ts`), which lists them and cancels one; a cancel there is told to Coo.
+ * - Saved conversations (`conversations.ts`): Coo's tools while `companion.conversations.enabled` is on, and
+ *   the `conversations` panel, which lists every saved conversation, opens or deletes one and starts a new one.
  *
  * Every event is in the model-text language of the app language (`language.ts`), read when it is rendered.
  *
@@ -32,6 +34,7 @@ import type { Language } from 'cortico/core/language.ts';
 import { describeTools, type WorldDefinition, type WorldDescribe, type WorldSection } from 'cortico/world.ts';
 import { SELF_KEYS, selfAdjustMode } from 'cortico-world-desktop-pet';
 import { ALARM_TOOL_DECLS, Alarms, type Alarm } from './alarms.ts';
+import { CONVERSATION_TOOL_DECLS, type Conversations, type ConversationsState } from './conversations.ts';
 import type { GuideEnd } from './guide.ts';
 import { coreText } from './i18n/index.ts';
 import { modelLanguage, type ModelLanguage } from './language.ts';
@@ -67,6 +70,10 @@ export interface NoticeAssembly {
   refreshTools: () => Promise<void>;
   /** The instance, once created, for the introduction to hand its record to. */
   onCreate?: (world: NoticeWorld) => void;
+  /** Saved conversations, once the deployment is loaded. */
+  conversations?: () => Conversations | null;
+  /** The names of the tools Coo speaks with, for a saved conversation's transcript. */
+  speechTools?: () => ReadonlySet<string>;
   /** Its name when Core assembles the Worlds, in the app language of that moment (core/i18n `noticeLabel`). */
   label: () => string;
 }
@@ -356,6 +363,8 @@ export class NoticeWorld implements World {
   private wasGuiding = false;
   /** The version Coo is to hear about, until the pet page connects. */
   private update: { from: string | null; to: string } | null = null;
+  /** Whether Coo's conversation tools were on at the last look. */
+  private conversationsOn = false;
 
   private readonly alarms: Alarms;
 
@@ -374,9 +383,28 @@ export class NoticeWorld implements World {
   webUi(language: Language = 'zh'): WorldWebUiDecl {
     return {
       label: coreText(language).noticeLabel,
-      panels: [{ id: 'alarms', title: panelText(language).title, getMethods: ['list'] }],
-      invoke: async (panel, method, args) => this.invoke(panel, method, args),
+      panels: [
+        { id: 'alarms', title: panelText(language).title, getMethods: ['list'] },
+        { id: 'conversations', title: panelText(language).conversations.title, getMethods: ['state'] },
+      ],
+      invoke: async (panel, method, args) => (panel === 'conversations' ? this.conversationsCall(method, args, language) : this.invoke(panel, method, args)),
     };
+  }
+
+  /** The `conversations` panel: `state`, `new`, `open` and `delete`, each answered with the state; a refusal in the panel's language. */
+  private conversationsCall(method: string, args: unknown[], language: Language): ConversationsState {
+    const conversations = this.a.conversations?.();
+    const t = panelText(language).conversations;
+    if (!conversations) throw new Error(t.notReady);
+    const id = Number(args[0]);
+    const why = method === 'new' ? conversations.startNew()
+      : method === 'open' ? conversations.open(id)
+      : method === 'delete' ? (conversations.delete(id) ? null : 'missing')
+      : method === 'state' ? null
+      : `no method ${method}`;
+    if (why === 'off' || why === 'busy' || why === 'missing') throw new Error(t[why]);
+    if (why) throw new Error(why);
+    return conversations.state();
   }
 
   private invoke(panel: string, method: string, args: unknown[]): AlarmsState {
@@ -388,10 +416,15 @@ export class NoticeWorld implements World {
     } else if (method !== 'list') throw new Error(`no method ${method}`);
     return { timezone: this.timezone, alarms: this.alarms.list() };
   }
-  tools(): ToolDef[] { return this.alarms.tools(); }
+  tools(): ToolDef[] {
+    const conversations = this.a.conversations?.();
+    const on = !!conversations?.settings.enabled;
+    return [...this.alarms.tools(), ...(on ? conversations!.tools(() => this.a.speechTools?.() ?? new Set<string>()) : [])];
+  }
 
   async start(host: WorldHost): Promise<void> {
     this.host = host;
+    this.conversationsOn = !!this.a.conversations?.()?.settings.enabled;
     this.labels = await loadLabels();
     this.told = this.seen = look(this.a.read);
     this.update = this.pendingUpdate();
@@ -439,6 +472,12 @@ export class NoticeWorld implements World {
     for (const { alarm, missed } of this.alarms.takeDue(Date.now())) {
       host.pushDeferred({ type: 'coopanion.alarm', origin: 'internal', render: () => this.alarms.dueText(alarm, missed) }, { trigger: 'flush' });
     }
+    // turning saved conversations on or off adds or takes away Coo's tools for them
+    const on = !!this.a.conversations?.()?.settings.enabled;
+    if (on !== this.conversationsOn) {
+      this.conversationsOn = on;
+      void this.a.refreshTools().catch(() => {});
+    }
     const now = look(this.a.read);
     const guiding = this.a.guiding();
     // what the introduction set, up to the first look after it, is the introduction's to tell
@@ -480,11 +519,19 @@ export class NoticeWorld implements World {
 }
 
 const DESCRIBE: WorldDescribe = {
-  tools: describeTools(ALARM_TOOL_DECLS, {
-    alarm_set: { zh: '给自己定一个唤醒,到时带着备注叫醒自己;可每天重复。', en: 'Sets a wake-up for itself, due with its note; it can repeat daily.' },
-    alarm_list: { zh: '列出已定的唤醒。', en: 'Lists the wake-ups it has set.' },
-    alarm_cancel: { zh: '取消一个唤醒。', en: 'Cancels a wake-up.' },
-  }),
+  tools: [
+    ...describeTools(ALARM_TOOL_DECLS, {
+      alarm_set: { zh: '给自己定一个唤醒,到时带着备注叫醒自己;可每天重复。', en: 'Sets a wake-up for itself, due with its note; it can repeat daily.' },
+      alarm_list: { zh: '列出已定的唤醒。', en: 'Lists the wake-ups it has set.' },
+      alarm_cancel: { zh: '取消一个唤醒。', en: 'Cancels a wake-up.' },
+    }),
+    ...describeTools(CONVERSATION_TOOL_DECLS, {
+      conversation_new: { zh: '存下当前对话,这一轮结束后开始新对话(开着保存对话时才有)。', en: 'Saves the current conversation and starts a new one when the turn ends (while saving conversations is on).' },
+      conversation_list: { zh: '列出它能打开的最近几段存下的对话。', en: 'Lists the most recent saved conversations it may open.' },
+      conversation_open: { zh: '存下当前对话,这一轮结束后回到一段存下的对话。', en: 'Saves the current conversation and goes back to a saved one when the turn ends.' },
+      conversation_read: { zh: '不离开当前对话,分页读一段存下的对话。', en: 'Reads a saved conversation a page at a time without leaving the current one.' },
+    }),
+  ],
   events: [
     { type: 'coopanion.guide', description: { zh: '使用向导结束,附向导里发生的事。', en: 'The introduction ended, with what happened in it.' }, trigger: 'flush' },
     { type: 'coopanion.alarm', description: { zh: '自己定的唤醒到时间了。', en: 'A wake-up it set is due.' }, trigger: 'flush' },

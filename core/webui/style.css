@@ -4,3 +4,12 @@
 .coo-alarm-when .chip{padding:3px 8px}
 .coo-alarm-when small.muted{flex-basis:100%}
 table.data td.coo-alarm-act{width:1%; white-space:nowrap; text-align:right; vertical-align:middle}
+/* the running conversation's line and its New conversation button */
+.coo-conv-current{display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px}
+.coo-conv-current .home-note{margin:0}
+.coo-conv-switching:empty{display:none}
+/* a saved conversation: its title, whether Coo may open it, and how it began on a line of its own */
+.coo-conv-title{display:flex; flex-wrap:wrap; align-items:center; gap:2px 8px}
+.coo-conv-title .chip{padding:3px 8px}
+.coo-conv-title small.muted{flex-basis:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:42ch}
+.coo-conv-acts{display:inline-flex; gap:4px}

@@ -3,7 +3,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { WorldHost } from 'cortico/core/types.ts';
+import { Conversations, type ConversationsState } from '../core/conversations.ts';
 import { noticeDefinition, releaseNotes, type AlarmsState } from '../core/notice.ts';
+import { panelText } from '../core/webui/strings.ts';
 
 /** A releases directory with one file per version, each `## 下载` section after its body. */
 function releases(versions: string[]): string {
@@ -63,6 +65,44 @@ describe('alarms panel', () => {
       expect(pushed.map((e) => e.type)).toEqual(['coopanion.alarm-cancelled']);
       expect(pushed[0]!.render()).toContain('提醒喝水');
       await expect(panel.invoke!('alarms', 'cancel', [first!.id])).rejects.toThrow();
+    } finally {
+      await world.stop();
+    }
+  });
+});
+
+describe('saved conversations in the coopanion World', () => {
+  it('gives Coo the conversation tools while saving is on, and the panel switches, deletes and refuses in the panel\'s language', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'coo-notice-'));
+    const settings = { enabled: true, recent: 20 };
+    const asked: number[] = [];
+    const conversations = new Conversations({
+      dir: join(dir, 'conversations'), settings: () => settings, requestHandoff: () => { asked.push(1); return true; },
+      language: () => 'en', timezone: 'UTC',
+    });
+    let refreshed = 0;
+    const world = noticeDefinition({
+      version: 'dev', notesDir: dir, stateFile: join(dir, 'notice.json'), alarmsFile: join(dir, 'alarms.json'),
+      newInstall: () => true, read: () => undefined, petConnected: () => false, guiding: () => false,
+      refreshTools: async () => { refreshed++; }, label: () => 'notice',
+      conversations: () => conversations, speechTools: () => new Set(['pet_say']),
+    }).create({ timezone: 'UTC' } as never);
+    await world.start({ pushDeferred: () => {} } as unknown as WorldHost);
+    try {
+      const names = () => world.tools().map((t) => t.name);
+      expect(names()).toEqual(expect.arrayContaining(['conversation_new', 'conversation_list', 'conversation_open', 'conversation_read']));
+      const panel = world.webUi!('en');
+      const state = (await panel.invoke!('conversations', 'state', [])) as ConversationsState;
+      expect(state).toMatchObject({ enabled: true, recent: 20, recentMax: 100, saved: [], switching: null });
+      expect(((await panel.invoke!('conversations', 'new', [])) as ConversationsState).switching).toEqual({ kind: 'new' });
+      expect(asked).toHaveLength(1);
+      await expect(panel.invoke!('conversations', 'new', [])).rejects.toThrow(panelText('en').conversations.busy);
+      await expect(world.webUi!('de').invoke!('conversations', 'delete', [7])).rejects.toThrow(panelText('de').conversations.missing);
+      // turned off: the tools go, the prefix is rebuilt at the next look, and the panel refuses a switch
+      settings.enabled = false;
+      expect(names()).not.toContain('conversation_new');
+      await new Promise((r) => setTimeout(r, 1200));
+      expect(refreshed).toBeGreaterThan(0);
     } finally {
       await world.stop();
     }

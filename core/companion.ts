@@ -65,6 +65,7 @@ import COO, { CHATGPT, CHATGPT_PROVIDER, signedIn, usageLimited, vendorOf } from
 import { appWebUiAsset, bundledWebUiAssets } from './bundled-panels.ts';
 import { followPetLook } from './console-theme.ts';
 import { askForKey, guideDone, markDone, runGuide, type GuideDeps } from './guide.ts';
+import { Conversations, ENABLED_KEY, RECENT_DEFAULT, RECENT_KEY, RECENT_MAX, conversationSettings } from './conversations.ts';
 import { NOTICE_ID, noticeDefinition, type NoticeWorld } from './notice.ts';
 import { coreText } from './i18n/index.ts';
 import { petToolDescriber } from './pet-status.ts';
@@ -137,6 +138,8 @@ function companionGroup(language: Language): ConfigGroup {
         // Cormini copies `rounds` when the bot is built, so a change applies from the next start
         'rounds.soft': { type: 'integer', title: s.roundsSoft.title, minimum: 1, 'x-suffix': s.roundsSoft.suffix, 'x-hot': false, description: s.roundsSoft.description },
         'rounds.hard': { type: 'integer', title: s.roundsHard.title, minimum: 1, 'x-suffix': s.roundsHard.suffix, 'x-hot': false, description: s.roundsHard.description },
+        [ENABLED_KEY]: { type: 'boolean', title: s.conversationsEnabled.title, description: s.conversationsEnabled.description, 'x-hot': true },
+        [RECENT_KEY]: { type: 'integer', title: s.conversationsRecent.title, minimum: 0, maximum: RECENT_MAX, 'x-suffix': s.conversationsRecent.suffix, 'x-hot': true, description: s.conversationsRecent.description },
       },
     },
   };
@@ -409,6 +412,8 @@ export async function main(): Promise<void> {
   let telemetry: Telemetry | null = null;
   let config: CoreConfig | null = null;
   let notice: NoticeWorld | null = null;
+  /** Saved conversations, once the deployment is loaded. */
+  let conversations: Conversations | null = null;
   /** The introduction is running: the settings it makes are not told as changes. */
   let guiding = false;
   const guideRun = async (deps: GuideDeps) => {
@@ -466,6 +471,8 @@ export async function main(): Promise<void> {
     refreshTools: async () => { if (core?.loop.modulePrefixDrift().length) await core.loop.reloadSystemPrefix(); },
     onCreate: (world) => { notice = world; },
     label: () => coreText(language()).noticeLabel,
+    conversations: () => conversations,
+    speechTools: () => new Set(core?.loop.getToolSchemas().filter((s) => s.tags.includes('speak')).map((s) => s.name) ?? []),
   });
   const SOCIAL = socialDefinition({ modelLanguage: () => modelLanguage(config?.language), language });
   /** Coopanion's config group; the console reads this object, retitled in place when the app language changes. */
@@ -494,7 +501,7 @@ export async function main(): Promise<void> {
       // e2e harnesses give their persona
       rounds: { soft: 20, hard: 40 },
       context: { ...base.definition.defaults().context, maxTokens: 128_000, keepRatio: 0.25 },
-      companion: { telemetry: true },
+      companion: { telemetry: true, conversations: { enabled: true, recent: RECENT_DEFAULT } },
     }),
     // Cormini's own build with Coo's Persona class; the workspace is snapshotted before Coo can write to it
     build: (loaded, worlds) => {
@@ -509,6 +516,7 @@ export async function main(): Promise<void> {
         tickDelayMs: () => (cfg.tick.intervalMinutes === null ? null : cfg.tick.intervalMinutes * 60_000),
       });
       persona.snapshot(APP_VERSION);
+      persona.conversations = conversations;
       coo = persona;
       return {
         persona,
@@ -538,6 +546,14 @@ export async function main(): Promise<void> {
 
   const loaded = loadDeployment(definition, deployDir, repoRoot(), join(repoRoot(), 'bots', 'cormini'), providersRoot());
   config = loaded.config;
+  conversations = new Conversations({
+    dir: join(loaded.dataDir, 'conversations'),
+    settings: () => conversationSettings((path) => getByPath(loaded.config as unknown as Record<string, unknown>, path)),
+    requestHandoff: () => core?.loop.requestContextHandoff() ?? false,
+    live: () => core?.session.records ?? [],
+    language: () => modelLanguage(loaded.config.language),
+    timezone: loaded.config.timezone,
+  });
   Object.assign(settingsGroup, companionGroup(language()));
   watchLanguage(loaded.config, (next) => {
     Object.assign(settingsGroup, companionGroup(next));

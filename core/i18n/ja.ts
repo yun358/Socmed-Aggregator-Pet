@@ -9,6 +9,8 @@ const ja: Translation<CoreText> = {
     telemetry: { title: '匿名の利用統計', description: '会話内容を含まない利用回数と設定を送信し、Coopanion の改善に役立てます。送信する項目は docs/TELEMETRY.md に記載されています。' },
     roundsSoft: { title: 'まとめのリマインド', suffix: '回', description: '1 回のウェイクでモデルへのリクエストがこの回数に達すると、今の作業を片付けてターンを終えるよう Coo に促します。' },
     roundsHard: { title: '1 回のウェイクのリクエスト上限', suffix: '回', description: '1 回のウェイクでモデルにリクエストできる最大回数です。達するとターンが終わります。' },
+    conversationsEnabled: { title: '会話を保存', description: 'チャットアプリのように、今の会話を保存して新しい会話を始めたり、保存した会話に戻ったりできます。オフにすると会話はひと続きのままです。' },
+    conversationsRecent: { title: 'Coo が開ける過去の会話', suffix: '件', description: '最近保存した会話のうち、Coo が自分で一覧・閲覧・再開できる数です（0–100）。保存した会話はどれでも「会話」ページから開けます。' },
   },
 
   failure: {

@@ -9,6 +9,8 @@ const es419: Translation<CoreText> = {
     telemetry: { title: 'Estadísticas de uso anónimas', description: 'Envía conteos de uso y la configuración, nunca conversaciones, para ayudar a mejorar Coopanion. Los campos se listan en docs/TELEMETRY.md.' },
     roundsSoft: { title: 'Recordatorio para cerrar', suffix: 'solicitudes', description: 'Tras esta cantidad de solicitudes al modelo en un mismo despertar, se le recuerda a Coo que termine lo que está haciendo y cierre el turno.' },
     roundsHard: { title: 'Solicitudes por despertar', suffix: 'solicitudes', description: 'El máximo de solicitudes al modelo en un despertar; al llegar a él, el turno termina.' },
+    conversationsEnabled: { title: 'Guardar conversaciones', description: 'Como en una app de chat, tú y Coo pueden guardar la conversación, empezar una nueva y volver a una guardada. Desactivado, la conversación sigue siendo una sola.' },
+    conversationsRecent: { title: 'Conversaciones anteriores que Coo puede abrir', suffix: 'más recientes', description: 'Cuántas de las conversaciones guardadas más recientes puede listar, leer y reabrir Coo por su cuenta (0–100). Cualquier conversación guardada se abre desde la página Conversaciones.' },
   },
 
   failure: {

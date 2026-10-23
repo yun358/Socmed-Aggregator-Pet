@@ -9,6 +9,8 @@ const zhHant: Translation<CoreText> = {
     telemetry: { title: '匿名使用統計', description: '傳送不含對話內容的使用次數與設定，幫助改進 Coopanion。欄位見 docs/TELEMETRY.md。' },
     roundsSoft: { title: '收尾提醒', suffix: '次', description: '單次喚醒請求模型達到此次數時，提醒 Coo 完成目前任務後結束本輪。' },
     roundsHard: { title: '單次喚醒上限', suffix: '次', description: '單次喚醒最多請求模型的次數，達到後結束本輪。' },
+    conversationsEnabled: { title: '儲存對話', description: '像聊天應用那樣，你和 Coo 可以存下目前的對話、開始新對話，再回到存下的對話。關閉後對話一直連著。' },
+    conversationsRecent: { title: 'Coo 能開啟的過往對話', suffix: '段', description: 'Coo 自己能列出、閱讀和重新開啟的最近存下的對話數（0–100）。任何一段存下的對話都能在「對話」頁開啟。' },
   },
 
   failure: {

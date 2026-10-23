@@ -9,6 +9,8 @@ const ko: Translation<CoreText> = {
     telemetry: { title: '익명 사용 통계', description: '대화 내용 없이 사용 횟수와 설정을 보내 Coopanion 개선에 도움을 줍니다. 보내는 항목은 docs/TELEMETRY.md에 있습니다.' },
     roundsSoft: { title: '마무리 알림', suffix: '회', description: '한 번 깨어난 동안 모델 요청이 이만큼 쌓이면 Coo에게 하던 일을 마치고 턴을 끝내라고 알립니다.' },
     roundsHard: { title: '한 번 깨어날 때 요청 한도', suffix: '회', description: '한 번 깨어난 동안 보낼 수 있는 최대 모델 요청 수이며, 도달하면 턴이 끝납니다.' },
+    conversationsEnabled: { title: '대화 저장', description: '채팅 앱처럼 지금 대화를 저장하고 새 대화를 시작하거나, 저장한 대화로 돌아갈 수 있습니다. 끄면 대화가 하나로 계속 이어집니다.' },
+    conversationsRecent: { title: 'Coo가 열 수 있는 지난 대화', suffix: '개', description: '최근에 저장한 대화 중 Coo가 직접 나열하고 읽고 다시 열 수 있는 개수입니다(0–100). 저장한 대화는 모두 \'대화\' 페이지에서 열 수 있습니다.' },
   },
 
   failure: {

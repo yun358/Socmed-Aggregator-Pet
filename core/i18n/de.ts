@@ -9,6 +9,8 @@ const de: Translation<CoreText> = {
     telemetry: { title: 'Anonyme Nutzungsstatistik', description: 'Sendet Nutzungszahlen und Einstellungen, nie Unterhaltungen, um Coopanion zu verbessern. Die Felder stehen in docs/TELEMETRY.md.' },
     roundsSoft: { title: 'Abschluss-Erinnerung', suffix: 'Anfragen', description: 'Nach so vielen Modellanfragen in einem Aufwachen wird Coo erinnert, das Laufende abzuschließen und die Runde zu beenden.' },
     roundsHard: { title: 'Anfragen pro Aufwachen', suffix: 'Anfragen', description: 'Höchstzahl der Modellanfragen in einem Aufwachen; ist sie erreicht, endet die Runde.' },
+    conversationsEnabled: { title: 'Unterhaltungen speichern', description: 'Wie in einer Chat-App können du und Coo die Unterhaltung speichern, eine neue beginnen und zu einer gespeicherten zurückkehren. Aus läuft die Unterhaltung als eine weiter.' },
+    conversationsRecent: { title: 'Frühere Unterhaltungen, die Coo öffnen kann', suffix: 'neueste', description: 'Wie viele der zuletzt gespeicherten Unterhaltungen Coo selbst auflisten, lesen und wieder öffnen darf (0–100). Jede gespeicherte Unterhaltung lässt sich auf der Seite Unterhaltungen öffnen.' },
   },
 
   failure: {

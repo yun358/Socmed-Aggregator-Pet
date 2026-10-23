@@ -10,6 +10,8 @@
  * - The lines the Persona itself puts into the context (a session opening, new events, a World
  *   switched, context pressure, the handoff, the round cap, stalls) and its workspace listing are in
  *   English whatever the app language; Coo is told which language to talk in by the desktop-pet World.
+ * - With saved conversations (`conversations.ts`), a handoff serves the switch asked for there: the
+ *   conversation left is saved and the context kept is a new conversation's or a reopened one's.
  *
  * Cortico is staged at build time and the bots are not part of its module paths, so the base class is
  * passed in: the app loads it from the staged Cortico (`companion.ts`), the tests from vendor/cortico.
@@ -17,7 +19,9 @@
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmdirSync, statSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
-import type { EventEnvelope, SessionOpeningReason, ToolDef, WorldLifecycleEvent } from 'cortico/core/types.ts';
+import type { ContextHandoffResult, EventEnvelope, SessionOpeningReason, ToolDef, WorldLifecycleEvent } from 'cortico/core/types.ts';
+import type { ContextRecord } from 'cortico/protocol/open-responses/context.ts';
+import type { Conversations } from './conversations.ts';
 import type { Cormini } from '../vendor/cortico/bots/cormini/persona/persona.ts';
 import type { GitAuthor, WorkspaceGit } from '../vendor/cortico/bots/cormini/persona/workspaceGit.ts';
 
@@ -112,6 +116,9 @@ export function coopanionPersona(Base: typeof Cormini) {
     /** Commits wait for the one before: Git's index takes one writer, and a turn often writes several files. */
     private commits: Promise<unknown> = Promise.resolve();
 
+    /** Saved conversations, set by the app once they exist; without them every handoff is Cormini's. */
+    conversations: Conversations | null = null;
+
     private get git(): WorkspaceGit {
       return this.memory.git;
     }
@@ -191,6 +198,7 @@ ${super.partnerDoc() || `(${PARTNER_FILE} is empty.)`}`;
     }
 
     override onOpening(ctx: { reason: SessionOpeningReason }): void {
+      if (ctx.reason === 'cleared') this.conversations?.cleared();
       this.core?.injectInternal(ctx.reason === 'restarted' ? '[system] The app restarted; the session carries on.' : '[system] The session has started.', 'opening');
     }
 
@@ -208,6 +216,24 @@ ${super.partnerDoc() || `(${PARTNER_FILE} is empty.)`}`;
       // Cormini keeps its heartbeat private; the bracket access is TypeScript's way in for a subclass
       this['heartbeat'].noteActivity();
       this.core?.injectInternal(`[system] ${n} new event${n === 1 ? '' : 's'}.`, 'notice');
+    }
+
+    /** A switch of conversations asked for is made here; any other handoff is Cormini's, its cleared stretch saved first. */
+    override async onHandoff(snapshot: ContextRecord[], ctx: { hardTokens: number | null }): Promise<ContextHandoffResult> {
+      const conversations = this.conversations;
+      if (!conversations) return super.onHandoff(snapshot, ctx);
+      let own = false;
+      const result = await conversations.handoff(snapshot, {
+        overflow: () => { own = true; return super.onHandoff(snapshot, ctx); },
+        speech: this.core?.toolsTagged('speak') ?? new Set<string>(),
+        inject: (text) => this.core?.injectInternal(text, 'notice'),
+      });
+      if (!own) {
+        // a switch: the context pressure of the conversation left is not the next one's
+        this.pressureWarned = false;
+        this.pressureSplitAt = null;
+      }
+      return result;
     }
 
     protected override pressureNote(): string {

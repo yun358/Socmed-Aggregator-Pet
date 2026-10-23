@@ -14,6 +14,8 @@ const en: CoreText = {
     telemetry: { title: 'Anonymous usage statistics', description: 'Sends usage counts and settings, never conversations, to help improve Coopanion. The fields are listed in docs/TELEMETRY.md.' },
     roundsSoft: { title: 'Wrap-up reminder', suffix: 'requests', description: 'After this many model requests in one wake-up, Coo is reminded to finish what it is doing and end the turn.' },
     roundsHard: { title: 'Requests per wake-up', suffix: 'requests', description: 'The most model requests in one wake-up; the turn ends when it is reached.' },
+    conversationsEnabled: { title: 'Save conversations', description: 'Lets you and Coo save the conversation and start a new one, as in a chat app, and go back to a saved one. Off, the conversation runs on as one.' },
+    conversationsRecent: { title: 'Past conversations Coo can open', suffix: 'most recent', description: 'How many of the most recently saved conversations Coo may list, read and reopen itself (0–100). Any saved conversation opens from the Conversations page.' },
   },
 
   /** What the pet's bubble says after several model requests in a row failed. */

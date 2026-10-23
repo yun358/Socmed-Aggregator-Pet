@@ -9,6 +9,8 @@ const fr: Translation<CoreText> = {
     telemetry: { title: "Statistiques d'utilisation anonymes", description: "Envoie des comptages d'utilisation et les réglages, jamais les conversations, pour aider à améliorer Coopanion. Les champs sont listés dans docs/TELEMETRY.md." },
     roundsSoft: { title: 'Rappel de conclusion', suffix: 'requêtes', description: "Après ce nombre de requêtes au modèle dans un même réveil, un rappel demande à Coo de conclure ce qui est en cours et de terminer le tour." },
     roundsHard: { title: 'Requêtes par réveil', suffix: 'requêtes', description: 'Le maximum de requêtes au modèle dans un même réveil ; le tour se termine quand il est atteint.' },
+    conversationsEnabled: { title: 'Enregistrer les conversations', description: 'Comme dans une application de chat, vous et Coo pouvez enregistrer la conversation, en commencer une nouvelle et revenir à une conversation enregistrée. Désactivé, la conversation se poursuit d\'un seul tenant.' },
+    conversationsRecent: { title: 'Conversations passées que Coo peut ouvrir', suffix: 'les plus récentes', description: 'Combien des conversations enregistrées le plus récemment Coo peut lister, lire et rouvrir lui-même (0–100). Toute conversation enregistrée s\'ouvre depuis la page Conversations.' },
   },
 
   failure: {

@@ -9,6 +9,8 @@ const it: Translation<CoreText> = {
     telemetry: { title: "Statistiche d'uso anonime", description: "Invia conteggi d'uso e impostazioni, mai le conversazioni, per aiutare a migliorare Coopanion. I campi sono elencati in docs/TELEMETRY.md." },
     roundsSoft: { title: 'Promemoria di chiusura', suffix: 'richieste', description: 'Dopo questo numero di richieste al modello in un risveglio, Coo riceve un invito a finire ciò che sta facendo e chiudere il turno.' },
     roundsHard: { title: 'Richieste per risveglio', suffix: 'richieste', description: 'Il massimo di richieste al modello in un risveglio; raggiunto il limite, il turno finisce.' },
+    conversationsEnabled: { title: 'Salva le conversazioni', description: 'Come in un\'app di chat, tu e Coo potete salvare la conversazione, iniziarne una nuova e tornare a una salvata. Disattivato, la conversazione prosegue come una sola.' },
+    conversationsRecent: { title: 'Conversazioni passate che Coo può aprire', suffix: 'più recenti', description: 'Quante delle conversazioni salvate più di recente Coo può elencare, leggere e riaprire da solo (0–100). Qualsiasi conversazione salvata si apre dalla pagina Conversazioni.' },
   },
 
   failure: {

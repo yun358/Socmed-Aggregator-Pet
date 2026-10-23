@@ -11,6 +11,8 @@ export default {
     telemetry: { title: '匿名使用统计', description: '发送不含对话内容的使用次数与设置，帮助改进 Coopanion。字段见 docs/TELEMETRY.md。' },
     roundsSoft: { title: '收尾提醒', suffix: '次', description: '单次唤醒请求模型达到此次数时，提醒 Coo 完成当前任务后结束本轮。' },
     roundsHard: { title: '单次唤醒上限', suffix: '次', description: '单次唤醒最多请求模型的次数，达到后结束本轮。' },
+    conversationsEnabled: { title: '保存对话', description: '像聊天应用那样，你和 Coo 可以存下当前对话、开始新对话，再回到存下的对话。关闭后对话一直连着。' },
+    conversationsRecent: { title: 'Coo 能打开的过往对话', suffix: '段', description: 'Coo 自己能列出、阅读和重新打开的最近存下的对话数（0–100）。任何一段存下的对话都能在「对话」页打开。' },
   },
 
   /** 连续几次请求模型失败后,桌宠气泡里的说明 */
