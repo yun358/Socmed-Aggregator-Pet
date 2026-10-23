@@ -13,6 +13,7 @@ A fork of [Coopanion](https://github.com/Pal-AI-Lab/Coopanion), the desktop pet,
 - **Daily autoscroll**: Coo reads a set number of posts each day and tells you what was in them.
 - **Lifetime counter**: how much time Coo has spent on each platform.
 - **Reddit comments**: ask Coo to comment on a post and it writes a draft; you edit it if you like and post it yourself from the **Social media** page. Off until you turn it on there, at most 10 a day by default.
+- **Automatic comments and replies**: two more switches there. One posts Coo's comments without waiting for you; the other has Coo answer replies to your Reddit comments and posts on its own. Comments with links still wait for you. Reddit can limit or ban accounts that post automatically.
 - **Reply arrows**: ‹ and › on Coo's speech bubble to go back when it talks too fast.
 - **Copy button**: copies Coo's whole reply, or just the text you selected.
 - **Saved conversations**: start a new conversation or go back to an old one, as in a chat app. Ask Coo ("let's start a new conversation"), or use the **Conversations** page in settings. Coo can open your last 20 (set 0–100 there); older ones open from that page. Saving can be turned off there too.
