@@ -3,7 +3,7 @@
  * API (tests/console-api.test.ts locks the routes). The Electron main process serves this build
  * under `/coopanion/` on Core's own origin (app/main.cjs), so requests and WebSockets are same-origin.
  *
- * Two modes (features/mode.ts). The normal mode lists the pages about the pet, 社交媒体, 系统提示词 (the
+ * Two modes (features/mode.ts). The normal mode lists the pages about the pet, 社交媒体, 对话记录, 系统提示词 (the
  * whole system prompt with 「清空对话并重开」, the page of advanced/ that uses public routes only), 用量与成本 and 对话;
  * every other route opens 开始. The advanced mode adds the pages copied from Cortico's WebUI
  * (advanced/): the World tree with the World pages, 接入 (模型供应商, 扩展), 人格与记忆 (the Persona and
@@ -39,6 +39,7 @@ import { providersFeature } from './advanced/features/providers/index.ts';
 import { traceFeature } from './advanced/features/trace.ts';
 import { worldsFeature } from './advanced/features/worlds/index.ts';
 import { chatPage } from './features/chat/index.ts';
+import { conversationsPage } from './features/conversations/index.ts';
 import { usagePage } from './features/cost/index.ts';
 import { dressPage } from './features/dress/index.ts';
 import { homePage } from './features/home/index.ts';
@@ -71,7 +72,7 @@ const fromFeature = (feature: FrameworkFeature, group: Entry['group'], basic = f
 
 /** The rail's entries in order. */
 export const ENTRIES: readonly Entry[] = [
-  fromPage(homePage), fromPage(petPage), fromPage(dressPage), fromPage(voicePage), fromPage(socialPage),
+  fromPage(homePage), fromPage(petPage), fromPage(dressPage), fromPage(voicePage), fromPage(socialPage), fromPage(conversationsPage),
   fromFeature(promptsFeature, 'primary', true), fromPage(usagePage), fromPage(chatPage),
   // 模型供应商 keeps the providers page's own name
   fromFeature(providersFeature, 'integrations'), fromFeature(extensionsFeature, 'integrations'),
