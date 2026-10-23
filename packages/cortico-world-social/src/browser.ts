@@ -4,16 +4,55 @@
  * stays logged in. It runs headless unless the person asks to see it, is launched on first use and
  * closed after `IDLE_MS` with no page open. A login window is the same browser on the same profile
  * started on its own, with no automation attached, since sign-in pages (Google's among them) refuse
- * an automated browser; reads wait until the person closes it.
+ * an automated browser; reads wait until the person closes it. Both encrypt the profile's cookies
+ * with the same key (`COOKIE_KEY_SWITCHES`).
  *
  * Adapters see a page only as a `PageSession`, which tests implement without a browser.
  */
 import { spawn, type ChildProcess } from 'node:child_process';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { isIP } from 'node:net';
+import { join } from 'node:path';
 import type { BrowserContext, Page } from 'playwright-core';
 
 export const IDLE_MS = 3 * 60_000;
 const NAV_TIMEOUT_MS = 30_000;
+
+/**
+ * The switches playwright-core starts the automated browser with that choose the key the profile's
+ * cookies are encrypted with: the browser's built-in key on Linux, a stand-in keychain on a Mac.
+ * The login window takes them too. Without them it encrypts with the desktop's keyring or the Mac
+ * keychain, and the automated browser, unable to decrypt the login, finds no session cookie and
+ * deletes the cookie.
+ */
+export const COOKIE_KEY_SWITCHES: readonly string[] = ['--password-store=basic', '--use-mock-keychain'];
+
+/** The login window's command line: the profile, no first-run pages, the automated browser's cookie key, and `url`. */
+export function loginArgs(profileDir: string, url: string): string[] {
+  return [`--user-data-dir=${profileDir}`, '--no-first-run', '--no-default-browser-check', ...COOKIE_KEY_SWITCHES, url];
+}
+
+/**
+ * Turns off the browser's offer to save passwords in the profile: a password saved there would be
+ * kept under the built-in key (`COOKIE_KEY_SWITCHES`), not the keyring, and a login holds through its
+ * cookies. A preferences file that cannot be read is left to the browser.
+ */
+export function noPasswordOffer(profileDir: string): void {
+  const file = join(profileDir, 'Default', 'Preferences');
+  let prefs: Record<string, unknown> = {};
+  if (existsSync(file)) {
+    try {
+      const read: unknown = JSON.parse(readFileSync(file, 'utf8'));
+      if (!read || typeof read !== 'object' || Array.isArray(read)) return;
+      prefs = read as Record<string, unknown>;
+    } catch {
+      return;
+    }
+  }
+  if (prefs.credentials_enable_service === false) return;
+  mkdirSync(join(profileDir, 'Default'), { recursive: true });
+  writeFileSync(file, JSON.stringify({ ...prefs, credentials_enable_service: false }));
+}
 
 export class BrowserMissing extends Error {
   /** `configured`: the browser path the person set, which does not exist. */
@@ -269,10 +308,15 @@ export class SocialBrowser {
     const executable = this.opts.executable();
     if (!executable) throw new BrowserMissing(this.opts.configured?.() ?? '');
     await this.close();
+    try {
+      noPasswordOffer(this.opts.profileDir);
+    } catch (err) {
+      this.opts.warn(`login window preferences: ${(err as Error).message}`);
+    }
     const env = { ...process.env };
     // Core runs Electron as Node; the browser is no Electron, but the flag has no business there
     delete env.ELECTRON_RUN_AS_NODE;
-    const child = spawn(executable, [`--user-data-dir=${this.opts.profileDir}`, '--no-first-run', '--no-default-browser-check', url], { stdio: 'ignore', env });
+    const child = spawn(executable, loginArgs(this.opts.profileDir, url), { stdio: 'ignore', env });
     await new Promise<void>((resolve, reject) => {
       child.once('spawn', resolve);
       child.once('error', reject);

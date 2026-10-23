@@ -1,15 +1,15 @@
 /**
  * SocialBrowser and its pages in a real Chromium: the read's time and interruption bound every page
  * operation, resources come from the browser outside the page, logins are read from the profile's
- * cookies, and the browser closes itself once no page is open. Skipped when no Chromium-based
- * browser is installed.
+ * cookies, a login window encrypts them as the automated browser does, and the browser closes itself
+ * once no page is open. Skipped when no Chromium-based browser is installed.
  */
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { BrowserContext } from 'playwright-core';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { IMAGE_ACCEPT, Interrupted, SocialBrowser, TimeUp, publicHttps, type PageLimits } from '../src/browser.ts';
+import { IMAGE_ACCEPT, Interrupted, SocialBrowser, TimeUp, loginArgs, noPasswordOffer, publicHttps, type PageLimits } from '../src/browser.ts';
 import { Deadline } from '../src/collect.ts';
 import { FixtureBrowser, FixtureServer, findTestBrowser, html, solidPng } from './helpers/live-browser.ts';
 
@@ -25,6 +25,27 @@ describe('publicHttps', () => {
       'http://i.redd.it/a.png', 'https://127.0.0.1/a.png', 'https://192.168.1.1/reboot?x=.png', 'https://[::1]/a.png', 'https://localhost/a.png',
       'https://printer.local/a.png', 'https://router.lan/a.png', 'https://nas.home.arpa/a.png', 'https://intranet/a.png', 'file:///etc/passwd',
     ]) expect(publicHttps(new URL(no)), no).toBe(false);
+  });
+});
+
+describe('noPasswordOffer', () => {
+  it("turns off the profile's offer to save passwords, keeping its other preferences and leaving a file it cannot read", () => {
+    const dir = mkdtempSync(join(tmpdir(), 'social-prefs-'));
+    const file = join(dir, 'Default', 'Preferences');
+    try {
+      noPasswordOffer(dir);
+      expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual({ credentials_enable_service: false });
+      writeFileSync(file, JSON.stringify({ profile: { name: 'Coo' }, credentials_enable_service: true }));
+      noPasswordOffer(dir);
+      expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual({ profile: { name: 'Coo' }, credentials_enable_service: false });
+      for (const unreadable of ['{"profile":', '[]']) {
+        writeFileSync(file, unreadable);
+        noPasswordOffer(dir);
+        expect(readFileSync(file, 'utf8')).toBe(unreadable);
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 
@@ -164,6 +185,17 @@ describe.skipIf(!EXE)('SocialBrowser', () => {
       { name: 'elsewhere', value: '1', domain: 'otherfixture.test', path: '/', expires: later },
     ]);
     expect((await b.cookieNames('.fixture.test')).sort()).toEqual(['session', 'sub']);
+  });
+
+  it("starts a login window with the switches that choose the automated browser's cookie key", async () => {
+    // a login encrypted with another key is one the automated browser cannot read
+    const line = await browser.withPage(async (page) => {
+      await page.goto('chrome://version');
+      return page.run(() => document.getElementById('command_line')?.textContent ?? '', null);
+    }, ample);
+    const keySwitches = line.split(/\s+/).filter((s) => /^--(password-store=|use-mock-keychain$)/.test(s));
+    expect(keySwitches.length).toBeGreaterThan(0);
+    expect(loginArgs(join(dir, 'profile'), `${ORIGIN}/login`)).toEqual(expect.arrayContaining(keySwitches));
   });
 
   it('closes itself once no page has been open for its idle time, and starts again for the next read', async () => {
