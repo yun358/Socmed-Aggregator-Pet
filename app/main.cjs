@@ -436,14 +436,15 @@ function bringForward(win) {
   if (!MAC) win.setAlwaysOnTop(false);
 }
 
-function openSettings(path = '') {
+/** Shows the settings window at `path`; with `keep`, a window already open stays on its page. */
+function openSettings(path = '', keep = false) {
   // a menu-bar app shows in the Dock only while it has a window to switch to
   if (MAC) void app.dock?.show();
   if (settings) {
     if (settings.isMinimized()) settings.restore();
     bringForward(settings);
     const url = settingsUrl(path);
-    if (url && path) settings.loadURL(url);
+    if (url && path && !keep) settings.loadURL(url);
     return;
   }
   // 1200 wide keeps the 开始 page's model list on two rows; a smaller screen gets its work area
@@ -579,7 +580,7 @@ core.on('state', (state, exit) => {
   if (state === 'failed') dialog.showErrorBox('Coopanion', detail);
 });
 
-core.on('open', (path) => openSettings(path));
+core.on('open', (path, keep) => openSettings(path, keep));
 // the introduction runs again on the desktop, where Coo is
 core.on('hide', () => {
   if (!settings) return;

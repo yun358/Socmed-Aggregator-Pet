@@ -17,8 +17,9 @@
  * Events: `ready` ({ port, keyMissing, language }), `language` (the app language after a change),
  * `state` (the state, and for an unexpected exit `{ kind: 'restarting', code }` or, once it stops
  * retrying, `{ kind: 'failed', times, code, logFile }`, for a lock held elsewhere `{ kind: 'locked', pid, file }`, or for
- * the console ports `{ kind: 'ports-busy', from, to }`), and the Core's requests `open`, `hide`,
- * `quit`, `update-install` and `releases`.
+ * the console ports `{ kind: 'ports-busy', from, to }`), and the Core's requests `open` (a console
+ * route, and `keep` to leave a settings window already open on its page), `hide`, `quit`,
+ * `update-install` and `releases`.
  */
 const { fork } = require('node:child_process');
 const { coreEnvironment, systemProxyEnvironment } = require('./core-env.cjs');
@@ -126,7 +127,7 @@ class CoreHost extends EventEmitter {
       } else if (msg?.type === 'cortico:restart') {
         this.restartAsked = true;
       } else if (msg?.type === 'companion:open') {
-        this.emit('open', typeof msg.path === 'string' ? msg.path : '');
+        this.emit('open', typeof msg.path === 'string' ? msg.path : '', msg.keep === true);
       } else if (msg?.type === 'companion:hide') {
         this.emit('hide');
       } else if (msg?.type === 'companion:quit') {
