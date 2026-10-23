@@ -1,14 +1,14 @@
 /**
  * Reddit through its JSON listings, fetched from a reddit.com page so the request carries the
  * browser's cookies: the front page, a subreddit, a search, a user's posts, and a post's comments.
- * Reddit serves the listings only to logged-in visitors. A comment the person posts goes through the
- * site's own comment endpoint the same way.
+ * Reddit serves the listings only to logged-in visitors. A comment goes through the site's own
+ * comment endpoint the same way, and the replies to the person come from their inbox.
  */
 import type { PageSession } from '../browser.ts';
 import { PlatformBlocked, type Collector } from '../collect.ts';
 import { CommentRefused } from '../comments.ts';
 import { accountName, hostIs, type Adapter, type BrowseRequest } from './adapter.ts';
-import { parseRedditListing, parseRedditThread } from './reddit-parse.ts';
+import { parseRedditInbox, parseRedditListing, parseRedditThread, type RedditReply } from './reddit-parse.ts';
 
 const ORIGIN = 'https://www.reddit.com';
 const PAGE_MAX = 100;
@@ -20,6 +20,10 @@ const THING_ID = /^[a-z0-9]{1,13}$/;
 
 /** The longest comment Reddit takes. */
 export const REDDIT_COMMENT_MAX = 10_000;
+/** The line an automatic comment ends with when the person has them marked, in Reddit's small print. */
+export const AUTO_NOTE = '^(Sent automatically by my assistant.)';
+/** The longest comment the bot may write: what Reddit takes, less room for `AUTO_NOTE`. */
+export const BOT_COMMENT_MAX = REDDIT_COMMENT_MAX - AUTO_NOTE.length - 2;
 
 /** A page on reddit.com to fetch from; robots.txt is small and needs no script. */
 async function onReddit(page: PageSession): Promise<void> {
@@ -117,6 +121,20 @@ export async function postRedditComment(page: PageSession, target: string, text:
   const id = str(d?.id);
   const post = str(d?.link_id)?.replace(/^t3_/, '');
   return { link: permalink ? ORIGIN + permalink : id && post ? `${ORIGIN}/comments/${post}/_/${id}/` : null };
+}
+
+/** The account logged in and the unread replies to its comments and posts, read without marking them read. */
+export async function redditInbox(page: PageSession): Promise<{ me: string; replies: RedditReply[] }> {
+  await onReddit(page);
+  const me = await page.fetchText(`${ORIGIN}/api/me.json`);
+  let name: unknown;
+  try {
+    name = (JSON.parse(me.text) as { data?: { name?: unknown } }).data?.name;
+  } catch {
+    // a login page
+  }
+  if (typeof name !== 'string' || !name) throw new PlatformBlocked('reddit', 'login');
+  return { me: name, replies: parseRedditInbox(await getJson(page, '/message/unread.json?mark=false&limit=50&raw_json=1')) };
 }
 
 /** The order a listing uses for `req`; Reddit's own default when it names none Reddit knows. */

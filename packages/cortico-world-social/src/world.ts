@@ -4,7 +4,9 @@
  * turn of the bot: what every `social_*` read in that turn used is added up and checked against
  * `maxPosts` and `maxSec`, and starts again from nothing when the turn ends. The daily autoscroll
  * runs here, outside any turn, and tells the bot when a run's posts are ready, once it is idle.
- * Comments the bot drafts wait for the person on the panel, which alone posts them (`comments.ts`).
+ * Comments the bot writes wait for the person on the panel, which alone posts them, unless the
+ * person turned on automatic comments or replies; then they are posted at once (`comments.ts`). While
+ * automatic replies are on, the inbox is looked at every `REPLY_CHECK_MS` and new replies are told.
  */
 import { existsSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
@@ -16,7 +18,7 @@ import type { DeepPartial } from 'cortico/world.ts';
 import { DigestStore, digestId, dueJobs, jobKey, localClock, type Digest } from './autoscroll.ts';
 import { BrowserBusy, BrowserMissing, Interrupted, LoginWindowOpen, SocialBrowser, TimeUp, type PageLimits, type PageSession } from './browser.ts';
 import { Collector, Deadline, PlatformBlocked, type StopReason } from './collect.ts';
-import { CommentRefused, CommentStore, DRAFTS_MAX, type CommentDraft, type PostedComment } from './comments.ts';
+import { CommentRefused, CommentStore, DRAFTS_MAX, hasLink, type CommentDraft, type PostedComment } from './comments.ts';
 import { COMMENTS_PER_DAY_CAP, MAX_JOBS, JOB_POSTS_CAP, MAX_POSTS_CAP, MAX_SEC_CAP, SOCIAL_ID, SOURCE_KINDS, parseJobs, socialConfigGroup, type AutoscrollJob, type ImageMode, type SocialConfigSection } from './config.ts';
 import { findBrowser } from './find-browser.ts';
 import { socialText, type SocialText } from './i18n/index.ts';
@@ -26,7 +28,7 @@ import { MODEL_TEXT, type Limits, type ModelLanguage, type ModelText } from './m
 import { Ocr, ocrLanguagesFor } from './ocr.ts';
 import { ADAPTERS, platformOf, type Adapter, type BrowseRequest, type TranscriptResult } from './platforms/index.ts';
 import { bilibiliVideoId } from './platforms/bilibili-parse.ts';
-import { REDDIT_COMMENT_MAX, postRedditComment, redditReplyTarget } from './platforms/reddit.ts';
+import { AUTO_NOTE, BOT_COMMENT_MAX, REDDIT_COMMENT_MAX, postRedditComment, redditInbox, redditReplyTarget } from './platforms/reddit.ts';
 import { youtubeVideoId } from './platforms/youtube-parse.ts';
 import { PLATFORM_IDS, VIDEO_PLATFORMS, type PlatformId, type Post, type Transcript } from './posts.ts';
 import { COMMENT_TEXT_MAX, localStamp, oneLine, renderPage, renderPost, renderTranscript } from './render.ts';
@@ -55,6 +57,18 @@ const TRANSCRIPT_CACHE = 4;
 const POST_MS = 30_000;
 /** Posted comments the panel lists. */
 const POSTED_SHOWN = 10;
+/** How often the inbox is looked at while automatic replies are on. */
+export const REPLY_CHECK_MS = 5 * 60_000;
+/** Time a look at the inbox may take. */
+const INBOX_MS = 20_000;
+/** How long after the bot is told of a reply its answer to it is posted at once. */
+export const REPLY_WAIT_MS = 60 * 60_000;
+/** Replies older than this get no answer. */
+export const REPLY_MAX_AGE_MS = 24 * 60 * 60_000;
+/** Automatic answers to one account in one day; past them an answer waits for the person. */
+export const REPLIES_PER_ACCOUNT = 2;
+/** Accounts whose replies get no automatic answer, lowercased: Reddit's moderation bot, and the deleted. */
+const NO_ANSWER = new Set(['automoderator', '[deleted]']);
 
 export interface SocialWorldOptions {
   /** The live `worlds.social` section; every key is read at use. */
@@ -83,7 +97,7 @@ export interface SocialPanelState {
     maxPosts: number; maxSec: number; images: ImageMode; maxTranscriptChars: number; showBrowser: boolean; browserFile: string;
     platforms: Record<PlatformId, boolean>;
     autoscroll: { enabled: boolean; maxMinutes: number };
-    comments: { enabled: boolean; maxPerDay: number };
+    comments: { enabled: boolean; maxPerDay: number; auto: boolean; autoReply: boolean; sign: boolean };
   };
   jobs: AutoscrollJob[];
   /** The browser that will be run, null when none is found. */
@@ -102,8 +116,10 @@ export interface SocialPanelState {
     today: number;
     /** Drafts being posted now. */
     posting: string[];
+    /** The last look at the inbox for automatic replies, as an ISO time. */
+    checkedAt: string | null;
   };
-  caps: { maxPosts: number; maxSec: number; jobPosts: number; jobs: number; commentsPerDay: number };
+  caps: { maxPosts: number; maxSec: number; jobPosts: number; jobs: number; commentsPerDay: number; replyCheckMin: number; repliesPerAccount: number };
 }
 
 /** What reading a call's images gave: the images to attach, and why OCR could not run, if it could not. */
@@ -146,6 +162,10 @@ export class SocialWorld implements World {
   private readonly comments: CommentStore;
   /** Drafts being posted now; posting or discarding one of them is refused until that ends. */
   private readonly posting = new Set<string>();
+  /** Replies the bot was told of, by the id an answer replies to, with their author and when it was told. */
+  private readonly awaiting = new Map<string, { author: string; at: number }>();
+  private checkingReplies: Promise<void> | null = null;
+  private lastReplyLook = 0;
 
   constructor(private readonly opts: SocialWorldOptions) {
     this.browser = opts.browser ?? new SocialBrowser({
@@ -237,7 +257,7 @@ export class SocialWorld implements World {
       social_read: (a, s) => this.read(a, s),
       social_transcript: (a, s) => this.transcript(a, s),
       social_login: (a) => this.login(a),
-      social_comment: async (a) => this.draftComment(a),
+      social_comment: (a, s) => this.comment(a, s),
       social_stats: async () => this.stats(),
       social_digest: async (a) => this.digest(a),
     };
@@ -261,6 +281,7 @@ export class SocialWorld implements World {
     if (err instanceof BrowserBusy) return t.busy(err.pages);
     if (err instanceof LoginWindowOpen) return t.loginWindowOpen;
     if (err instanceof PlatformBlocked) return t.blocked(t.platform[err.platform], err.platform, err.kind, err.detail);
+    if (err instanceof CommentRefused) return t.commentRefused(err.detail);
     return t.error(firstLine(err));
   }
 
@@ -488,11 +509,17 @@ export class SocialWorld implements World {
 
   /* ---------- comments ---------- */
 
-  /** A draft for the person to post, after the checks a post would fail later; the panel is brought up. */
-  private draftComment(args: Record<string, unknown>): string {
+  /**
+   * A comment the bot wrote. With automatic comments on, or as its answer to a reply it was told of
+   * while automatic replies are on, it is posted at once unless `holdReason` names a reason to wait;
+   * held, failed to post, or neither switch on, it becomes a draft, and the panel is brought up for a
+   * draft the person asked for.
+   */
+  private async comment(args: Record<string, unknown>, signal?: AbortSignal): Promise<string> {
     const t = this.t;
+    const c = this.cfg.comments;
     const notRun = (why: string) => t.notRun('social_comment', why);
-    if (!this.cfg.comments.enabled) return notRun(t.commentsOff);
+    if (!c.enabled) return notRun(t.commentsOff);
     const url = str(args.url).trim();
     const owner = platformOf(url);
     if (owner !== 'reddit') return notRun(owner ? t.commentRedditOnly : t.notPlatformUrl);
@@ -502,12 +529,49 @@ export class SocialWorld implements World {
     if (!target) return notRun(ADAPTERS.reddit.shareLink?.(new URL(url)) ? t.commentShareLink : t.commentNoTarget);
     const text = str(args.text).trim();
     if (!text) return notRun(t.commentEmpty);
-    if (text.length > REDDIT_COMMENT_MAX) return notRun(t.commentTooLong(REDDIT_COMMENT_MAX));
+    if (text.length > BOT_COMMENT_MAX) return notRun(t.commentTooLong(BOT_COMMENT_MAX));
+    if (this.comments.today(this.opts.timezone) >= c.maxPerDay) return notRun(t.commentDayFull(c.maxPerDay));
+    const answering = this.answering(target);
+    let held: string | null = null;
+    if (answering ? c.autoReply : c.auto) {
+      held = this.holdReason(text, answering);
+      if (!held) {
+        try {
+          const link = await this.send(target, c.sign ? `${text}\n\n${AUTO_NOTE}` : text, signal);
+          this.comments.record({ platform: owner, url, link, text, edited: false, auto: true, ...(answering ? { to: answering.author } : {}) });
+          this.awaiting.delete(target);
+          return t.commentPostedNow(link);
+        } catch (err) {
+          // an answer cut off may have reached Reddit
+          held = err instanceof Interrupted || err instanceof TimeUp ? t.heldUnsure : t.heldFailed(this.why(err));
+        }
+      }
+    }
     if (this.comments.drafts().length >= DRAFTS_MAX) return notRun(t.commentDraftsFull(DRAFTS_MAX));
-    if (this.comments.today(this.opts.timezone) >= this.cfg.comments.maxPerDay) return notRun(t.commentDayFull(this.cfg.comments.maxPerDay));
     const draft = this.comments.add({ platform: owner, url, target, text });
-    this.opts.showDrafts?.();
-    return t.commentDrafted(draft.id);
+    // an answer to a reply comes out of a background look, and waits without bringing anything up
+    if (!answering) this.opts.showDrafts?.();
+    return held ? t.commentHeld(draft.id, held) : t.commentDrafted(draft.id);
+  }
+
+  /** The reply `target` answers, while the bot's answer to it is still posted at once. */
+  private answering(target: string): { author: string; at: number } | undefined {
+    const a = this.awaiting.get(target);
+    if (!a || this.now() - a.at <= REPLY_WAIT_MS) return a;
+    this.awaiting.delete(target);
+    return undefined;
+  }
+
+  /** Why an automatic comment waits for the person: a link in it, or its account answered enough today. */
+  private holdReason(text: string, answering?: { author: string }): string | null {
+    if (hasLink(text)) return this.t.heldLink;
+    if (answering && this.comments.answeredToday(answering.author, this.opts.timezone) >= REPLIES_PER_ACCOUNT) return this.t.heldAccount(REPLIES_PER_ACCOUNT);
+    return null;
+  }
+
+  /** Posts `text` as a reply to `target` with the browser's Reddit login; the comment's link when Reddit names it. */
+  private async send(target: string, text: string, signal?: AbortSignal): Promise<string | null> {
+    return (await this.browser.withPage((page) => postRedditComment(page, target, text), this.pageLimits(new Deadline(POST_MS, this.now), signal))).link;
   }
 
   /**
@@ -526,7 +590,7 @@ export class SocialWorld implements World {
     this.posting.add(draft.id);
     let link: string | null;
     try {
-      ({ link } = await this.browser.withPage((page) => postRedditComment(page, draft.target, body), this.pageLimits(new Deadline(POST_MS, this.now))));
+      link = await this.send(draft.target, body);
     } catch (err) {
       if (err instanceof PlatformBlocked) throw new Error(err.kind === 'login' ? s.login : s.blocked(err.detail));
       if (err instanceof CommentRefused) throw new Error(s.refused(err.detail));
@@ -538,7 +602,7 @@ export class SocialWorld implements World {
       this.posting.delete(draft.id);
     }
     const edited = body !== draft.text;
-    this.comments.record(draft.id, { platform: draft.platform, url: draft.url, link, text: body, edited });
+    this.comments.record({ platform: draft.platform, url: draft.url, link, text: body, edited, auto: false }, draft.id);
     await this.push(`${SOCIAL_ID}.comment`, this.t.commentPosted(draft.url, link, edited ? oneLine(body, COMMENT_TEXT_MAX) : null), 'flush', 'internal')
       .catch((err: Error) => this.host?.log.warn(`social event not sent: ${err.message}`));
   }
@@ -550,6 +614,51 @@ export class SocialWorld implements World {
     if (!draft) throw new Error(s.gone);
     await this.push(`${SOCIAL_ID}.comment`, this.t.commentDiscarded(draft.url), 'piggyback', 'internal')
       .catch((err: Error) => this.host?.log.warn(`social event not sent: ${err.message}`));
+  }
+
+  /* ---------- automatic replies ---------- */
+
+  private get watchingReplies(): boolean {
+    const c = this.cfg.comments;
+    return c.enabled && c.autoReply && this.cfg.platforms.reddit?.enabled !== false;
+  }
+
+  /** The look at the inbox each `look` makes while automatic replies are on, once every `REPLY_CHECK_MS`. */
+  private async lookAtReplies(): Promise<void> {
+    if (!this.watchingReplies) {
+      this.comments.stopWatching();
+      return;
+    }
+    // a look while the person uses a login window waits for it to close
+    if (this.browser.loginOpen || this.now() - this.lastReplyLook < REPLY_CHECK_MS) return;
+    await this.checkReplies().catch((err: unknown) => this.host?.log.warn(`social reply check: ${firstLine(err)}`));
+  }
+
+  /**
+   * Looks at the inbox once. The replies that came since automatic replies were turned on, within
+   * `REPLY_MAX_AGE_MS` and from another account, are told to the bot in one event once it is idle;
+   * its answer to each is posted at once for `REPLY_WAIT_MS` after.
+   */
+  private checkReplies(): Promise<void> {
+    this.checkingReplies ??= (async () => {
+      try {
+        this.lastReplyLook = this.now();
+        const since = Date.parse(this.comments.watchSince());
+        const inbox = await this.browser.withPage((page) => redditInbox(page), this.pageLimits(new Deadline(INBOX_MS, this.now)));
+        const me = inbox.me.toLowerCase();
+        const fresh = inbox.replies.filter((r) => !this.comments.seen(r.target) && r.createdAtMs >= since && this.now() - r.createdAtMs <= REPLY_MAX_AGE_MS
+          && r.author.toLowerCase() !== me && !NO_ANSWER.has(r.author.toLowerCase()));
+        this.comments.looked(inbox.replies.map((r) => r.target));
+        if (!fresh.length) return;
+        for (const r of fresh) this.awaiting.set(r.target, { author: r.author, at: this.now() });
+        const t = this.t;
+        const text = t.repliesEvent(fresh.map((r) => t.replyLine(`u/${r.author}`, oneLine(r.title), oneLine(r.text, COMMENT_TEXT_MAX), r.url)));
+        this.whenIdle(() => this.push(`${SOCIAL_ID}.reply`, text, 'flush'));
+      } finally {
+        this.checkingReplies = null;
+      }
+    })();
+    return this.checkingReplies;
   }
 
   /** After a login window closes: whether a login holds, told to the bot (with the next batch when the person opened it). */
@@ -656,8 +765,9 @@ export class SocialWorld implements World {
 
   /* ---------- daily autoscroll ---------- */
 
-  /** Starts the jobs that are due, one after another. */
+  /** Starts the jobs that are due, one after another, and looks at the inbox while automatic replies are on. */
   private async look(): Promise<void> {
+    void this.lookAtReplies();
     // a job due while the person uses a login window runs once it is closed
     if (this.running || !this.cfg.autoscroll.enabled || this.browser.loginOpen) return;
     const due = dueJobs(this.jobs().filter((j) => this.cfg.platforms[j.platform]?.enabled), this.digests.lastRuns(), this.now(), this.opts.timezone);
@@ -724,7 +834,7 @@ export class SocialWorld implements World {
       'social.maxSec': String(this.cfg.maxSec),
       'social.images': t.envImages[this.cfg.images],
       'social.autoscroll': t.envAutoscroll(this.jobLines()),
-      'social.comments': t.envComments(this.cfg.comments.enabled, this.cfg.comments.maxPerDay),
+      'social.comments': t.envComments(this.cfg.comments),
     };
   }
 
@@ -742,7 +852,7 @@ export class SocialWorld implements World {
         maxPosts: c.maxPosts, maxSec: c.maxSec, images: c.images, maxTranscriptChars: c.maxTranscriptChars, showBrowser: c.showBrowser, browserFile: c.browserFile,
         platforms: Object.fromEntries(PLATFORM_IDS.map((p) => [p, c.platforms[p]?.enabled !== false])) as Record<PlatformId, boolean>,
         autoscroll: { enabled: c.autoscroll.enabled, maxMinutes: c.autoscroll.maxMinutes },
-        comments: { enabled: c.comments.enabled, maxPerDay: c.comments.maxPerDay },
+        comments: { enabled: c.comments.enabled, maxPerDay: c.comments.maxPerDay, auto: c.comments.auto, autoReply: c.comments.autoReply, sign: c.comments.sign },
       },
       jobs: this.jobs(),
       browser: findBrowser(c.browserFile),
@@ -751,8 +861,14 @@ export class SocialWorld implements World {
       lifetime: this.lifetime.snapshot(),
       digests: this.digests.list(10),
       running: this.running,
-      comments: { drafts: this.comments.drafts(), posted: this.comments.posted(POSTED_SHOWN), today: this.comments.today(this.opts.timezone), posting: [...this.posting] },
-      caps: { maxPosts: MAX_POSTS_CAP, maxSec: MAX_SEC_CAP, jobPosts: JOB_POSTS_CAP, jobs: MAX_JOBS, commentsPerDay: COMMENTS_PER_DAY_CAP },
+      comments: {
+        drafts: this.comments.drafts(), posted: this.comments.posted(POSTED_SHOWN), today: this.comments.today(this.opts.timezone), posting: [...this.posting],
+        checkedAt: this.comments.checkedAt,
+      },
+      caps: {
+        maxPosts: MAX_POSTS_CAP, maxSec: MAX_SEC_CAP, jobPosts: JOB_POSTS_CAP, jobs: MAX_JOBS, commentsPerDay: COMMENTS_PER_DAY_CAP,
+        replyCheckMin: REPLY_CHECK_MS / 60_000, repliesPerAccount: REPLIES_PER_ACCOUNT,
+      },
     };
   }
 
@@ -802,6 +918,17 @@ export class SocialWorld implements World {
         return this.panelState();
       case 'commentDiscard':
         await this.discardComment(args[0], c);
+        return this.panelState();
+      case 'checkReplies':
+        if (!this.watchingReplies) throw new Error(c.notWatching);
+        try {
+          await this.checkReplies();
+        } catch (err) {
+          if (err instanceof PlatformBlocked && err.kind === 'login') throw new Error(c.login);
+          // the panel words these three itself
+          if (err instanceof BrowserMissing || err instanceof BrowserBusy || err instanceof LoginWindowOpen) throw err;
+          throw new Error(c.checkFailed(firstLine(err)));
+        }
         return this.panelState();
       default:
         throw new Error(`unknown method ${method}`);

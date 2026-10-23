@@ -84,6 +84,15 @@ const CALLS: { [K in keyof ModelText]: (t: ModelText) => string[] } = {
     t.commentPosted('https://www.reddit.com/r/fixturetown/comments/abc/x/', null, 'Agreed, the ramen place is worth the wait.'),
   ],
   commentDiscarded: (t) => [t.commentDiscarded('https://www.reddit.com/r/fixturetown/comments/abc/x/')],
+  commentPostedNow: (t) => [t.commentPostedNow('https://www.reddit.com/r/fixturetown/comments/abc/x/def/'), t.commentPostedNow(null)],
+  commentHeld: (t) => [t.commentHeld('c4', t.heldLink), t.commentHeld('c4', t.heldAccount(2))],
+  heldLink: (t) => [t.heldLink],
+  heldAccount: (t) => [t.heldAccount(2)],
+  heldUnsure: (t) => [t.heldUnsure],
+  heldFailed: (t) => [t.heldFailed('reason')],
+  commentRefused: (t) => [t.commentRefused('THREAD_LOCKED: Comments are locked.')],
+  repliesEvent: (t) => [t.repliesEvent([t.replyLine('u/fixture_bob', 'Autumn trip ideas', 'Which temple?', 'https://www.reddit.com/r/fixturetown/comments/abc/x/def/')])],
+  replyLine: (t) => [t.replyLine('u/fixture_bob', 'Autumn trip ideas', 'Which temple?', 'https://www.reddit.com/r/fixturetown/comments/abc/x/def/')],
   statsHead: (t) => [t.statsHead('2026-10-01 09:00')],
   statsLine: (t) => [t.statsLine('Reddit', '5 min 2 s', 40, 1, '2026-10-22 09:00'), t.statsLine('YouTube', '2 s', 0, 0)],
   statsNone: (t) => [t.statsNone],
@@ -102,7 +111,11 @@ const CALLS: { [K in keyof ModelText]: (t: ModelText) => string[] } = {
   envPlatforms: (t) => [t.envPlatforms([]), t.envPlatforms(['Reddit', 'YouTube'])],
   envImages: (t) => IMAGE_MODES.map((m) => t.envImages[m]),
   envAutoscroll: (t) => [t.envAutoscroll([]), t.envAutoscroll(['- line'])],
-  envComments: (t) => [t.envComments(true, 10), t.envComments(false, 10)],
+  envComments: (t) => [
+    t.envComments({ enabled: true, maxPerDay: 10, auto: false, autoReply: false }),
+    t.envComments({ enabled: true, maxPerDay: 10, auto: true, autoReply: true }),
+    t.envComments({ enabled: false, maxPerDay: 10, auto: true, autoReply: true }),
+  ],
 };
 
 /** Han characters and the full-width punctuation Chinese text uses. */

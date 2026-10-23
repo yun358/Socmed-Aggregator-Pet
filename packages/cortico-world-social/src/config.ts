@@ -51,11 +51,17 @@ export interface SocialConfigSection extends WorldSection {
     maxMinutes: number;
     jobs: AutoscrollJob[];
   };
-  /** Comments the bot drafts for the person to post (`comments.ts`). */
+  /** Comments the bot writes (`comments.ts`): drafts for the person to post, unless an automatic switch is on. */
   comments: {
     enabled: boolean;
-    /** Comments the person may post in one day, by the local date. */
+    /** Comments posted in one day, by the local date, drafts and automatic ones together. */
     maxPerDay: number;
+    /** The bot's comments are posted at once, without waiting for the person. */
+    auto: boolean;
+    /** The bot is told of new replies to the person's Reddit comments and posts, and its answers are posted at once. */
+    autoReply: boolean;
+    /** Automatic comments end with `AUTO_NOTE`. */
+    sign: boolean;
   };
 }
 
@@ -75,7 +81,7 @@ export const SOCIAL_DEFAULTS: SocialConfigSection = {
   browserFile: '',
   platforms: Object.fromEntries(PLATFORM_IDS.map((id) => [id, { enabled: true }])) as Record<PlatformId, { enabled: boolean }>,
   autoscroll: { enabled: false, maxMinutes: 15, jobs: [] },
-  comments: { enabled: false, maxPerDay: 10 },
+  comments: { enabled: false, maxPerDay: 10, auto: false, autoReply: false, sign: true },
 };
 
 const K = `worlds.${SOCIAL_ID}`;
@@ -101,6 +107,9 @@ export function socialConfigGroup(language: Language = 'zh'): ConfigGroup {
         [`${K}.autoscroll.maxMinutes`]: { type: 'integer', title: c.autoscrollMaxMinutes.title, description: c.autoscrollMaxMinutes.description, minimum: 1, maximum: 120, 'x-hot': true },
         [`${K}.comments.enabled`]: { type: 'boolean', title: c.commentsEnabled.title, description: c.commentsEnabled.description, 'x-hot': true },
         [`${K}.comments.maxPerDay`]: { type: 'integer', title: c.commentsPerDay.title, description: c.commentsPerDay.description, minimum: 1, maximum: COMMENTS_PER_DAY_CAP, 'x-hot': true },
+        [`${K}.comments.auto`]: { type: 'boolean', title: c.commentsAuto.title, description: c.commentsAuto.description, 'x-hot': true },
+        [`${K}.comments.autoReply`]: { type: 'boolean', title: c.commentsAutoReply.title, description: c.commentsAutoReply.description, 'x-hot': true },
+        [`${K}.comments.sign`]: { type: 'boolean', title: c.commentsSign.title, description: c.commentsSign.description, 'x-hot': true },
       },
     },
   };

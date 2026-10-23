@@ -1,8 +1,8 @@
 /**
  * The `social` panel: comment drafts waiting for the person (first, shown only while there are any),
  * the limits of one request, the platforms with their logins and the browser, the daily autoscroll
- * jobs with their recent runs, the comment settings with the comments posted, and the lifetime
- * counter. It renders the panel's `state`, read again every `POLL_MS` while mounted. Scalar settings
+ * jobs with their recent runs, the comment settings (drafts, the automatic switches, a look at the
+ * replies now) with the comments posted, and the lifetime counter. It renders the panel's `state`, read again every `POLL_MS` while mounted. Scalar settings
  * are written through `/api/config` (`ctx.setConfig`) on each change; the job list goes through the
  * panel's `setJobs`, whole, whenever every job in it is complete. A draft is posted with the text
  * left in its field.
@@ -407,21 +407,42 @@ function mount(ctx: WebUiPanelContext): void {
   const commentsOn = switchSetting('comments.enabled', ct.enabledCheck, commentsMsg);
   const perDay = numberSetting('comments.maxPerDay', ct.perDaySuffix, commentsMsg);
   const today = ui.h('p', 'home-note');
+  const autoOn = switchSetting('comments.auto', ct.autoCheck, commentsMsg);
+  const autoReplyOn = switchSetting('comments.autoReply', ct.autoReplyCheck, commentsMsg);
+  const signOn = switchSetting('comments.sign', ct.signCheck, commentsMsg);
+  const replyHint = ui.h('p', 'home-note');
+  const checkNow = ui.button(ct.checkReplies, { size: 'sm', onClick: () => void checkReplies() });
+  const checkedLine = ui.h('span', 'social-muted');
+  const replyBar = ui.rowbar();
+  replyBar.append(checkNow, checkedLine);
+  const replyBox = ui.h('div', 'companion-control');
+  replyBox.append(autoReplyOn.el, replyHint, replyBar);
   const posted = ui.table({ head: [ct.when, ct.on, ct.comment] });
   posted.el.classList.add('social-table');
   comments.body.append(
     row(ct.enabled, commentsOn.el, ct.enabledHint),
     row(ct.perDay, perDay.box, today),
+    row(ct.auto, autoOn.el, ct.autoHint),
+    row(ct.autoReply, replyBox),
+    row(ct.sign, signOn.el, ct.autoRisk),
     commentsMsg,
     ui.section(ct.recent),
     posted.el,
   );
+  const checkReplies = async () => {
+    checkNow.disabled = true;
+    checkNow.textContent = ct.checkingReplies;
+    await call('checkReplies', [], commentsMsg);
+    checkNow.textContent = ct.checkReplies;
+    checkNow.disabled = !(st?.config.comments.enabled && st.config.comments.autoReply);
+  };
   /** A posted comment's text on one line, linked to the comment when the platform named it. */
   const postedText = (p: PostedComment) => {
     const shown = shorten(p.text.replace(/\s+/g, ' '));
     const cell = ui.h('span');
     cell.append(p.link ? link(p.link, shown) : shown);
     if (p.edited) cell.append(' ', ui.h('span', 'social-muted', ct.edited));
+    if (p.auto) cell.append(' ', ui.h('span', 'social-muted', ct.automatic));
     return cell;
   };
 
@@ -481,6 +502,14 @@ function mount(ctx: WebUiPanelContext): void {
     commentsOn.setChecked(c.comments.enabled);
     perDay.set(c.comments.maxPerDay);
     today.textContent = ct.today(next.comments.today);
+    autoOn.setChecked(c.comments.auto);
+    autoReplyOn.setChecked(c.comments.autoReply);
+    signOn.setChecked(c.comments.sign);
+    // the automatic switches act only while comments are on
+    for (const x of [autoOn, autoReplyOn, signOn]) x.input.disabled = !c.comments.enabled;
+    replyHint.textContent = ct.autoReplyHint(next.caps.replyCheckMin, next.caps.repliesPerAccount);
+    checkedLine.textContent = next.comments.checkedAt ? ct.checkedAt(when(next.comments.checkedAt)) : '';
+    if (checkNow.textContent !== ct.checkingReplies) checkNow.disabled = !(c.comments.enabled && c.comments.autoReply);
     posted.clear(next.comments.posted.length ? undefined : ct.nonePosted);
     for (const p of next.comments.posted) posted.addRow([when(p.at), link(p.url), postedText(p)]);
 

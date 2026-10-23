@@ -1,6 +1,7 @@
 /**
- * Comments: the store of drafts and posted comments with its daily count, what a Reddit link
- * replies to, and posting through Reddit's comment endpoint on a scripted page.
+ * Comments: the store of drafts, posted comments and the inbox watch with its daily counts, what
+ * counts as a link, what a Reddit link replies to, posting through Reddit's comment endpoint, and
+ * the replies read from the inbox, on a scripted page.
  */
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -8,8 +9,9 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { FetchedText } from '../src/browser.ts';
 import { PlatformBlocked } from '../src/collect.ts';
-import { CommentRefused, CommentStore, POSTED_KEPT } from '../src/comments.ts';
-import { postRedditComment, redditReplyTarget } from '../src/platforms/reddit.ts';
+import { CommentRefused, CommentStore, POSTED_KEPT, SEEN_KEPT, hasLink } from '../src/comments.ts';
+import { parseRedditInbox } from '../src/platforms/reddit-parse.ts';
+import { postRedditComment, redditInbox, redditReplyTarget } from '../src/platforms/reddit.ts';
 import { ScriptedBrowser, json, type FetchInit } from './helpers/scripted-browser.ts';
 
 const TZ = 'Asia/Singapore';
@@ -35,10 +37,10 @@ describe('the comment store', () => {
     const first = new CommentStore(file, () => now);
     const one = first.add(reply('one'));
     const two = first.add(reply('two'));
-    first.record(one.id, { platform: 'reddit', url: 'one', link: `${REDDIT}/comments/abc123/_/def456/`, text: 'Edited reply', edited: true });
+    first.record({ platform: 'reddit', url: 'one', link: `${REDDIT}/comments/abc123/_/def456/`, text: 'Edited reply', edited: true, auto: false }, one.id);
     const again = new CommentStore(file, () => now);
     expect(again.drafts()).toEqual([two]);
-    expect(again.posted()).toEqual([{ platform: 'reddit', url: 'one', link: `${REDDIT}/comments/abc123/_/def456/`, text: 'Edited reply', edited: true, at: new Date(now).toISOString() }]);
+    expect(again.posted()).toEqual([{ platform: 'reddit', url: 'one', link: `${REDDIT}/comments/abc123/_/def456/`, text: 'Edited reply', edited: true, auto: false, at: new Date(now).toISOString() }]);
     expect([one.id, two.id]).not.toContain(again.add(reply('three')).id);
   });
 
@@ -46,7 +48,7 @@ describe('the comment store', () => {
     // Asia/Singapore is eight hours ahead of UTC: 15:59 UTC is 23:59 there, 16:01 UTC the next day
     let now = Date.parse('2026-10-22T15:59:00Z');
     const store = new CommentStore(storeFile(), () => now);
-    for (const url of ['one', 'two']) store.record(store.add(reply(url)).id, { platform: 'reddit', url, link: null, text: url, edited: false });
+    for (const url of ['one', 'two']) store.record({ platform: 'reddit', url, link: null, text: url, edited: false, auto: false }, store.add(reply(url)).id);
     expect(store.today(TZ)).toBe(2);
     now = Date.parse('2026-10-22T16:01:00Z');
     expect(store.today(TZ)).toBe(0);
@@ -54,7 +56,7 @@ describe('the comment store', () => {
 
   it(`keeps the last ${POSTED_KEPT} posted comments, newest first`, () => {
     const store = new CommentStore(storeFile());
-    for (let i = 0; i < POSTED_KEPT + 3; i++) store.record('none', { platform: 'reddit', url: `post ${i}`, link: null, text: `comment ${i}`, edited: false });
+    for (let i = 0; i < POSTED_KEPT + 3; i++) store.record({ platform: 'reddit', url: `post ${i}`, link: null, text: `comment ${i}`, edited: false, auto: false });
     const posted = store.posted();
     expect(posted).toHaveLength(POSTED_KEPT);
     expect(posted[0]!.text).toBe(`comment ${POSTED_KEPT + 2}`);
@@ -146,5 +148,86 @@ describe('posting a Reddit comment', () => {
     expect(limited).toMatchObject({ kind: 'blocked' });
     const loggedOut = await reddit('h', { status: 401, text: '' }).post('t3_abc123', 'x').catch((e: unknown) => e);
     expect(loggedOut).toMatchObject({ kind: 'login' });
+  });
+});
+
+describe('the inbox watch', () => {
+  it('starts on the first look after automatic replies are turned on, and again after they were off', () => {
+    const file = storeFile();
+    let now = Date.parse('2026-10-23T02:00:00Z');
+    const store = new CommentStore(file, () => now);
+    const first = store.watchSince();
+    now += 60_000;
+    expect(store.watchSince()).toBe(first);
+    expect(new CommentStore(file, () => now).watchSince()).toBe(first);
+    store.stopWatching();
+    expect(store.watchSince()).toBe(new Date(now).toISOString());
+  });
+
+  it(`remembers the last ${SEEN_KEPT} replies looked at, across restarts, with the time of the look`, () => {
+    const file = storeFile();
+    const now = Date.parse('2026-10-23T02:00:00Z');
+    const store = new CommentStore(file, () => now);
+    store.looked(Array.from({ length: SEEN_KEPT + 5 }, (_, i) => `t1_r${i}`));
+    const again = new CommentStore(file, () => now);
+    expect(again.seen('t1_r0')).toBe(false);
+    expect(again.seen(`t1_r${SEEN_KEPT + 4}`)).toBe(true);
+    expect(again.checkedAt).toBe(new Date(now).toISOString());
+  });
+
+  it('counts the automatic answers to one account today, whatever its letter case', () => {
+    const store = new CommentStore(storeFile());
+    const answer = (to: string) => store.record({ platform: 'reddit', url: 'u', link: null, text: 'x', edited: false, auto: true, to });
+    answer('fixture_bob');
+    answer('Fixture_Bob');
+    answer('fixture_carol');
+    store.record({ platform: 'reddit', url: 'u', link: null, text: 'x', edited: false, auto: true });
+    expect(store.answeredToday('FIXTURE_BOB', TZ)).toBe(2);
+    expect(store.answeredToday('fixture_dan', TZ)).toBe(0);
+  });
+});
+
+describe('what counts as a link', () => {
+  it('is a web address, a Markdown link or a host on a common domain ending', () => {
+    for (const text of ['see https://fixture.test/x', 'www.fixture.test', '[menu](/r/x)', 'go to fixture-shop.com now', 'FIXTURE.IO']) expect(hasLink(text), text).toBe(true);
+  });
+
+  it('is not a sentence with dots, an abbreviation or a subreddit', () => {
+    for (const text of ['Go early. It fills up.', 'e.g. the U.S. branch', 'r/fixturetown has more', 'node.js and 3.5 stars']) expect(hasLink(text), text).toBe(false);
+  });
+});
+
+describe('the replies in the inbox', () => {
+  const item = (id: string, over: Record<string, unknown> = {}) => ({
+    kind: 't1',
+    data: { id, author: 'fixture_bob', body: `Reply  ${id}`, link_title: 'Fixture title', context: `/r/fixture/comments/abc123/x/${id}/?context=3`, created_utc: 1792634400, type: 'comment_reply', was_comment: true, ...over },
+  });
+
+  it('are the replies to comments and to posts, linked without the context query', () => {
+    const replies = parseRedditInbox({
+      kind: 'Listing',
+      data: { children: [item('k1'), item('k2', { type: 'post_reply' }), item('k3', { type: 'username_mention' }), { kind: 't4', data: { id: 'm1', author: 'fixture_bob', body: 'A message', was_comment: false } }, item('k4', { context: '' })] },
+    });
+    expect(replies).toEqual([
+      { target: 't1_k1', url: `${REDDIT}/r/fixture/comments/abc123/x/k1/`, author: 'fixture_bob', text: 'Reply k1', title: 'Fixture title', createdAtMs: 1792634400_000 },
+      { target: 't1_k2', url: `${REDDIT}/r/fixture/comments/abc123/x/k2/`, author: 'fixture_bob', text: 'Reply k2', title: 'Fixture title', createdAtMs: 1792634400_000 },
+    ]);
+  });
+
+  it('are read with the account logged in, without marking them read, and ask for a login without one', async () => {
+    const asked: string[] = [];
+    const page = (me: unknown) => new ScriptedBrowser({
+      fetch: (url) => {
+        asked.push(url);
+        if (url === `${REDDIT}/api/me.json`) return json(me);
+        return json({ kind: 'Listing', data: { children: [item('k1')] } });
+      },
+    });
+    const read = (b: ScriptedBrowser) => b.withPage((p) => redditInbox(p), { timeLeft: () => 30_000 });
+    const inbox = await read(page({ kind: 't2', data: { name: 'fixture_alice' } }));
+    expect(inbox.me).toBe('fixture_alice');
+    expect(inbox.replies.map((r) => r.target)).toEqual(['t1_k1']);
+    expect(new URL(asked.find((u) => u.includes('/message/'))!).searchParams.get('mark')).toBe('false');
+    await expect(read(page({}))).rejects.toMatchObject({ kind: 'login' });
   });
 });

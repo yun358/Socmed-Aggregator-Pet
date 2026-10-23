@@ -7,7 +7,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getByPath } from 'cortico/core/config-schema.ts';
 import { renderTemplate } from 'cortico/core/template.ts';
 import type { ToolOutcome } from 'cortico/core/types.ts';
@@ -22,11 +22,11 @@ import { socialText } from '../src/i18n/index.ts';
 import { MODEL_TEXT, type ModelLanguage } from '../src/model-text.ts';
 import { Ocr, OcrImageError } from '../src/ocr.ts';
 import { ADAPTERS } from '../src/platforms/index.ts';
-import { REDDIT_COMMENT_MAX } from '../src/platforms/reddit.ts';
+import { AUTO_NOTE, BOT_COMMENT_MAX } from '../src/platforms/reddit.ts';
 import { PLATFORM_IDS } from '../src/posts.ts';
 import { COMMENT_TEXT_MAX, clock, localStamp } from '../src/render.ts';
 import { SOCIAL_TOOL_DECLS } from '../src/tools.ts';
-import { SocialWorld, type SocialPanelState, type SocialWorldOptions } from '../src/world.ts';
+import { REPLIES_PER_ACCOUNT, REPLY_CHECK_MS, REPLY_MAX_AGE_MS, REPLY_WAIT_MS, SocialWorld, type SocialPanelState, type SocialWorldOptions } from '../src/world.ts';
 import { FakeHost } from './helpers/fake-host.ts';
 import { ScriptedBrowser, json, type PageScript } from './helpers/scripted-browser.ts';
 
@@ -549,7 +549,7 @@ describe('panel and daily autoscroll', () => {
         maxPosts: cfg.maxPosts, maxSec: cfg.maxSec, images: cfg.images, maxTranscriptChars: cfg.maxTranscriptChars, showBrowser: cfg.showBrowser, browserFile: cfg.browserFile,
         platforms: Object.fromEntries(PLATFORM_IDS.map((p) => [p, true])),
         autoscroll: { enabled: cfg.autoscroll.enabled, maxMinutes: cfg.autoscroll.maxMinutes },
-        comments: { enabled: cfg.comments.enabled, maxPerDay: cfg.comments.maxPerDay },
+        comments: { enabled: cfg.comments.enabled, maxPerDay: cfg.comments.maxPerDay, auto: cfg.comments.auto, autoReply: cfg.comments.autoReply, sign: cfg.comments.sign },
       },
       jobs: [],
       browser: findBrowser(cfg.browserFile),
@@ -558,8 +558,11 @@ describe('panel and daily autoscroll', () => {
       lifetime: expect.objectContaining({ sinceAt: expect.any(String) }),
       digests: [],
       running: null,
-      comments: { drafts: [], posted: [], today: 0, posting: [] },
-      caps: { maxPosts: MAX_POSTS_CAP, maxSec: MAX_SEC_CAP, jobPosts: JOB_POSTS_CAP, jobs: MAX_JOBS, commentsPerDay: COMMENTS_PER_DAY_CAP },
+      comments: { drafts: [], posted: [], today: 0, posting: [], checkedAt: null },
+      caps: {
+        maxPosts: MAX_POSTS_CAP, maxSec: MAX_SEC_CAP, jobPosts: JOB_POSTS_CAP, jobs: MAX_JOBS, commentsPerDay: COMMENTS_PER_DAY_CAP,
+        replyCheckMin: REPLY_CHECK_MS / 60_000, repliesPerAccount: REPLIES_PER_ACCOUNT,
+      },
     });
   });
 
@@ -676,7 +679,7 @@ describe('environment prompt', () => {
       'social.maxSec': String(cfg.maxSec),
       'social.images': t.envImages.skip,
       'social.autoscroll': t.envAutoscroll([]),
-      'social.comments': t.envComments(cfg.comments.enabled, cfg.comments.maxPerDay),
+      'social.comments': t.envComments(cfg.comments),
     });
     const doc = world.webUi('en').promptDocs![0]!;
     expect(doc.vars?.map((v) => v.name).sort()).toEqual(Object.keys(vars).sort());
@@ -695,9 +698,9 @@ describe('environment prompt', () => {
 
   it('says whether comment drafts are on, with the daily limit', async () => {
     const { world, cfg } = await makeWorld({}, (c) => { c.comments.maxPerDay = 4; });
-    expect((await world.envPromptVars())['social.comments']).toBe(t.envComments(false, 4));
+    expect((await world.envPromptVars())['social.comments']).toBe(t.envComments({ ...cfg.comments, enabled: false, maxPerDay: 4 }));
     cfg.comments.enabled = true;
-    expect((await world.envPromptVars())['social.comments']).toBe(t.envComments(true, 4));
+    expect((await world.envPromptVars())['social.comments']).toBe(t.envComments({ ...cfg.comments, enabled: true, maxPerDay: 4 }));
   });
 });
 
@@ -784,7 +787,7 @@ describe('comments', () => {
     expect(await refused({ url: `${REDDIT}/r/fixture/`, text: 'x' })).toBe(t.notRun('social_comment', t.commentNoTarget));
     expect(await refused({ url: 'javascript://www.reddit.com/r/fixture/comments/r1/x/%0Aalert(1)', text: 'x' })).toBe(t.notRun('social_comment', t.commentNoTarget));
     expect(await refused({ url: POST, text: '   ' })).toBe(t.notRun('social_comment', t.commentEmpty));
-    expect(await refused({ url: POST, text: 'x'.repeat(REDDIT_COMMENT_MAX + 1) })).toBe(t.notRun('social_comment', t.commentTooLong(REDDIT_COMMENT_MAX)));
+    expect(await refused({ url: POST, text: 'x'.repeat(BOT_COMMENT_MAX + 1) })).toBe(t.notRun('social_comment', t.commentTooLong(BOT_COMMENT_MAX)));
     for (let i = 0; i < DRAFTS_MAX; i++) await made.call('social_comment', { url: POST, text: `draft ${i}` });
     expect(await refused({ url: POST, text: 'one more' })).toBe(t.notRun('social_comment', t.commentDraftsFull(DRAFTS_MAX)));
     expect(await draftIds(made)).toHaveLength(DRAFTS_MAX);
@@ -873,5 +876,175 @@ describe('comments', () => {
     expect(comments.drafts.map((d) => d.id)).toEqual([b]);
     expect(comments.posted.map((p) => p.text)).toEqual(['one']);
     expect(comments.today).toBe(1);
+  });
+});
+
+describe('automatic comments and replies', () => {
+  const POST = postUrl('r1');
+  const ME = `${REDDIT}/api/me.json`;
+  const COMMENT = `${REDDIT}/api/comment`;
+  const UNREAD = `${REDDIT}/message/unread.json`;
+  const c = socialText('en').comments;
+  const linkOf = (n: number) => `${REDDIT}/r/fixture/comments/r1/fixture_r1/k${n}/`;
+  const replyUrl = (id: string) => `${REDDIT}/r/fixture/comments/r1/fixture_r1/${id}/`;
+  const MIN = 60_000;
+  /** A reply in the inbox to one of the person's comments, made at `atMs`. */
+  const reply = (id: string, author: string, atMs: number, over: Record<string, unknown> = {}) => ({
+    kind: 't1',
+    data: {
+      id, name: `t1_${id}`, author, body: `Reply ${id}`, link_title: 'Fixture title r1', context: `/r/fixture/comments/r1/fixture_r1/${id}/?context=3`,
+      created_utc: Math.floor(atMs / 1000), type: 'comment_reply', was_comment: true, new: true, ...over,
+    },
+  });
+  /**
+   * Reddit logged in as fixture_alice: the inbox holds `inbox.items`, and each comment posted is kept
+   * with what it replies to; `answer(n)` answers the nth.
+   */
+  function reddit(answer?: (n: number) => FetchedText) {
+    const inbox = { items: [] as unknown[] };
+    const sent: Array<{ target: string; text: string }> = [];
+    const script: PageScript = {
+      fetch: (url, init) => {
+        const u = new URL(url);
+        if (url === ME) return json({ kind: 't2', data: { name: 'fixture_alice', modhash: 'fixturehash' } });
+        if (u.origin + u.pathname === UNREAD) return json({ kind: 'Listing', data: { after: null, children: inbox.items } });
+        if (url !== COMMENT) return undefined;
+        const form = new URLSearchParams(init?.body);
+        sent.push({ target: form.get('thing_id') ?? '', text: form.get('text') ?? '' });
+        return answer?.(sent.length) ?? json({ json: { errors: [], data: { things: [{ kind: 't1', data: { id: `k${sent.length}`, link_id: 't3_r1', permalink: `/r/fixture/comments/r1/fixture_r1/k${sent.length}/` } }] } } });
+      },
+    };
+    return { script, sent, inbox };
+  }
+  const set = (patch: Partial<SocialConfigSection['comments']>) => (cfg: SocialConfigSection) => { Object.assign(cfg.comments, { enabled: true }, patch); };
+
+  it('posts a comment at once with automatic comments on, marked while marking is on', async () => {
+    let shown = 0;
+    const { script, sent } = reddit();
+    const made = await makeWorld(script, set({ auto: true }), { showDrafts: () => { shown++; } });
+    expect((await made.call('social_comment', { url: POST, text: 'Worth the wait.' })).text).toBe(t.commentPostedNow(linkOf(1)));
+    made.cfg.comments.sign = false;
+    await made.call('social_comment', { url: POST, text: 'Go early.' });
+    expect(sent).toEqual([{ target: 't3_r1', text: `Worth the wait.\n\n${AUTO_NOTE}` }, { target: 't3_r1', text: 'Go early.' }]);
+    const { comments } = await made.panel('state');
+    expect(comments.drafts).toEqual([]);
+    expect(comments.posted).toMatchObject([{ text: 'Go early.', auto: true }, { text: 'Worth the wait.', auto: true, link: linkOf(1) }]);
+    expect(comments.today).toBe(2);
+    expect(shown).toBe(0);
+  });
+
+  it('keeps a comment with a link for the person even with automatic comments on', async () => {
+    const { script, sent } = reddit();
+    const made = await makeWorld(script, set({ auto: true }));
+    const r = await made.call('social_comment', { url: POST, text: 'Their menu is at fixture.test/menu or https://fixture.test/menu' });
+    const [draft] = (await made.panel('state')).comments.drafts;
+    expect(r.text).toBe(t.commentHeld(draft!.id, t.heldLink));
+    expect(sent).toEqual([]);
+  });
+
+  it("keeps an automatic comment Reddit turns down as a draft, with Reddit's reason", async () => {
+    const { script } = reddit(() => json({ json: { errors: [['RATELIMIT', 'Take a break for 5 minutes.', 'ratelimit']] } }));
+    const made = await makeWorld(script, set({ auto: true }));
+    const r = await made.call('social_comment', { url: POST, text: 'Worth the wait.' });
+    const [draft] = (await made.panel('state')).comments.drafts;
+    expect(r.text).toBe(t.commentHeld(draft!.id, t.heldFailed(t.commentRefused('RATELIMIT: Take a break for 5 minutes.'))));
+    expect(draft!.text).toBe('Worth the wait.');
+  });
+
+  it("tells the bot once of the replies that came after automatic replies were turned on, leaving its own, the moderation bot's, mentions and old ones", async () => {
+    const { script, inbox } = reddit();
+    const made = await makeWorld(script, set({ autoReply: true }));
+    const start = made.browser.clock.now;
+    inbox.items = [reply('a1', 'fixture_bob', start - MIN)];
+    await made.panel('checkReplies');
+    expect(made.host.events).toEqual([]);
+    made.browser.clock.now += 10 * MIN;
+    inbox.items = [
+      reply('a1', 'fixture_bob', start - MIN),
+      reply('b2', 'fixture_bob', start + 5 * MIN),
+      reply('c3', 'fixture_alice', start + 6 * MIN),
+      reply('d4', 'AutoModerator', start + 6 * MIN),
+      reply('e5', 'fixture_carol', start + 7 * MIN, { type: 'username_mention' }),
+    ];
+    const state = await made.panel('checkReplies');
+    expect(state.comments.checkedAt).toBe(new Date(made.browser.clock.now).toISOString());
+    expect(made.host.events).toMatchObject([{ type: 'social.reply', origin: 'external', text: t.repliesEvent([t.replyLine('u/fixture_bob', 'Fixture title r1', 'Reply b2', replyUrl('b2'))]) }]);
+    expect(made.host.pushOpts).toEqual([{ trigger: 'flush' }]);
+    await made.panel('checkReplies');
+    expect(made.host.events).toHaveLength(1);
+  });
+
+  it('leaves a reply older than a day', async () => {
+    const { script, inbox } = reddit();
+    const made = await makeWorld(script, set({ autoReply: true }));
+    await made.panel('checkReplies');
+    made.browser.clock.now += REPLY_MAX_AGE_MS + 2 * MIN;
+    inbox.items = [reply('b2', 'fixture_bob', made.browser.clock.now - REPLY_MAX_AGE_MS - MIN)];
+    await made.panel('checkReplies');
+    expect(made.host.events).toEqual([]);
+  });
+
+  it('posts its answer to a reply at once with automatic replies on and automatic comments off, for an hour', async () => {
+    const { script, sent, inbox } = reddit();
+    const made = await makeWorld(script, set({ autoReply: true }));
+    const start = made.browser.clock.now;
+    await made.panel('checkReplies');
+    inbox.items = [reply('b2', 'fixture_bob', start + MIN), reply('f6', 'fixture_dan', start + MIN)];
+    made.browser.clock.now += 2 * MIN;
+    await made.panel('checkReplies');
+    expect((await made.call('social_comment', { url: replyUrl('b2'), text: 'Thanks, will do.' })).text).toBe(t.commentPostedNow(linkOf(1)));
+    expect(sent).toEqual([{ target: 't1_b2', text: `Thanks, will do.\n\n${AUTO_NOTE}` }]);
+    expect((await made.panel('state')).comments.posted[0]).toMatchObject({ auto: true, to: 'fixture_bob' });
+    // a comment that answers no reply waits, and so does an answer after the hour
+    const other = await made.call('social_comment', { url: POST, text: 'Worth the wait.' });
+    expect(other.text).toMatch(/^\[social_comment\] Draft c\d+ waits/);
+    made.browser.clock.now += REPLY_WAIT_MS + MIN;
+    expect((await made.call('social_comment', { url: replyUrl('f6'), text: 'Agreed.' })).text).toMatch(/^\[social_comment\] Draft c\d+ waits/);
+    expect(sent).toHaveLength(1);
+  });
+
+  it(`keeps an answer for the person once an account had ${REPLIES_PER_ACCOUNT} automatic answers today, bringing nothing up`, async () => {
+    let shown = 0;
+    const { script, sent, inbox } = reddit();
+    const made = await makeWorld(script, set({ autoReply: true }), { showDrafts: () => { shown++; } });
+    const start = made.browser.clock.now;
+    await made.panel('checkReplies');
+    const ids = Array.from({ length: REPLIES_PER_ACCOUNT + 1 }, (_, i) => `r${i}x`);
+    inbox.items = ids.map((id) => reply(id, 'fixture_bob', start + MIN));
+    made.browser.clock.now += 2 * MIN;
+    await made.panel('checkReplies');
+    for (const id of ids.slice(0, -1)) await made.call('social_comment', { url: replyUrl(id), text: 'Sure.' });
+    const last = await made.call('social_comment', { url: replyUrl(ids.at(-1)!), text: 'Sure.' });
+    const drafts = (await made.panel('state')).comments.drafts;
+    expect(last.text).toBe(t.commentHeld(drafts[0]!.id, t.heldAccount(REPLIES_PER_ACCOUNT)));
+    expect(sent).toHaveLength(REPLIES_PER_ACCOUNT);
+    expect(shown).toBe(0);
+  });
+
+  it('answers no reply from before automatic replies were last turned on', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'setInterval'] });
+    try {
+      const { script, inbox } = reddit();
+      const made = await makeWorld(script, set({ autoReply: true }));
+      const start = made.browser.clock.now;
+      await made.panel('checkReplies');
+      // off, and the schedule looks: on again later, replies from the time it was off get no answer
+      made.cfg.comments.autoReply = false;
+      await vi.advanceTimersByTimeAsync(60_000);
+      made.browser.clock.now += 10 * MIN;
+      inbox.items = [reply('b2', 'fixture_bob', start + 5 * MIN)];
+      made.cfg.comments.autoReply = true;
+      await made.panel('checkReplies');
+      expect(made.host.events).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('refuses to check the replies while automatic replies are off, and asks for a login when Reddit has none', async () => {
+    const off = await makeWorld(reddit().script, set({}));
+    await expect(off.panel('checkReplies')).rejects.toThrow(c.notWatching);
+    const loggedOut = await makeWorld(site({ [ME]: () => json({}) }), set({ autoReply: true }));
+    await expect(loggedOut.panel('checkReplies')).rejects.toThrow(c.login);
   });
 });

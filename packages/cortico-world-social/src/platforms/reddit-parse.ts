@@ -1,4 +1,7 @@
-/** Reddit's JSON listings (`/r/<name>/top.json`, `/search.json`, `/comments/<id>.json`) read into posts. */
+/**
+ * Reddit's JSON listings (`/r/<name>/top.json`, `/search.json`, `/comments/<id>.json`) read into posts,
+ * and the inbox (`/message/unread.json`) into replies.
+ */
 import { clean, type Comment, type ImageRef, type Post } from '../posts.ts';
 
 const ORIGIN = 'https://www.reddit.com';
@@ -104,4 +107,42 @@ export function parseRedditThread(json: unknown, maxComments: number): { post: P
     comments.push({ author: str(child.data.author) ? `u/${child.data.author as string}` : undefined, text: body, ...(score !== undefined ? { score: `${score} points` } : {}) });
   }
   return { post: postData ? redditPost(postData) : null, comments };
+}
+
+/** A reply in the person's inbox to one of their comments or posts. */
+export interface RedditReply {
+  /** Reddit's id of the reply (`t1_…`), which an answer to it replies to. */
+  target: string;
+  url: string;
+  author: string;
+  text: string;
+  /** The title of the post the reply is under. */
+  title: string;
+  createdAtMs: number;
+}
+
+/** What the inbox calls a reply to a comment and a reply to a post; mentions and messages are left out. */
+const REPLY_TYPES = new Set(['comment_reply', 'post_reply']);
+
+/** The inbox listing's replies to the person's comments and posts, in the order Reddit gave them. */
+export function parseRedditInbox(json: unknown): RedditReply[] {
+  const out: RedditReply[] = [];
+  for (const child of ((json as Thing | undefined)?.data as { children?: Thing[] } | undefined)?.children ?? []) {
+    const d = child.data;
+    if (child.kind !== 't1' || !d || d.was_comment !== true || !REPLY_TYPES.has(str(d.type) ?? '')) continue;
+    const id = str(d.id);
+    const context = str(d.context);
+    const author = str(d.author);
+    const created = num(d.created_utc);
+    if (!id || !context?.startsWith('/') || !author || created === undefined) continue;
+    out.push({
+      target: `t1_${id}`,
+      url: ORIGIN + context.replace(/\?.*$/, ''),
+      author,
+      text: clean(str(d.body)),
+      title: clean(str(d.link_title)),
+      createdAtMs: created * 1000,
+    });
+  }
+  return out;
 }
