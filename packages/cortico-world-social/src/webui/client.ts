@@ -1,16 +1,18 @@
 /**
- * The `social` panel: comment drafts waiting for the person (first, shown only while there are any),
- * the limits of one request, the platforms with their logins and the browser, the daily autoscroll
- * jobs with their recent runs, the comment settings (drafts, the automatic switches, a look at the
- * replies now) with the comments posted, and the lifetime counter. It renders the panel's `state`, read again every `POLL_MS` while mounted. Scalar settings
- * are written through `/api/config` (`ctx.setConfig`) on each change; the job list goes through the
- * panel's `setJobs`, whole, whenever every job in it is complete. A draft is posted with the text
- * left in its field.
+ * The `social` panel: the drafts of comments and Notes waiting for the person and the automatic
+ * posts queued to go out (first, each shown only while there are any), the limits of one request, the
+ * platforms with their logins and the browser, the daily autoscroll jobs with their recent runs, the
+ * comment settings (drafts, the automatic switches, a look at the replies now) with the comments
+ * posted, the Substack settings with the Notes posted, and the lifetime counter. It renders the
+ * panel's `state`, read again every `POLL_MS` while mounted. Scalar settings are written through
+ * `/api/config` (`ctx.setConfig`) on each change; the job list goes through the panel's `setJobs`,
+ * whole, whenever every job in it is complete. A draft is posted with the text left in its field.
  */
 import type { WebUiClientBundle, WebUiPanelContext } from 'cortico/web/shared/client-panel.ts';
-import type { CommentDraft, PostedComment } from '../comments.ts';
+import type { CommentDraft, PostedComment, QueuedPost } from '../comments.ts';
 import { IMAGE_MODES, SOCIAL_ID, parseJobs, socialConfigGroup, type AutoscrollJob, type ImageMode } from '../config.ts';
 import { socialText } from '../i18n/index.ts';
+import { publicationAddress } from '../platforms/substack-parse.ts';
 import { PLATFORM_IDS, VIDEO_PLATFORMS, type PlatformId, type SourceKind } from '../posts.ts';
 import type { SocialPanelState } from '../world.ts';
 import './style.css';
@@ -29,6 +31,7 @@ const SOURCES: Readonly<Record<PlatformId, readonly SourceKind[]>> = {
   youtube: ['feed', 'search', 'account'],
   bilibili: ['feed', 'search', 'account'],
   rednote: ['feed', 'search', 'account'],
+  substack: ['feed', 'account', 'community'],
 };
 
 /** `jobKey` of src/autoscroll.ts, which runs in Node. */
@@ -57,11 +60,15 @@ function mount(ctx: WebUiPanelContext): void {
   const text = socialText(ctx.language);
   const s = text.panel;
   const ct = text.comments;
+  const sb = text.substack;
   const doc = ctx.root.ownerDocument;
   const props = socialConfigGroup(ctx.language).schema.properties;
   const stamp = new Intl.DateTimeFormat(ctx.language, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   const day = new Intl.DateTimeFormat(ctx.language, { year: 'numeric', month: 'long', day: 'numeric' });
   const count = (n: number) => n.toLocaleString(ctx.language);
+  const hm = new Intl.DateTimeFormat(ctx.language, { hour: 'numeric', minute: '2-digit' });
+  /** A time of day, in minutes after midnight. */
+  const clock = (min: number) => hm.format(new Date(2000, 0, 1, Math.floor(min / 60), min % 60));
 
   let st: SocialPanelState | null = null;
   // a `state` read that started before a write ended would put back what the write changed
@@ -135,7 +142,15 @@ function mount(ctx: WebUiPanelContext): void {
     }, { signal });
     const box = ui.h('div', 'companion-rangebox');
     box.append(input, ui.h('span', 'companion-rangeval', `${suffix} (${count(min)}–${count(max)})`));
-    return { box, set: (v: number) => { saved = String(v); if (!focused(input)) input.value = saved; } };
+    return { box, input, set: (v: number) => { saved = String(v); if (!focused(input)) input.value = saved; } };
+  };
+  /** A line of text saved, trimmed, when it changes. */
+  const textSetting = (key: string, placeholder: string, line: HTMLElement) => {
+    const input = ui.input({ placeholder });
+    input.spellcheck = false;
+    input.addEventListener('change', () => void save(key, input.value.trim(), line), { signal });
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) input.blur(); }, { signal });
+    return { input, set: (v: string) => { if (!focused(input)) input.value = v; } };
   };
   const switchSetting = (key: string, label: string, line: HTMLElement) =>
     ui.checkbox(label, { onChange: (on) => void save(key, on, line) });
@@ -180,11 +195,13 @@ function mount(ctx: WebUiPanelContext): void {
       render(next);
     } else if (drafts.get(id) === d) paintDraft(id, false);
   };
+  /** Where a draft or queued post goes: what it replies to, or a new Note. */
+  const target = (p: Pick<CommentDraft, 'url'>) => (p.url ? [ui.h('span', null, ct.replyTo), ' ', link(p.url)] : [ui.h('span', null, sb.newNote)]);
   const draftCard = (draft: CommentDraft) => {
     const head = ui.h('div', 'social-draft-head');
-    head.append(ui.h('span', null, ct.replyTo), link(draft.url), ui.h('span', 'social-draft-at', ct.draftedAt(when(draft.at))));
+    head.append(...target(draft), ui.h('span', 'social-draft-at', ct.draftedAt(when(draft.at))));
     const area = ui.textarea({ value: draft.text, rows: 4 });
-    area.setAttribute('aria-label', ct.comment);
+    area.setAttribute('aria-label', draft.kind === 'note' ? sb.note : ct.comment);
     const msg = ui.msgline('');
     const post = ui.button(ct.post, { variant: 'primary', size: 'sm', onClick: () => void act(draft.id, 'commentPost') });
     const discard = ui.button(ct.discard, { size: 'sm', onClick: () => void act(draft.id, 'commentDiscard') });
@@ -203,6 +220,37 @@ function mount(ctx: WebUiPanelContext): void {
     for (const d of list) if (!drafts.has(d.id)) draftCard(d);
     waiting.el.hidden = !list.length;
     for (const id of drafts.keys()) paintDraft(id, next.comments.posting.includes(id));
+  };
+
+  /* ---------- automatic posts queued ---------- */
+  const outbox = ui.sheet({ title: ct.outboxTitle, desc: ct.outboxDesc });
+  const outboxTable = ui.table({ head: [ct.outboxWhen, ct.outboxWhere, ct.outboxText, ''] });
+  outboxTable.el.classList.add('social-table');
+  const outboxMsg = ui.msgline('');
+  outbox.body.append(outboxTable.el, outboxMsg);
+  outbox.el.hidden = true;
+  /** The queue shown, by its ids and times; the table is built again only when that changes, so a click on Hold is not lost. */
+  let queueShown = '';
+  const hold = async (id: string, button: HTMLButtonElement) => {
+    button.disabled = true;
+    say(outboxMsg, '');
+    const next = await write(() => ctx.invoke<SocialPanelState>('queueHold', [id]), outboxMsg, (e) => e);
+    if (!next) { button.disabled = false; return; }
+    ui.toast(ct.held, 'ok');
+    render(next);
+  };
+  const syncQueue = (queued: QueuedPost[]) => {
+    outbox.el.hidden = !queued.length;
+    const key = JSON.stringify(queued.map((q) => [q.id, q.due]));
+    if (key === queueShown) return;
+    queueShown = key;
+    outboxTable.clear();
+    for (const q of queued) {
+      const where = ui.h('span');
+      where.append(text.platforms[q.platform], ' · ', ...target(q));
+      const button = ui.button(ct.hold, { size: 'sm', onClick: () => void hold(q.id, button) });
+      outboxTable.addRow([when(q.due), where, shorten(q.text.replace(/\s+/g, ' ')), button]);
+    }
   };
 
   /* ---------- each request ---------- */
@@ -408,6 +456,7 @@ function mount(ctx: WebUiPanelContext): void {
   const perDay = numberSetting('comments.maxPerDay', ct.perDaySuffix, commentsMsg);
   const today = ui.h('p', 'home-note');
   const autoOn = switchSetting('comments.auto', ct.autoCheck, commentsMsg);
+  const autoHint = ui.h('p', 'home-note');
   const autoReplyOn = switchSetting('comments.autoReply', ct.autoReplyCheck, commentsMsg);
   const signOn = switchSetting('comments.sign', ct.signCheck, commentsMsg);
   const replyHint = ui.h('p', 'home-note');
@@ -422,7 +471,7 @@ function mount(ctx: WebUiPanelContext): void {
   comments.body.append(
     row(ct.enabled, commentsOn.el, ct.enabledHint),
     row(ct.perDay, perDay.box, today),
-    row(ct.auto, autoOn.el, ct.autoHint),
+    row(ct.auto, autoOn.el, autoHint),
     row(ct.autoReply, replyBox),
     row(ct.sign, signOn.el, ct.autoRisk),
     commentsMsg,
@@ -446,6 +495,35 @@ function mount(ctx: WebUiPanelContext): void {
     return cell;
   };
 
+  /* ---------- Substack ---------- */
+  const substack = ui.sheet({ title: sb.title, desc: sb.desc });
+  const substackMsg = ui.msgline('');
+  const notesOn = switchSetting('substack.notes', sb.notesCheck, substackMsg);
+  const notesPerDay = numberSetting('substack.maxNotesPerDay', sb.perDaySuffix, substackMsg);
+  const notesToday = ui.h('p', 'home-note');
+  const autoNotesOn = switchSetting('substack.autoNotes', sb.autoNotesCheck, substackMsg);
+  const autoNotesHint = ui.h('p', 'home-note');
+  const daily = numberSetting('substack.dailyNotes', sb.dailySuffix, substackMsg);
+  const dailyHint = ui.h('p', 'home-note');
+  const topic = textSetting('substack.topic', sb.topicPlaceholder, substackMsg);
+  const publication = textSetting('substack.publication', sb.publicationPlaceholder, substackMsg);
+  publication.input.classList.add('mono');
+  const publicationHint = ui.h('p', 'home-note');
+  const notesPosted = ui.table({ head: [ct.when, ct.replyTo, sb.note] });
+  notesPosted.el.classList.add('social-table');
+  substack.body.append(
+    row(sb.notes, notesOn.el, sb.notesHint),
+    row(sb.perDay, notesPerDay.box, notesToday),
+    row(sb.autoNotes, autoNotesOn.el, autoNotesHint),
+    row(sb.daily, daily.box, dailyHint),
+    row(sb.topic, topic.input, sb.topicHint),
+    row(sb.publication, publication.input, publicationHint),
+    ui.h('p', 'home-note', sb.risk),
+    substackMsg,
+    ui.section(sb.recent),
+    notesPosted.el,
+  );
+
   /* ---------- lifetime counter ---------- */
   const lifetime = ui.sheet({ title: s.lifetimeTitle, desc: s.lifetimeDesc(s.never) });
   const lifeTable = ui.table({ head: [s.platform, s.timeSpent, s.postsRead, s.transcripts, s.lastRead] });
@@ -459,7 +537,7 @@ function mount(ctx: WebUiPanelContext): void {
   }), lifeMsg);
   lifetime.body.append(lifeTable.el, lifeBar);
 
-  const sheets = [waiting.el, limits.el, platforms.el, autoscroll.el, comments.el, lifetime.el];
+  const sheets = [waiting.el, outbox.el, limits.el, platforms.el, autoscroll.el, comments.el, substack.el, lifetime.el];
   // nothing can be changed until the state has been read once
   for (const el of sheets) el.inert = true;
   ctx.root.append(...sheets);
@@ -499,19 +577,40 @@ function mount(ctx: WebUiPanelContext): void {
     }
 
     syncDrafts(next);
+    syncQueue(next.comments.queued);
     commentsOn.setChecked(c.comments.enabled);
     perDay.set(c.comments.maxPerDay);
     today.textContent = ct.today(next.comments.today);
     autoOn.setChecked(c.comments.auto);
+    autoHint.textContent = ct.autoHint(next.caps.commentGapMin);
     autoReplyOn.setChecked(c.comments.autoReply);
     signOn.setChecked(c.comments.sign);
-    // the automatic switches act only while comments are on
-    for (const x of [autoOn, autoReplyOn, signOn]) x.input.disabled = !c.comments.enabled;
+    // the automatic switches act only while comments are on; the mark also on Notes
+    for (const x of [autoOn, autoReplyOn]) x.input.disabled = !c.comments.enabled;
+    signOn.input.disabled = !c.comments.enabled && !c.substack.notes;
     replyHint.textContent = ct.autoReplyHint(next.caps.replyCheckMin, next.caps.repliesPerAccount);
     checkedLine.textContent = next.comments.checkedAt ? ct.checkedAt(when(next.comments.checkedAt)) : '';
     if (checkNow.textContent !== ct.checkingReplies) checkNow.disabled = !(c.comments.enabled && c.comments.autoReply);
     posted.clear(next.comments.posted.length ? undefined : ct.nonePosted);
     for (const p of next.comments.posted) posted.addRow([when(p.at), link(p.url), postedText(p)]);
+
+    const n = c.substack;
+    notesOn.setChecked(n.notes);
+    notesPerDay.set(n.maxNotesPerDay);
+    notesToday.textContent = sb.today(next.comments.notesToday);
+    autoNotesOn.setChecked(n.autoNotes);
+    autoNotesHint.textContent = sb.autoNotesHint(next.caps.noteGapMin);
+    daily.set(n.dailyNotes);
+    dailyHint.textContent = sb.dailyHint(clock(next.caps.writeFromMin), clock(next.caps.writeToMin));
+    topic.set(n.topic);
+    publication.set(n.publication);
+    const unreadable = !!n.publication.trim() && !publicationAddress(n.publication);
+    publicationHint.textContent = unreadable ? sb.publicationBad : sb.publicationHint;
+    publicationHint.classList.toggle('social-bad', unreadable);
+    // what follows the Notes switch acts only while it is on
+    autoNotesOn.input.disabled = daily.input.disabled = topic.input.disabled = !n.notes;
+    notesPosted.clear(next.comments.postedNotes.length ? undefined : sb.nonePosted);
+    for (const p of next.comments.postedNotes) notesPosted.addRow([when(p.at), p.url ? link(p.url) : s.never, postedText(p)]);
 
     const life = next.lifetime;
     if (lifetime.desc) lifetime.desc.textContent = s.lifetimeDesc(day.format(new Date(life.sinceAt)));

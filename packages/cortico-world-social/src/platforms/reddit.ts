@@ -105,7 +105,7 @@ export async function postRedditComment(page: PageSession, target: string, text:
   });
   if (rep.status === 401) throw new PlatformBlocked('reddit', 'login');
   if (rep.status === 429) throw new PlatformBlocked('reddit', 'blocked', 'HTTP 429, too many requests');
-  if (rep.status >= 400) throw new CommentRefused(`HTTP ${rep.status}`);
+  if (rep.status >= 400) throw new CommentRefused('reddit', `HTTP ${rep.status}`);
   let answer: { json?: { errors?: unknown[]; data?: { things?: Array<{ data?: Record<string, unknown> }> } } };
   try {
     answer = JSON.parse(rep.text) as typeof answer;
@@ -114,7 +114,7 @@ export async function postRedditComment(page: PageSession, target: string, text:
   }
   const errors = Array.isArray(answer.json?.errors) ? answer.json.errors : [];
   // each error is [code, message, field]
-  if (errors.length) throw new CommentRefused(errors.map((e) => (Array.isArray(e) ? e.slice(0, 2).filter(Boolean).join(': ') : String(e))).join('; '));
+  if (errors.length) throw new CommentRefused('reddit', errors.map((e) => (Array.isArray(e) ? e.slice(0, 2).filter(Boolean).join(': ') : String(e))).join('; '));
   const d = answer.json?.data?.things?.[0]?.data;
   const str = (v: unknown) => (typeof v === 'string' && v ? v : null);
   const permalink = str(d?.permalink);

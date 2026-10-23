@@ -3,7 +3,7 @@
  * is what the page or the platform's own data said; nothing is inferred.
  */
 
-export const PLATFORM_IDS = ['reddit', 'x', 'facebook', 'threads', 'instagram', 'youtube', 'bilibili', 'rednote'] as const;
+export const PLATFORM_IDS = ['reddit', 'x', 'facebook', 'threads', 'instagram', 'youtube', 'bilibili', 'rednote', 'substack'] as const;
 export type PlatformId = (typeof PLATFORM_IDS)[number];
 
 /** Video platforms list videos; the others list posts and leave video posts out. */

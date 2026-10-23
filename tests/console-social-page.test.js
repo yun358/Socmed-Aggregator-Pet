@@ -134,10 +134,13 @@ it('is a page of the normal mode, and mounts the social World\'s panel from the 
   expect(W.ENTRIES.find((e) => e.route === W.socialPage.route)).toMatchObject({ basic: true, page: W.socialPage });
   const { root, imported } = await mountPage();
   expect(imported).toEqual([expect.stringMatching(/^\/assets\/extensions\/cortico-world-social\//)]);
-  const c = socialText(W.LANGUAGE).comments;
-  expect([...root.querySelectorAll('.sheet h3')].map((h) => h.firstChild.textContent)).toEqual([c.waitingTitle, s.limitsTitle, s.platformsTitle, s.autoscrollTitle, c.title, s.lifetimeTitle]);
-  // comment drafts show first, and only while there are any
-  expect(root.querySelector('.social-drafts').closest('.sheet').hidden).toBe(true);
+  const { comments: c, substack: sb } = socialText(W.LANGUAGE);
+  expect([...root.querySelectorAll('.sheet h3')].map((h) => h.firstChild.textContent))
+    .toEqual([c.waitingTitle, c.outboxTitle, s.limitsTitle, s.platformsTitle, s.autoscrollTitle, c.title, sb.title, s.lifetimeTitle]);
+  // the drafts and the queued posts show first, and only while there are any
+  const sheet = (title) => [...root.querySelectorAll('.sheet')].find((el) => el.querySelector('h3').firstChild.textContent === title);
+  expect(sheet(c.waitingTitle).hidden).toBe(true);
+  expect(sheet(c.outboxTitle).hidden).toBe(true);
   // the configured browser file is missing: the page says so and offers no login
   expect(root.textContent).toContain(s.browserFileMissing);
   expect(root.querySelector('.social-platform .btn').disabled).toBe(true);
@@ -155,6 +158,20 @@ it('writes a changed post limit through /api/config, and refuses one outside the
   await vi.waitFor(() => expect(root.querySelector('.msgline.bad')?.textContent).toMatch(/\d/));
   expect(live.maxPosts).toBe(next);
   expect(requests.filter((r) => r.path === '/api/config')).toHaveLength(1);
+});
+
+it('writes the Substack publication through /api/config, and says when it names no publication', async () => {
+  const { root } = await mountPage();
+  const sb = socialText(W.LANGUAGE).substack;
+  const input = root.querySelector(`input[placeholder="${sb.publicationPlaceholder}"]`);
+  change(input, ' Fixture Weekly ');
+  await vi.waitFor(() => expect(live.substack.publication).toBe('Fixture Weekly'));
+  await vi.waitFor(() => expect(root.textContent).toContain(sb.publicationBad));
+  change(input, 'fixturewriter');
+  await vi.waitFor(() => expect(live.substack.publication).toBe('fixturewriter'));
+  await vi.waitFor(() => expect(root.textContent).not.toContain(sb.publicationBad));
+  expect(requests.filter((r) => r.path === '/api/config').map((r) => r.body.values))
+    .toEqual([{ 'worlds.social.substack.publication': 'Fixture Weekly' }, { 'worlds.social.substack.publication': 'fixturewriter' }]);
 });
 
 it('saves the job list whole and only while every job is complete', async () => {

@@ -2,7 +2,7 @@
   "name": "cortico-world-social",
   "version": "0.1.0",
   "type": "module",
-  "description": "Cortico World: reads Reddit, X, Facebook, Threads, Instagram, YouTube, Bilibili and Rednote in an installed Chromium-based browser for the bot, within per-request limits; video transcripts, OCR of post images, a daily autoscroll and a lifetime time counter per platform",
+  "description": "Cortico World: reads Reddit, X, Facebook, Threads, Instagram, YouTube, Bilibili, Rednote and Substack in an installed Chromium-based browser for the bot, within per-request limits; video transcripts, OCR of post images, a daily autoscroll and a lifetime time counter per platform",
   "author": "Pal AI Lab",
   "license": "AGPL-3.0-or-later",
   "keywords": [

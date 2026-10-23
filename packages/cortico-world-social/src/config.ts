@@ -60,8 +60,23 @@ export interface SocialConfigSection extends WorldSection {
     auto: boolean;
     /** The bot is told of new replies to the person's Reddit comments and posts, and its answers are posted at once. */
     autoReply: boolean;
-    /** Automatic comments end with `AUTO_NOTE`. */
+    /** Automatic comments and Notes end with `AUTO_NOTE`. */
     sign: boolean;
+  };
+  /** Substack: post drafts in the person's publication, and the Notes the bot writes. */
+  substack: {
+    /** The person's publication, where post drafts go: its name, name.substack.com or its own domain. */
+    publication: string;
+    /** The bot may write Notes: drafts for the person unless `autoNotes`. */
+    notes: boolean;
+    /** The bot's Notes go out on their own, spaced out. */
+    autoNotes: boolean;
+    /** Notes posted in one day, by the local date. */
+    maxNotesPerDay: number;
+    /** Notes the bot writes on its own each day at random times (`world.ts`); 0 for none. */
+    dailyNotes: number;
+    /** A Substack category the bot looks at before a daily Note; empty for none. */
+    topic: string;
   };
 }
 
@@ -70,6 +85,8 @@ export const MAX_SEC_CAP = 1800;
 export const MAX_JOBS = 8;
 export const JOB_POSTS_CAP = 300;
 export const COMMENTS_PER_DAY_CAP = 50;
+export const NOTES_PER_DAY_CAP = 10;
+export const DAILY_NOTES_CAP = 5;
 
 export const SOCIAL_DEFAULTS: SocialConfigSection = {
   enabled: false,
@@ -82,6 +99,7 @@ export const SOCIAL_DEFAULTS: SocialConfigSection = {
   platforms: Object.fromEntries(PLATFORM_IDS.map((id) => [id, { enabled: true }])) as Record<PlatformId, { enabled: boolean }>,
   autoscroll: { enabled: false, maxMinutes: 15, jobs: [] },
   comments: { enabled: false, maxPerDay: 10, auto: false, autoReply: false, sign: true },
+  substack: { publication: '', notes: false, autoNotes: false, maxNotesPerDay: 3, dailyNotes: 0, topic: '' },
 };
 
 const K = `worlds.${SOCIAL_ID}`;
@@ -110,6 +128,12 @@ export function socialConfigGroup(language: Language = 'zh'): ConfigGroup {
         [`${K}.comments.auto`]: { type: 'boolean', title: c.commentsAuto.title, description: c.commentsAuto.description, 'x-hot': true },
         [`${K}.comments.autoReply`]: { type: 'boolean', title: c.commentsAutoReply.title, description: c.commentsAutoReply.description, 'x-hot': true },
         [`${K}.comments.sign`]: { type: 'boolean', title: c.commentsSign.title, description: c.commentsSign.description, 'x-hot': true },
+        [`${K}.substack.publication`]: { type: 'string', title: c.substackPublication.title, description: c.substackPublication.description, 'x-hot': true },
+        [`${K}.substack.notes`]: { type: 'boolean', title: c.substackNotes.title, description: c.substackNotes.description, 'x-hot': true },
+        [`${K}.substack.autoNotes`]: { type: 'boolean', title: c.substackAutoNotes.title, description: c.substackAutoNotes.description, 'x-hot': true },
+        [`${K}.substack.maxNotesPerDay`]: { type: 'integer', title: c.substackMaxNotes.title, description: c.substackMaxNotes.description, minimum: 1, maximum: NOTES_PER_DAY_CAP, 'x-hot': true },
+        [`${K}.substack.dailyNotes`]: { type: 'integer', title: c.substackDailyNotes.title, description: c.substackDailyNotes.description, minimum: 0, maximum: DAILY_NOTES_CAP, 'x-hot': true },
+        [`${K}.substack.topic`]: { type: 'string', title: c.substackTopic.title, description: c.substackTopic.description, 'x-hot': true },
       },
     },
   };

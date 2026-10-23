@@ -1,7 +1,7 @@
 /**
- * Comments: the store of drafts, posted comments and the inbox watch with its daily counts, what
- * counts as a link, what a Reddit link replies to, posting through Reddit's comment endpoint, and
- * the replies read from the inbox, on a scripted page.
+ * Comments and Notes: the store of drafts, the queue, what was posted, the inbox watch and the day's
+ * plan of Notes, with the daily counts; what counts as a link, what a Reddit link replies to, posting
+ * through Reddit's comment endpoint, and the replies read from the inbox, on a scripted page.
  */
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -28,7 +28,10 @@ function storeFile(): string {
   return join(dir, 'social-comments.json');
 }
 
-const reply = (url: string) => ({ platform: 'reddit' as const, url, target: 't3_abc123', text: `Reply to ${url}` });
+const reply = (url: string) => ({ platform: 'reddit' as const, kind: 'comment' as const, url, target: 't3_abc123', text: `Reply to ${url}` });
+const note = (text: string) => ({ platform: 'substack' as const, kind: 'note' as const, url: '', target: '', text });
+/** What a posted comment records, besides the fields a case sets. */
+const sent = { platform: 'reddit' as const, kind: 'comment' as const, link: null, edited: false, auto: false };
 
 describe('the comment store', () => {
   it('keeps drafts and posted comments across restarts, and never gives a draft id twice', () => {
@@ -37,10 +40,10 @@ describe('the comment store', () => {
     const first = new CommentStore(file, () => now);
     const one = first.add(reply('one'));
     const two = first.add(reply('two'));
-    first.record({ platform: 'reddit', url: 'one', link: `${REDDIT}/comments/abc123/_/def456/`, text: 'Edited reply', edited: true, auto: false }, one.id);
+    first.record({ ...sent, url: 'one', link: `${REDDIT}/comments/abc123/_/def456/`, text: 'Edited reply', edited: true }, one.id);
     const again = new CommentStore(file, () => now);
     expect(again.drafts()).toEqual([two]);
-    expect(again.posted()).toEqual([{ platform: 'reddit', url: 'one', link: `${REDDIT}/comments/abc123/_/def456/`, text: 'Edited reply', edited: true, auto: false, at: new Date(now).toISOString() }]);
+    expect(again.posted()).toEqual([{ ...sent, url: 'one', link: `${REDDIT}/comments/abc123/_/def456/`, text: 'Edited reply', edited: true, at: new Date(now).toISOString() }]);
     expect([one.id, two.id]).not.toContain(again.add(reply('three')).id);
   });
 
@@ -48,7 +51,7 @@ describe('the comment store', () => {
     // Asia/Singapore is eight hours ahead of UTC: 15:59 UTC is 23:59 there, 16:01 UTC the next day
     let now = Date.parse('2026-10-22T15:59:00Z');
     const store = new CommentStore(storeFile(), () => now);
-    for (const url of ['one', 'two']) store.record({ platform: 'reddit', url, link: null, text: url, edited: false, auto: false }, store.add(reply(url)).id);
+    for (const url of ['one', 'two']) store.record({ ...sent, url, text: url }, store.add(reply(url)).id);
     expect(store.today(TZ)).toBe(2);
     now = Date.parse('2026-10-22T16:01:00Z');
     expect(store.today(TZ)).toBe(0);
@@ -56,12 +59,34 @@ describe('the comment store', () => {
 
   it(`keeps the last ${POSTED_KEPT} posted comments, newest first`, () => {
     const store = new CommentStore(storeFile());
-    for (let i = 0; i < POSTED_KEPT + 3; i++) store.record({ platform: 'reddit', url: `post ${i}`, link: null, text: `comment ${i}`, edited: false, auto: false });
+    for (let i = 0; i < POSTED_KEPT + 3; i++) store.record({ ...sent, url: `post ${i}`, text: `comment ${i}` });
     const posted = store.posted();
     expect(posted).toHaveLength(POSTED_KEPT);
     expect(posted[0]!.text).toBe(`comment ${POSTED_KEPT + 2}`);
     expect(posted.at(-1)!.text).toBe('comment 3');
     expect(store.posted(2).map((p) => p.text)).toEqual([`comment ${POSTED_KEPT + 2}`, `comment ${POSTED_KEPT + 1}`]);
+  });
+
+  it('lists comments and Notes apart, and counts each kind against its own daily limit', () => {
+    const store = new CommentStore(storeFile(), () => Date.parse('2026-10-23T02:00:00Z'));
+    store.record({ ...sent, url: 'one', text: 'a comment' });
+    store.record({ ...sent, ...note('a Note'), link: 'https://substack.com/@fixturewriter/note/c-101' });
+    expect(store.posted(10, 'comment').map((p) => p.text)).toEqual(['a comment']);
+    expect(store.posted(10, 'note').map((p) => p.text)).toEqual(['a Note']);
+    expect([store.today(TZ), store.today(TZ, 'note')]).toEqual([1, 1]);
+  });
+
+  it('reads a draft or a posted comment saved without a kind as a comment', () => {
+    const file = storeFile();
+    writeFileSync(file, JSON.stringify({
+      next: 3,
+      drafts: [{ id: 'c2', platform: 'reddit', url: 'u', target: 't3_abc123', text: 'x', at: '2026-10-22T01:00:00.000Z' }],
+      posted: [{ platform: 'reddit', url: 'u', link: null, text: 'y', edited: false, auto: false, at: '2026-10-22T01:00:00.000Z' }],
+    }));
+    const store = new CommentStore(file);
+    expect(store.drafts().map((d) => d.kind)).toEqual(['comment']);
+    expect(store.posted().map((p) => p.kind)).toEqual(['comment']);
+    expect(store.queued()).toEqual([]);
   });
 
   it('starts empty from a file it cannot read, keeping that file beside it', () => {
@@ -71,6 +96,72 @@ describe('the comment store', () => {
     expect(store.drafts()).toEqual([]);
     expect(store.posted()).toEqual([]);
     expect(existsSync(`${file}.unreadable`)).toBe(true);
+  });
+});
+
+describe('the queue of automatic posts', () => {
+  it('gives them out in the order they are due, across restarts, with ids no draft shares', () => {
+    const file = storeFile();
+    const store = new CommentStore(file, () => Date.parse('2026-10-23T02:00:00Z'));
+    const draft = store.add(reply('d'));
+    const late = store.enqueue({ ...reply('late'), due: '2026-10-23T02:30:00.000Z' });
+    const soon = store.enqueue({ ...note('soon'), due: '2026-10-23T02:05:00.000Z' });
+    const again = new CommentStore(file);
+    expect(again.queued().map((q) => q.id)).toEqual([soon.id, late.id]);
+    expect(new Set([draft.id, late.id, soon.id]).size).toBe(3);
+    expect(again.unqueue(soon.id)?.text).toBe('soon');
+    expect(again.unqueue(soon.id)).toBeUndefined();
+    expect(again.queued().map((q) => q.id)).toEqual([late.id]);
+  });
+
+  it('records a queued post that went out and takes it off the queue', () => {
+    const store = new CommentStore(storeFile());
+    const q = store.enqueue({ ...reply('u'), due: '2026-10-23T02:05:00.000Z' });
+    store.record({ ...sent, url: 'u', text: q.text, auto: true }, q.id);
+    expect(store.queued()).toEqual([]);
+    expect(store.posted().map((p) => p.text)).toEqual([q.text]);
+  });
+
+  it('spaces from the last post of a kind on a platform, posted or queued', () => {
+    let now = Date.parse('2026-10-23T02:00:00Z');
+    const store = new CommentStore(storeFile(), () => now);
+    expect(store.lastAt('reddit', 'comment')).toBe(0);
+    store.record({ ...sent, url: 'u', text: 'x' });
+    expect(store.lastAt('reddit', 'comment')).toBe(now);
+    now += 60_000;
+    store.enqueue({ ...reply('u'), due: '2026-10-23T03:00:00.000Z' });
+    expect(store.lastAt('reddit', 'comment')).toBe(Date.parse('2026-10-23T03:00:00.000Z'));
+    expect([store.lastAt('substack', 'note'), store.lastAt('substack', 'comment')]).toEqual([0, 0]);
+  });
+
+  it('counts queued posts due today against the day, and those due tomorrow against tomorrow', () => {
+    const store = new CommentStore(storeFile(), () => Date.parse('2026-10-22T15:00:00Z'));
+    store.enqueue({ ...note('tonight'), due: '2026-10-22T15:50:00.000Z' });
+    // 16:10 UTC is past midnight in Asia/Singapore
+    store.enqueue({ ...note('after midnight'), due: '2026-10-22T16:10:00.000Z' });
+    expect(store.todayWithQueued(TZ, 'note')).toBe(1);
+    expect(store.todayWithQueued(TZ, 'comment')).toBe(0);
+  });
+});
+
+describe("the day's plan of Notes", () => {
+  it('keeps one plan a day across restarts, and how many of it were asked for', () => {
+    const file = storeFile();
+    const store = new CommentStore(file);
+    let picks = 0;
+    const pick = () => { picks++; return [600, 900]; };
+    expect(store.plan('2026-10-23', 2, pick)).toEqual({ date: '2026-10-23', times: [600, 900], told: 0 });
+    store.told(1);
+    expect(new CommentStore(file).plan('2026-10-23', 2, pick)).toEqual({ date: '2026-10-23', times: [600, 900], told: 1 });
+    expect(picks).toBe(1);
+  });
+
+  it('plans again for another day, or when the number a day changed, keeping what that day already told', () => {
+    const store = new CommentStore(storeFile());
+    store.plan('2026-10-23', 2, () => [600, 900]);
+    store.told(1);
+    expect(store.plan('2026-10-23', 3, () => [600, 800, 1000])).toEqual({ date: '2026-10-23', times: [600, 800, 1000], told: 1 });
+    expect(store.plan('2026-10-24', 3, () => [610, 810, 1010])).toEqual({ date: '2026-10-24', times: [610, 810, 1010], told: 0 });
   });
 });
 
@@ -137,7 +228,7 @@ describe('posting a Reddit comment', () => {
     const err = await reddit('h', json({ json: { errors: [['RATELIMIT', 'Take a break for 5 minutes.', 'ratelimit'], ['TOO_LONG', 'This is too long.', 'text']] } }))
       .post('t3_abc123', 'x').catch((e: unknown) => e);
     expect(err).toBeInstanceOf(CommentRefused);
-    expect((err as CommentRefused).detail).toBe('RATELIMIT: Take a break for 5 minutes.; TOO_LONG: This is too long.');
+    expect(err).toMatchObject({ platform: 'reddit', detail: 'RATELIMIT: Take a break for 5 minutes.; TOO_LONG: This is too long.' });
   });
 
   it('names a refusal by its HTTP status, and takes 429 as a block and 401 as a missing login', async () => {
@@ -177,12 +268,13 @@ describe('the inbox watch', () => {
 
   it('counts the automatic answers to one account today, whatever its letter case', () => {
     const store = new CommentStore(storeFile());
-    const answer = (to: string) => store.record({ platform: 'reddit', url: 'u', link: null, text: 'x', edited: false, auto: true, to });
+    const answer = (to: string) => store.record({ ...sent, url: 'u', text: 'x', auto: true, to });
     answer('fixture_bob');
     answer('Fixture_Bob');
     answer('fixture_carol');
-    store.record({ platform: 'reddit', url: 'u', link: null, text: 'x', edited: false, auto: true });
-    expect(store.answeredToday('FIXTURE_BOB', TZ)).toBe(2);
+    store.record({ ...sent, url: 'u', text: 'x', auto: true });
+    store.enqueue({ ...reply('u'), to: 'fixture_bob', due: new Date().toISOString() });
+    expect(store.answeredToday('FIXTURE_BOB', TZ)).toBe(3);
     expect(store.answeredToday('fixture_dan', TZ)).toBe(0);
   });
 });

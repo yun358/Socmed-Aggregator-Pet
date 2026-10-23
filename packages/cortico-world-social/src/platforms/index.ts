@@ -6,6 +6,7 @@ import { FACEBOOK } from './facebook.ts';
 import { INSTAGRAM } from './instagram.ts';
 import { REDDIT } from './reddit.ts';
 import { REDNOTE } from './rednote.ts';
+import { SUBSTACK } from './substack.ts';
 import { THREADS } from './threads.ts';
 import { X } from './x.ts';
 import { YOUTUBE } from './youtube.ts';
@@ -19,6 +20,7 @@ export const ADAPTERS: Record<PlatformId, Adapter> = {
   youtube: YOUTUBE,
   bilibili: BILIBILI,
   rednote: REDNOTE,
+  substack: SUBSTACK,
 };
 
 /** The platform a post URL belongs to; null for any other site. */
