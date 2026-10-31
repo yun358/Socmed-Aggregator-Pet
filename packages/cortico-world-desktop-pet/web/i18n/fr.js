@@ -16,6 +16,11 @@ export default {
   'bubble.waiting': 'Encore {n} à venir',
   'bubble.copy': 'Copier la réponse ou le texte sélectionné',
   'bubble.copied': 'Copié',
+  'balance.left': 'Solde {amount}',
+  'balance.none': "{service} n'indique pas de solde ici",
+  'balance.noKey': 'Aucune clé API définie',
+  'balance.failed': 'Impossible de lire le solde',
+  'balance.someService': 'Ce service de modèles',
 
   // what the person said: a sentence being heard; how many images a chat-page message carries
   'heard.more': "J'écoute…",

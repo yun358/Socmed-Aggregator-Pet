@@ -16,6 +16,11 @@ export default {
   'bubble.waiting': 'あと {n} 件',
   'bubble.copy': '返事全体か選択したテキストをコピー',
   'bubble.copied': 'コピーしました',
+  'balance.left': '残高 {amount}',
+  'balance.none': '{service}は残高を表示できません',
+  'balance.noKey': 'API キーが設定されていません',
+  'balance.failed': '残高を読み取れませんでした',
+  'balance.someService': 'このモデルサービス',
 
   // what the person said: a sentence being heard; how many images a chat-page message carries
   'heard.more': '聞き取り中…',

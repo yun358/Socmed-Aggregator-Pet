@@ -23,6 +23,11 @@ export default {
   /** The copy button of a speech bubble: the selected text, else every line of the reply. */
   'bubble.copy': 'Copy the reply, or the selected text',
   'bubble.copied': 'Copied',
+  'balance.left': 'Balance {amount}',
+  'balance.none': '{service} shows no balance here',
+  'balance.noKey': 'No API key set',
+  'balance.failed': "Couldn't read the balance",
+  'balance.someService': 'This model service',
 
   // what the person said: a sentence being heard; how many images a chat-page message carries
   'heard.more': 'Listening…',

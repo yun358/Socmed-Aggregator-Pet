@@ -16,6 +16,11 @@ export default {
   'bubble.waiting': 'Ещё {n} впереди',
   'bubble.copy': 'Копировать ответ или выделенный текст',
   'bubble.copied': 'Скопировано',
+  'balance.left': 'Баланс {amount}',
+  'balance.none': '{service} не сообщает баланс',
+  'balance.noKey': 'API-ключ не задан',
+  'balance.failed': 'Не удалось прочитать баланс',
+  'balance.someService': 'Этот сервис моделей',
 
   // what the person said: a sentence being heard; how many images a chat-page message carries
   'heard.more': 'Слушаю…',

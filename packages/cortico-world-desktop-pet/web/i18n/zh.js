@@ -20,6 +20,11 @@ export default {
   'bubble.waiting': '还有 {n} 条',
   'bubble.copy': '复制整段回复或选中的文字',
   'bubble.copied': '已复制',
+  'balance.left': '余额 {amount}',
+  'balance.none': '{service}不提供余额查询',
+  'balance.noKey': '还没有填写 API Key',
+  'balance.failed': '没能读取余额',
+  'balance.someService': '这个模型服务',
 
   // 你说的话:语音识别中的样子;对话页发来的消息附的图片数
   'heard.more': '正在倾听…',

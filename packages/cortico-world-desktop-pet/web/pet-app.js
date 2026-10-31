@@ -26,6 +26,7 @@ document.body.classList.add(host ? 'desk' : 'tab');
 const stage = $('#stage');
 const bubble = $('#bubble'), menu = $('#menu');
 const tools = $('#tools');
+const balanceEl = $('#balance');
 // Coo's drawing classes for the menu's avatar; the bubbles and buttons take their colours from Coo's palette
 // another pack's body sets the theme color instead (accentStyle, after skinStyle so it wins)
 const cooStyle = document.createElement('style'), skinStyle = document.createElement('style'), accentStyle = document.createElement('style');
@@ -321,6 +322,7 @@ function onOrder(m) {
     case 'dialog': endBrowse(); queue.push({ kind: 'dialog', id: m.id, d: m }); holdRoam(20); drawNav(); break;
     case 'dialog-update': updateDialog(m); break;
     case 'dialog-close': endDialog(m.id); drawNav(); break;
+    case 'balance': onBalance(m); break;
   }
 }
 
@@ -341,6 +343,7 @@ function onBody(kind, d) {
   } else if (kind === 'touch') {
     send({ t: 'touch', ...d });
     if (d.kind === 'grab') closeMenu();
+    if (d.kind === 'poke') balance.until = T + BALANCE_AFTER_POKE;
   } else if (kind === 'mode') {
     reportPosition();
   } else if (kind === 'done') {
@@ -1463,6 +1466,44 @@ function renderTools() {
   if (mic) mic.classList.toggle('waiting', prefs.voice.enabled && !prefs.voice.ready);
 }
 
+/* ---------- the balance bubble: what is left on the model service's account, while the app lends it ---------- */
+/** Seconds the balance shows after a poke. */
+const BALANCE_AFTER_POKE = 4;
+/** Seconds between two asks while it shows; the World answers from its own reading for a minute meanwhile. */
+const BALANCE_ASK_EVERY = 20;
+/** `until`: the page time it shows until; `text`: the last answer in the page's words. */
+const balance = { until: 0, askedAt: -Infinity, text: '', failed: '' };
+/** `a.amount` in `a.currency`, written the app language's way. */
+function money(a) {
+  try {
+    return new Intl.NumberFormat(document.documentElement.lang, { style: 'currency', currency: a.currency, currencyDisplay: 'narrowSymbol' }).format(a.amount);
+  } catch {
+    return `${a.amount} ${a.currency}`;
+  }
+}
+/** The World's answer: the money left, or why there is none to show. */
+function onBalance(m) {
+  const service = m.service || t('balance.someService');
+  if (Array.isArray(m.amounts)) balance.text = m.amounts.length ? t('balance.left', { amount: m.amounts.map(money).join(' · ') }) : t('balance.none', { service });
+  else if (m.none === 'key') balance.text = t('balance.noKey');
+  else if (m.none) balance.text = t('balance.none', { service });
+  else {
+    balance.text = t('balance.failed');
+    // the reason goes to the run log, once while it stays the same
+    if (m.failed !== balance.failed) console.warn(`[pet] balance not read: ${m.failed}`);
+  }
+  balance.failed = m.failed ?? '';
+  balanceEl.textContent = balance.text;
+}
+/** Shows the balance while the cursor is on the body and a moment after, and after a poke; hidden while the body is held or the menu is open. */
+function stepBalance() {
+  const p = cursor.at, l = at();
+  if (p && body?.hit(p)) balance.until = Math.max(balance.until, T + TOOLS_LINGER);
+  const want = !!prefs.bot?.buttons?.balance && T < balance.until && !!l && !l.pressing && menu.hidden;
+  if (want && T - balance.askedAt >= BALANCE_ASK_EVERY) { balance.askedAt = T; send({ t: 'balance' }); }
+  balanceEl.hidden = !(want && balance.text);
+}
+
 /** A press shorter than HOLD_TO_SEND switches voice input; a longer one sends what was heard so far. */
 const hold = { timer: 0, sent: false, el: null };
 function endHold() {
@@ -1761,6 +1802,23 @@ function placeTalk(it, a) {
   return { left, top, bw, bh };
 }
 
+/**
+ * On the hover buttons' side of the body: above them while they show, else level with the body's
+ * middle; below them instead where it would cover Coo's bubble.
+ */
+function placeBalance(l) {
+  const c = l.side, reach = l.side.reach + 10;
+  const w = balanceEl.offsetWidth, h = balanceEl.offsetHeight;
+  const toolsTop = tools.hidden ? null : parseFloat(tools.style.top);
+  const x = c.x + reach + Math.max(w, tools.hidden ? 0 : tools.offsetWidth) <= innerWidth - 8 ? c.x + reach : c.x - reach - w;
+  const left = clamp(x, 8, innerWidth - w - 8);
+  const above = toolsTop === null ? c.y - h / 2 : toolsTop - h - 8;
+  const below = toolsTop === null ? c.y + h : toolsTop + tools.offsetHeight + 8;
+  const r = bubble.hidden ? null : bubble.getBoundingClientRect();
+  const covers = (y) => !!r && left < r.right && left + w > r.left && y < r.bottom && y + h > r.top;
+  balanceEl.style.left = f(left) + 'px';
+  balanceEl.style.top = f(clamp(covers(above) ? below : above, 8, innerHeight - h - 8)) + 'px';
+}
 /** Beside the body, on the right unless that runs off the screen. */
 function placeTools(l) {
   const c = l.side, reach = l.side.reach + 10;
@@ -1774,6 +1832,7 @@ function layout(dt = 0) {
   if (!l) return;
   stage.style.cursor = l.cursor;
   if (!tools.hidden) placeTools(l);
+  if (!balanceEl.hidden) placeBalance(l);
   const a = l.bubble;
   let sayBox = null;
   // choice cards keep their bubble where it was; its tail follows Coo along the bottom edge
@@ -1933,6 +1992,7 @@ function frame(now) {
     body?.tick(dt);
     stepBackdrop(dt);
     stepTools();
+    stepBalance();
     layout(dt);
     // the frame's own time, so the layer shows frames as far apart as they were drawn
     if (overlayOn) host.overlayFrame(overlayRect(), performance.timeOrigin + now);

@@ -16,6 +16,11 @@ export default {
   'bubble.waiting': '還有 {n} 則',
   'bubble.copy': '複製整段回覆或選取的文字',
   'bubble.copied': '已複製',
+  'balance.left': '餘額 {amount}',
+  'balance.none': '{service}不提供餘額查詢',
+  'balance.noKey': '還沒有填寫 API Key',
+  'balance.failed': '沒能讀取餘額',
+  'balance.someService': '這個模型服務',
 
   // what the person said: a sentence being heard; how many images a chat-page message carries
   'heard.more': '正在傾聽…',

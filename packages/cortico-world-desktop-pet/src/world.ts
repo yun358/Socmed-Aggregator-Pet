@@ -105,6 +105,8 @@ const HOTKEY_POLL_MS = 30;
  * segmenter is flushed when the key goes up, and frames that arrive later are not used.
  */
 const MIC_RELEASE_MS = 500;
+/** How long a balance read stays good for the balance bubble before it is read again. */
+export const BALANCE_FRESH_MS = 60_000;
 
 /**
  * Run controls an embedding app lends the pet's menu. Each button shows only when its control is
@@ -126,7 +128,19 @@ export interface PetBotControls {
   quitLabel?: string | (() => string);
   /** Runs the embedding app's introduction again (the console's `pet.guide` panel method). */
   guide?(): void;
+  /** What is left on the account the bot's model runs on; the balance bubble beside the pet shows it while lent. */
+  balance?(): Promise<PetBalance>;
 }
+
+/**
+ * What the balance bubble shows: the money left (`amounts`, ISO 4217 currencies) on the account of
+ * `service`; or that the service tells this kind of key none (`none: 'service'`), that no key is set
+ * (`none: 'key'`); or why reading it failed.
+ */
+export type PetBalance =
+  | { service: string; amounts: Array<{ currency: string; amount: number }> }
+  | { service: string; none: 'service' | 'key' }
+  | { service: string; failed: string };
 
 /**
  * One step of a conversation an embedding app holds through the pet's bubble (`dialog`): Coo says
@@ -382,6 +396,9 @@ export class DesktopPetWorld implements World {
   private startCursor = 0;
   /** Text the bubble's expand button carried, until a chat page takes it. */
   private draft: string | null = null;
+  /** The last balance read, and when; a read under way is shared. */
+  private balance: { at: number; value: PetBalance } | null = null;
+  private balanceRead: Promise<void> | null = null;
   private pausedShown: boolean | null = null;
 
   /** Installs packs the dressing page sends, when the app named a directory for them. */
@@ -877,7 +894,7 @@ export class DesktopPetWorld implements World {
       name: this.opts.botName ?? '',
       avatar,
       controls: !!c,
-      buttons: { pause, settings: !!c?.openSettings, dress: !!c?.openDress, quit: !!c?.quit, chat: !!c?.openChat },
+      buttons: { pause, settings: !!c?.openSettings, dress: !!c?.openDress, quit: !!c?.quit, chat: !!c?.openChat, balance: !!c?.balance },
       paused: pause && c?.isPaused ? c.isPaused() : null,
       quitLabel,
       quitPrompt: quitLabel ? this.ui.menu.quitPrompt(quitLabel) : '',
@@ -1042,6 +1059,7 @@ export class DesktopPetWorld implements World {
         return;
       }
       case 'touch': return this.onTouch(msg);
+      case 'balance': return void this.sendBalance();
       case 'mic': {
         this.micState = { state: String(msg.state), detail: typeof msg.detail === 'string' ? msg.detail : null };
         // a closed microphone sends no more frames: the meter drops to silence
@@ -1084,6 +1102,27 @@ export class DesktopPetWorld implements World {
       case 'commit': return this.commitSpeech();
       case 'cancel': return this.cancelSpeech();
     }
+  }
+
+  /** Sends the page the balance: the last read while it is under `BALANCE_FRESH_MS` old, else a new one. */
+  private sendBalance(): Promise<void> {
+    const balance = this.opts.controls?.balance;
+    if (!balance) return Promise.resolve();
+    if (this.balance && Date.now() - this.balance.at < BALANCE_FRESH_MS) {
+      this.server.sendPet({ t: 'balance', ...this.balance.value });
+      return Promise.resolve();
+    }
+    this.balanceRead ??= (async () => {
+      let value: PetBalance;
+      try {
+        value = await balance();
+      } catch (err) {
+        value = { service: '', failed: (err as Error).message };
+      }
+      this.balance = { at: Date.now(), value };
+      this.server.sendPet({ t: 'balance', ...value });
+    })().finally(() => { this.balanceRead = null; });
+    return this.balanceRead;
   }
 
   private onControl(action: string): void {

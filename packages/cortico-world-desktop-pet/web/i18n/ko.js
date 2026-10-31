@@ -16,6 +16,11 @@ export default {
   'bubble.waiting': '{n}개 더 있음',
   'bubble.copy': '답변 전체 또는 선택한 텍스트 복사',
   'bubble.copied': '복사했습니다',
+  'balance.left': '잔액 {amount}',
+  'balance.none': '{service}은(는) 잔액을 알려 주지 않습니다',
+  'balance.noKey': 'API 키가 설정되지 않았습니다',
+  'balance.failed': '잔액을 읽지 못했습니다',
+  'balance.someService': '이 모델 서비스',
 
   // what the person said: a sentence being heard; how many images a chat-page message carries
   'heard.more': '듣는 중…',

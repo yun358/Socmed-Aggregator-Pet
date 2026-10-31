@@ -452,6 +452,9 @@ macOS 上是 AppleScript 的 `display dialog`,Linux 上是 `zenity --question`)�
 文本框(可以是密钥框,带一个外链和一个「以后再说」)、进度条(调用方用 `update({ progress })` 推进,`close()` 收起)。
 `step` 在气泡顶上画步骤点,`closable` 画一个关闭钮;页面不在时结果是 `{ unavailable: true }`,页面回来后调用方重发即可。
 `controls.guide` 借出后,控制台的 `pet.guide` 面板方法会调它,应用借此重放引导。
+`controls.balance` 借出后,指针停在身体上时(离开后 0.8 秒内)与戳一下之后 4 秒内,悬停按钮那一侧多一个余额气泡:页面发 `balance`,
+World 调它并回 `balance`(`PetBalance`:服务名与各币种的余额,或服务不告诉这种 Key 余额、没有 Key、读取失败的原因),
+一次读取用 1 分钟(`BALANCE_FRESH_MS`),期间的询问都用它;页面显示期间每 20 秒问一次。身体被按住或菜单开着时不显示,盖住 Coo 的气泡时挪到按钮下面。
 `/api/config` 写不了列表和对象,所以「习惯」页的两个自定义弹窗经 `pet` 面板方法保存:`setWakeKinds(种类数组)` 把 `touch.wakeOn` 设成 `custom` 并写 `touch.wakeKinds`,
 `setSelfAdjustCustom({ 项: true/false })` 把 `selfAdjust` 设成 `custom` 并写 `selfAdjustCustom`;`pet.state` 的 `wake`、`selfAdjust` 给出当前值(旧的布尔值已按新含义读出)。
 

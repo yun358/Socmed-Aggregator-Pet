@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -7,7 +7,7 @@ import { dryMountWorld } from 'cortico/extensions/dry-mount.ts';
 import { renderTemplate } from 'cortico/core/template.ts';
 import { DESKTOP_PET } from '../src/definition.ts';
 import { DESKTOP_PET_DEFAULTS, SELF_DEFAULT, type DesktopPetConfigSection } from '../src/config.ts';
-import { DesktopPetWorld, type DesktopPetWorldOptions, type PetBotControls } from '../src/world.ts';
+import { BALANCE_FRESH_MS, DesktopPetWorld, type DesktopPetWorldOptions, type PetBalance, type PetBotControls } from '../src/world.ts';
 import { chatItem } from '../src/chat.ts';
 import { FakeHost } from './helpers/fake-host.ts';
 import { FakePage } from './helpers/page.ts';
@@ -547,6 +547,43 @@ describe('with a pet page', () => {
     win.send({ t: 'control', action: 'quit' });
     win.send({ t: 'control', action: 'settings' });
     await expect.poll(() => calls).toEqual(['settings']);
+  });
+
+  it('reads the balance the app lends once a minute, however often the page asks, and only while it is lent', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    cleanup.push(async () => { vi.useRealTimers(); });
+    let reads = 0;
+    let fail = false;
+    const controls: PetBotControls = {
+      balance: async (): Promise<PetBalance> => {
+        reads++;
+        if (fail) throw new Error('fixture failure');
+        return { service: 'Fixture', amounts: [{ currency: 'USD', amount: reads }] };
+      },
+    };
+    const { world } = await mounted(undefined, { controls });
+    const win = await FakePage.open(origin(world), 'role=pet&host=window');
+    cleanup.push(() => win.close());
+    expect((win.init.bot as { buttons: Record<string, boolean> }).buttons.balance).toBe(true);
+    // two asks while the first read is under way share it
+    win.send({ t: 'balance' });
+    win.send({ t: 'balance' });
+    expect(await win.next((m) => m.t === 'balance')).toEqual({ t: 'balance', service: 'Fixture', amounts: [{ currency: 'USD', amount: 1 }] });
+    win.send({ t: 'balance' });
+    expect(await win.next((m) => m.t === 'balance')).toMatchObject({ amounts: [{ currency: 'USD', amount: 1 }] });
+    expect(reads).toBe(1);
+    vi.setSystemTime(Date.now() + BALANCE_FRESH_MS);
+    fail = true;
+    win.send({ t: 'balance' });
+    expect(await win.next((m) => m.t === 'balance')).toEqual({ t: 'balance', service: '', failed: 'fixture failure' });
+    expect(reads).toBe(2);
+
+    const bare = await mounted();
+    const plain = await FakePage.open(origin(bare.world), 'role=pet&host=window');
+    cleanup.push(() => plain.close());
+    expect((plain.init.bot as { buttons: Record<string, boolean> }).buttons.balance).toBe(false);
+    plain.send({ t: 'balance' });
+    await expect(plain.next((m) => m.t === 'balance', 300)).rejects.toThrow('no matching message');
   });
 
   it('rejects requests whose Host is not a loopback name', async () => {
