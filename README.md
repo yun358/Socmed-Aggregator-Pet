@@ -8,6 +8,9 @@ A fork of [Coopanion](https://github.com/Pal-AI-Lab/Coopanion), the desktop pet,
   - "What's happening on r/wallstreetbets?"
   - "What is MKBHD's latest video about?" Coo lists the videos, you pick one, and it summarizes the transcript.
   - "Find posts about Anime."
+- **The web and news**: Coo searches the web (Bing, or DuckDuckGo and Google when one turns it away) and reads any page you or a search name: an article's text, or a news site's front page as its headlines. It reads Google News too: top stories, a topic such as technology, or a search, in the edition you set on the **Social media** page (empty follows the app language; for example US:en, GB:en or SG:en). The daily autoscroll can read Google News as well. When a site shows a check, or you subscribe to one, Coo opens it in its browser window for you to pass the check or log in.
+  - "What's in the news today?"
+  - "Search the web for heat pump running costs."
 - **Limits per question**: how many posts and seconds Coo may spend (5 posts and 120 s by default).
 - **Text-only mode**: skips posts with images to save tokens. Otherwise the text in images is read on your computer.
 - **Daily autoscroll**: Coo reads a set number of posts each day and tells you what was in them.
@@ -18,7 +21,7 @@ A fork of [Coopanion](https://github.com/Pal-AI-Lab/Coopanion), the desktop pet,
 - **How it writes**: on X, Threads, YouTube, Facebook and Rednote, Coo types into the site's own page in its browser, as you would; on the others it uses the requests the site's own pages make. Writing has been tested against copies of these pages, not the live sites, and breaks when a site changes.
 - **Substack**: Coo reads your feed, a publication's posts, anyone's Notes and posts (@handle), and the leaderboard of a category such as Technology, with what does best there. Ask it to write a Note, reply to one or comment on a post; each waits for you unless you turn on **Automatic Notes**, which posts them at least 90 minutes apart. **Daily Notes** has Coo write up to 5 Notes a day at random times, in your voice after reading your recent ones. Set your publication and Coo can put post drafts there; it never publishes them. Substack has no public API, so this uses the requests Substack's own pages make and can break when they change; Substack can remove accounts for inauthentic activity.
 - **Balance bubble**: rest the pointer on Coo, or poke it, and a small bubble beside it shows how much is left on your model account. Works with DeepSeek and Kimi, and with an OpenRouter key that has a credit limit; other services show no balance.
-- **Reply arrows**: ‹ and › on Coo's speech bubble to go back when it talks too fast.
+- **Reply arrows**: ‹ and › on Coo's speech bubble to go back when it talks too fast. The typing box has a ‹ too: it shows Coo's earlier replies above what you're typing, without touching your draft.
 - **Copy button**: copies Coo's whole reply, or just the text you selected.
 - **Saved conversations**: start a new conversation or go back to an old one, as in a chat app. Ask Coo ("let's start a new conversation"), or use the **Conversations** page in settings. Coo can open your last 20 (set 0–100 there); older ones open from that page. Saving can be turned off there too.
 
