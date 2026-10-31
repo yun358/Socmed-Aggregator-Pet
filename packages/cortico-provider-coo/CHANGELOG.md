@@ -1,3 +1,7 @@
+## Unreleased
+
+- `balanceOf(baseUrl, key)` reads what is left on the account behind a key, for DeepSeek, Kimi (yuan on the mainland platform, dollars on the international one) and an OpenRouter key's own limit; `tellsBalance` says whether a service does.
+
 ## 0.3.1
 
 - StepFun Step Plan: a new service `stepfun-plan` on the plan's endpoint `/step_plan/v1`, over Chat, starting on `step-5-preview`; its key is kept apart from the pay-as-you-go StepFun endpoint.

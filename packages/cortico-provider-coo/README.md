@@ -51,6 +51,8 @@ Coo Pet Provider:[Cortico](https://github.com/Pal-AI-Lab/Cortico) 的一个 prov
   只发最近一批送达的事件(user 消息或事件帧)及其后的图片,更早的只留 Core 给每份附件写的 `[blob …]` 那行文字。
   每次送达新的一批,请求里从上一批的第一张图起前缀缓存失效。Chat 的工具结果不带图片,图片挪到紧跟其后的一条 user 消息里;
   千问、智谱国内、阶跃星辰、千帆的 Responses 文档写明 `function_call_output.output` 只收字符串(`toolOutputText`),也这样挪。
+- **余额**:`src/balance.ts` 的 `balanceOf(baseUrl, key)` 读 Key 所在账户还剩多少钱:DeepSeek `GET /user/balance`(按币种),Kimi `GET /users/me/balance`(国内平台人民币、国际平台美元),
+  OpenRouter `GET /key`(这把 Key 自己的额度还剩多少;没设额度的 Key 读不到账户余额,那要管理 Key)。别家只对另一种 Key 报余额或不报,返回 null(`tellsBalance` 先问);桌宠的余额气泡用它。
 - **价目**:`src/pricing.ts` 内置 DeepSeek(错峰价,两个高峰时段按两倍计)、OpenAI、Anthropic、Gemini(付费档)、xAI;别家没有内置价目。
   长提示的第二档价格按 `inputBands` 计;`gemini-3.8-flash` 的现价到 2026-12-31,之后开始的请求按页面列的新价。
 - **标志**:`src/icons.ts`,取自 [@lobehub/icons-static-svg](https://github.com/lobehub/lobe-icons)(MIT)。标志归各自的公司所有,只用来标明是哪一家。

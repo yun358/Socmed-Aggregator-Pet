@@ -179,6 +179,7 @@ export const COO = {
 
 export default COO;
 export { anthropicPrices, deepseekPrices, vendorPrices, OFF_PEAK } from './pricing.ts';
+export { BalanceFailed, balanceOf, tellsBalance, type Money } from './balance.ts';
 export {
   CHATGPT, CHATGPT_MODULE, VENDORS, chatgptEntry, connectionVendor, defaultRegion, endpointName, firstVendor, localized, locate, regionsOf, siteOf,
   vendorById, vendorEntry, vendorName, vendorOf, vendorsFor,
