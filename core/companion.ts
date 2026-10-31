@@ -62,6 +62,7 @@ import { CONSOLE } from 'cortico/worlds/console/definition.ts';
 import { desktopPetDefinition, figurePacks, type DesktopPetWorld } from 'cortico-world-desktop-pet';
 import { socialDefinition } from 'cortico-world-social';
 import COO, { CHATGPT, CHATGPT_PROVIDER, signedIn, usageLimited, vendorOf } from 'cortico-provider-coo';
+import { activeBalance } from './balance.ts';
 import { appWebUiAsset, bundledWebUiAssets } from './bundled-panels.ts';
 import { followPetLook } from './console-theme.ts';
 import { askForKey, guideDone, markDone, runGuide, type GuideDeps } from './guide.ts';
@@ -427,7 +428,8 @@ export async function main(): Promise<void> {
   const DESKTOP_PET = desktopPetDefinition({
     packRoots: () => packRoots,
     describeTool: petToolDescriber(language),
-    // the menu's header lends pause/resume, settings and quit; its dress tile opens the settings window's dress page, the typing bubble's expand button its chat page
+    // the menu's header lends pause/resume, settings and quit; its dress tile opens the settings window's dress page, the typing bubble's expand button its chat page;
+    // the balance bubble reads the active endpoint's balance
     controls: {
       isPaused: () => bus?.isPaused() ?? false,
       setPaused: (paused) => bus?.setPaused(paused),
@@ -437,6 +439,7 @@ export async function main(): Promise<void> {
       openCuaSettings: () => process.send?.({ type: 'companion:open', path: '#/pet?cua=enable' }),
       quit: () => process.send?.({ type: 'companion:quit' }),
       quitLabel: () => coreText(language()).quit,
+      balance: () => activeBalance(config, language()),
       guide: () => {
         if (!guide) return;
         process.send?.({ type: 'companion:hide' });
