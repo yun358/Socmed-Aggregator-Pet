@@ -436,6 +436,78 @@ describe("Coo's earlier bubbles", () => {
     expect(pos(p)).toBe('4/4');
   });
 
+  describe('looking back from the typing box', () => {
+    const peek = (p) => p.bubble.querySelector('.b-peek');
+    const shown = (p) => (peek(p).hidden ? null : peek(p).querySelector('.b-text').textContent);
+    /** Two says shown and closed, then the typing box open with a draft in it. */
+    const typing = () => {
+      const p = arrowsPage();
+      say(p, 'a', '甲');
+      until(p, () => p.bubble.hidden);
+      say(p, 'b', '乙', '丙');
+      until(p, () => p.bubble.hidden);
+      p.openInput();
+      const field = p.bubble.querySelector('textarea');
+      field.value = '我想问';
+      return { p, field, back: p.bubble.querySelector('.b-back') };
+    };
+
+    it('shows the newest bubble above the field, steps through them, and closes past the newest; the draft stays', () => {
+      const { p, field, back } = typing();
+      expect(shown(p)).toBeNull();
+      back.click();
+      expect(shown(p)).toBe('丙');
+      expect(peek(p).querySelector('.b-pos').textContent).toBe('3/3');
+      // the look back has its own arrows; the field's is away meanwhile
+      expect(back.hidden).toBe(true);
+      p.bubble.querySelector('.p-prev').click();
+      p.bubble.querySelector('.p-prev').click();
+      expect(shown(p)).toBe('甲');
+      expect(p.bubble.querySelector('.p-prev').disabled).toBe(true);
+      p.bubble.querySelector('.p-next').click();
+      p.bubble.querySelector('.p-next').click();
+      expect(shown(p)).toBe('丙');
+      p.bubble.querySelector('.p-next').click();
+      expect(shown(p)).toBeNull();
+      expect(back.hidden).toBe(false);
+      expect(p.bubble.querySelector('textarea')).toBe(field);
+      expect(field.value).toBe('我想问');
+    });
+
+    it('closes on Esc before the typing box does', () => {
+      const { p, back } = typing();
+      back.click();
+      const esc = () => p.doc.dispatchEvent(new p.win.KeyboardEvent('keydown', { key: 'Escape' }));
+      esc();
+      expect(shown(p)).toBeNull();
+      expect(p.bubble.hidden).toBe(false);
+      esc();
+      expect(p.bubble.hidden).toBe(true);
+    });
+
+    it('opens from the replies action too, and copies the whole reply of the bubble shown', async () => {
+      const { p } = typing();
+      const copied = clipboard(p);
+      repliesButton(p).click();
+      expect(shown(p)).toBe('丙');
+      peek(p).querySelector('.b-copy').click();
+      await settle();
+      expect(copied).toEqual(['乙\n丙']);
+    });
+
+    it('is not offered with the arrows off, nor before Coo said anything', () => {
+      const off = page();
+      off.onOrder({ t: 'prefs', showReplyArrows: false, hoverButtons: ['chat'] });
+      say(off, 'a', '甲');
+      until(off, () => off.bubble.hidden);
+      off.openInput();
+      expect(off.bubble.querySelector('.b-back')).toBeNull();
+      const quiet = arrowsPage();
+      quiet.openInput();
+      expect(quiet.bubble.querySelector('.b-back')).toBeNull();
+    });
+  });
+
   it('keeps the last MAX_REPLIES lines', () => {
     const p = arrowsPage();
     say(p, 's', ...Array.from({ length: p.MAX_REPLIES + 1 }, (_, i) => `第 ${i} 句`));

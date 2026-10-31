@@ -576,6 +576,7 @@ function dismissAsk() {
  * `live` comes back with its current line typed out and held anew from then, or the bubble closes. Browsing also
  * ends on Esc, when the typing box opens, when an ask, confirmation or dialog step arrives (it cannot start while
  * one waits), and BROWSE_IDLE seconds after the last step back or forward with the pointer off the bubble.
+ * In the typing box, the same entries show above the field (`peekAt`), so the person can look back while typing.
  */
 const MAX_REPLIES = 50;
 const BROWSE_IDLE = 8;
@@ -658,7 +659,7 @@ function copyText() {
   const box = bubble.querySelector('.b-text');
   const sel = document.getSelection();
   if (box && sel && !sel.isCollapsed && box.contains(sel.anchorNode) && box.contains(sel.focusNode)) return sel.toString();
-  const say = item?.kind === 'replay' ? replySays[item.pos] : item?.kind === 'say' ? item : null;
+  const say = item?.kind === 'replay' ? replySays[item.pos] : item?.kind === 'input' && item.peek !== undefined ? replySays[item.peek] : item?.kind === 'say' ? item : null;
   return say ? wholeReply(say) : box?.textContent ?? '';
 }
 /** Puts `copyText()` on the clipboard through the window process (the page's own clipboard needs the keyboard), and shows it was copied. */
@@ -688,6 +689,7 @@ function showSay(text) {
  */
 function goBack() {
   if (!prefs.showReplyArrows || asking()) return;
+  if (item?.kind === 'input') { peekAt(item.peek === undefined ? replies.length - 1 : item.peek - 1); return; }
   if (item?.kind === 'replay') {
     item.idleFrom = T;
     if (item.pos > 0) { item.pos--; showSay(replies[item.pos]); }
@@ -708,6 +710,25 @@ function goForward() {
   if (it.pos + 1 < (it.live ? liveAt(it.live) : replies.length)) { it.pos++; showSay(replies[it.pos]); }
   else endBrowse();
 }
+/**
+ * Coo's earlier bubble `pos` above the typing box, the draft and the caret left as they are, with its own arrows
+ * and copy button; past the newest the peek closes. Nothing comes while the box is open (says wait in the queue),
+ * so the entries stay put meanwhile.
+ */
+function peekAt(pos) {
+  const it = item;
+  if (it?.kind !== 'input' || !prefs.showReplyArrows || pos < 0) return;
+  const box = bubble.querySelector('.b-peek'), back = bubble.querySelector('.b-back');
+  const open = pos < replies.length;
+  it.peek = open ? pos : undefined;
+  box.hidden = !open;
+  if (back) back.hidden = open;
+  if (!open) return;
+  box.querySelector('.b-text').replaceChildren(linked(replies[pos]));
+  box.querySelector('.b-pos').textContent = `${pos + 1}/${replies.length}`;
+  box.querySelector('.p-prev').disabled = pos === 0;
+}
+
 /** The say's current line typed out at once and let go, though the pointer is on the bubble, so the next one comes. */
 function skipLine(it) {
   if (!prefs.showReplyArrows || it.i < 0 || !waitingLines()) return;
@@ -977,8 +998,18 @@ function openInput() {
   const expand = prefs.bot?.buttons?.chat
     ? `<button class="b-expand" type="button" aria-label="${esc(t('bubble.expand'))}" title="${esc(t('bubble.expand'))}">${ICONS.expand}</button>`
     : '';
-  openBubble('ask', `<button class="b-close" type="button" aria-label="${esc(t('bubble.close'))}">×</button><form class="b-own"><textarea rows="1" maxlength="500" autocomplete="off" placeholder="${esc(t('bubble.typePlaceholder'))}" aria-label="${esc(t('bubble.typeLabel'))}"></textarea>${expand}<button type="submit">${esc(t('bubble.send'))}</button></form>`);
+  // Coo's earlier bubbles, a look back while typing: off with the reply arrows, and with nothing said yet
+  const prev = esc(t('bubble.prev')), next = esc(t('bubble.next'));
+  const back = prefs.showReplyArrows && replies.length ? `<button class="b-back" type="button" aria-label="${prev}" title="${prev}">${ICONS.chevronLeft}</button>` : '';
+  const peek = `<div class="b-peek" hidden><p class="b-text"></p><div class="p-nav"><button class="p-prev" type="button" aria-label="${prev}" title="${prev}">${ICONS.chevronLeft}</button><span class="b-pos"></span><button class="p-next" type="button" aria-label="${next}" title="${next}">${ICONS.chevronRight}</button>${copyHtml()}</div></div>`;
+  openBubble('ask', `<button class="b-close" type="button" aria-label="${esc(t('bubble.close'))}">×</button>${peek}<form class="b-own">${back}<textarea rows="1" maxlength="500" autocomplete="off" placeholder="${esc(t('bubble.typePlaceholder'))}" aria-label="${esc(t('bubble.typeLabel'))}"></textarea>${expand}<button type="submit">${esc(t('bubble.send'))}</button></form>`);
   const form = bubble.querySelector('form'), input = form.querySelector('textarea');
+  const step = (by) => { sfx.tick(); peekAt(item.peek === undefined ? replies.length - 1 : item.peek + by); };
+  bubble.querySelector('.b-back')?.addEventListener('click', () => step(0));
+  bubble.querySelector('.p-prev').addEventListener('click', () => step(-1));
+  bubble.querySelector('.p-next').addEventListener('click', () => step(1));
+  // the arrows leave the caret in the field
+  for (const b of bubble.querySelectorAll('.b-back, .p-prev, .p-next')) b.addEventListener('mousedown', (e) => e.preventDefault());
   // Enter sends, Shift+Enter starts a new line; Enter that confirms an input method's text does neither
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); form.requestSubmit(); }
@@ -1748,7 +1779,8 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     closeMenu();
     if (item && item.kind === 'ask') dismissAsk();
-    else if (item && item.kind === 'input') closeBubble();
+    // a look back over the typing box closes first, the box and its draft stay
+    else if (item && item.kind === 'input') { if (item.peek !== undefined) peekAt(replies.length); else closeBubble(); }
     else endBrowse();
     return;
   }

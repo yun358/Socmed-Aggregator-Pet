@@ -1,5 +1,6 @@
 ## Unreleased
 
+- The typing box has a back button (‹) while `showReplyArrows` is on and Coo has said something: it shows Coo's earlier bubbles above the field, one at a time with their own arrows and copy button, and leaves the draft and the caret as they are. Esc closes them before the box; the `replies` action opens them while the box is open.
 - A balance bubble beside the pet, while the pointer rests on the body and for 4 seconds after a poke, when the app lends `controls.balance` (`PetBalance`): the money left on the account the bot's model runs on, or why there is none to show. The page asks with `balance`; the World reads at most once a minute (`BALANCE_FRESH_MS`) and answers with `balance`.
 
 - A speech bubble has a copy button: the text selected in the bubble, else the whole reply, lines still to come included. The window process writes it to the system clipboard (`petHost.copyText`, IPC `pet:copy`). A speech bubble now stays while the pointer is on it whether or not `showReplyArrows` is on.

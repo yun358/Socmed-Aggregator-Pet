@@ -185,11 +185,16 @@ body.desk .floor{display:none}
 /* Coo's earlier bubbles (pet-app.js replies): back, where the bubble shown stands, forward */
 .b-nav{display:flex; align-items:center; justify-content:flex-end; gap:2px; margin:2px calc(-8px * var(--bubble-size, 1)) calc(-4px * var(--bubble-size, 1)) 0}
 .b-nav[hidden], .b-nav > [hidden]{display:none}
+/* the typing box's look back: an earlier bubble above the field, its arrows under it like a say bubble's */
+.b-peek{margin:0 0 8px; padding:0 0 6px; border-bottom:1px solid var(--line)}
+.b-peek[hidden]{display:none}
+.b-peek .b-text{max-height:min(40vh, calc(12 * 1.45em)); overflow-y:auto; overflow-wrap:anywhere}
+.p-nav{display:flex; align-items:center; justify-content:flex-end; gap:2px; margin:2px calc(-8px * var(--bubble-size, 1)) 0 0}
 .bubble.say .b-text{user-select:text; -webkit-user-select:text; cursor:text}
-.b-nav button{display:grid; place-items:center; width:calc(24px * var(--bubble-font, 1)); height:calc(24px * var(--bubble-font, 1)); padding:0; border:0; border-radius:50%; background:none; color:var(--muted); cursor:pointer}
-.b-nav button:hover:not(:disabled){color:var(--text)}
-.b-nav button:disabled{opacity:.35; cursor:default}
-.b-nav svg{width:calc(15px * var(--bubble-font, 1)); height:calc(15px * var(--bubble-font, 1)); pointer-events:none}
+.b-nav button, .p-nav button{display:grid; place-items:center; width:calc(24px * var(--bubble-font, 1)); height:calc(24px * var(--bubble-font, 1)); padding:0; border:0; border-radius:50%; background:none; color:var(--muted); cursor:pointer}
+.b-nav button:hover:not(:disabled), .p-nav button:hover:not(:disabled){color:var(--text)}
+.b-nav button:disabled, .p-nav button:disabled{opacity:.35; cursor:default}
+.b-nav svg, .p-nav svg{width:calc(15px * var(--bubble-font, 1)); height:calc(15px * var(--bubble-font, 1)); pointer-events:none}
 .b-pos{font-size:calc(12px * var(--bubble-font, 1)); color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap}
 .b-cancel{flex:none; font:inherit; font-size:calc(12px * var(--bubble-font, 1)); padding:2px 9px; border-radius:8px; border:1.5px solid var(--line); background:none; color:var(--muted); cursor:pointer}
 .b-cancel:hover{color:var(--text); border-color:var(--text)}
@@ -214,9 +219,12 @@ body.desk .floor{display:none}
 /* the typed line grows with its text up to six rows, then scrolls */
 .b-own textarea{resize:none; field-sizing:content; line-height:1.4; max-height:calc(6 * 1.4em + 8px); overflow-y:auto; overflow-wrap:anywhere}
 .b-own button[type="submit"]{flex:none; font:inherit; font-size:calc(12.5px * var(--bubble-font, 1)); padding:4px 10px; border-radius:8px; border:0; background:var(--text); color:var(--surface); cursor:pointer}
-.b-expand{flex:none; display:grid; place-items:center; width:26px; height:26px; padding:0; border:0; border-radius:50%; background:none; color:var(--muted); cursor:pointer}
-.b-expand:hover{color:var(--text)}
-.b-expand svg{width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:1.6px; stroke-linecap:round; stroke-linejoin:round}
+.b-expand, .b-back{flex:none; display:grid; place-items:center; width:26px; height:26px; padding:0; border:0; border-radius:50%; background:none; color:var(--muted); cursor:pointer}
+.b-expand:hover, .b-back:hover{color:var(--text)}
+.b-back[hidden]{display:none}
+/* the look back button sits where the field's own margin was */
+.b-own:has(> .b-back:not([hidden])){padding-left:3px}
+.b-expand svg, .b-back svg{width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:1.6px; stroke-linecap:round; stroke-linejoin:round}
 .b-expand svg *{vector-effect:non-scaling-stroke}
 .b-opt.dim, .b-own.dim{opacity:.35}
 /* an app's conversation: one step per bubble, with the answer's controls under Coo's line */
