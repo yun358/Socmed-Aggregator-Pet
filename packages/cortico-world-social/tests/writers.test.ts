@@ -12,10 +12,11 @@ import { carries, compose, findKey, jsonOf, labelled, type ComposeSteps } from '
 import { facebookReplyTarget } from '../src/platforms/facebook.ts';
 import { ADAPTERS, POST_PLATFORMS, limitOf, markOf } from '../src/platforms/index.ts';
 import { instagramReplyTarget, mediaIdOf, postInstagramComment } from '../src/platforms/instagram.ts';
-import { AUTO_NOTE, postRedditSubmission, subredditOf } from '../src/platforms/reddit.ts';
-import { rednoteReplyTarget } from '../src/platforms/rednote.ts';
+import { AUTO_NOTE, REDDIT_POST_MAX, postRedditSubmission, subredditOf } from '../src/platforms/reddit.ts';
+import { REDNOTE_COMMENT_MAX, rednoteReplyTarget } from '../src/platforms/rednote.ts';
+import { SUBSTACK_TEXT_MAX } from '../src/platforms/substack.ts';
 import { threadsReplyTarget } from '../src/platforms/threads.ts';
-import { xLength, xReplyTarget } from '../src/platforms/x.ts';
+import { X_TEXT_MAX, xLength, xReplyTarget } from '../src/platforms/x.ts';
 import { ScriptedBrowser, json, type PageScript } from './helpers/scripted-browser.ts';
 
 const u = (s: string) => new URL(s);
@@ -95,11 +96,12 @@ describe('lengths and limits', () => {
   });
 
   it('leaves room in the bot\'s text for the mark and the blank line before it', () => {
-    expect(limitOf('x', 'comment', false)).toBe(280);
-    expect(limitOf('x', 'comment', true)).toBe(280 - xLength(AUTO_LINE) - 2);
-    expect(limitOf('rednote', 'comment', true)).toBe(280 - AUTO_LINE_ZH.length - 2);
-    expect(limitOf('reddit', 'post', false)).toBe(40_000);
-    expect(limitOf('substack', 'note', false)).toBe(10_000);
+    expect(limitOf('x', 'comment', false)).toBe(X_TEXT_MAX);
+    expect(limitOf('x', 'comment', true)).toBe(X_TEXT_MAX - xLength(AUTO_LINE) - 2);
+    expect(limitOf('rednote', 'comment', true)).toBe(REDNOTE_COMMENT_MAX - AUTO_LINE_ZH.length - 2);
+    expect(limitOf('reddit', 'post', false)).toBe(REDDIT_POST_MAX);
+    expect(limitOf('substack', 'note', false)).toBe(SUBSTACK_TEXT_MAX);
+    // the platforms whose adapter writes posts; Substack's posts are Notes
     expect(POST_PLATFORMS).toEqual(['reddit', 'x', 'threads', 'bilibili']);
   });
 

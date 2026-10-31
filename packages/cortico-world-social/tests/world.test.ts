@@ -24,8 +24,8 @@ import { findBrowser } from '../src/find-browser.ts';
 import { socialText } from '../src/i18n/index.ts';
 import { MODEL_TEXT, type ModelLanguage } from '../src/model-text.ts';
 import { Ocr, OcrImageError } from '../src/ocr.ts';
-import { ADAPTERS, limitOf } from '../src/platforms/index.ts';
-import { AUTO_NOTE } from '../src/platforms/reddit.ts';
+import { ADAPTERS, POST_PLATFORMS, limitOf } from '../src/platforms/index.ts';
+import { AUTO_NOTE, REDDIT_TITLE_MAX } from '../src/platforms/reddit.ts';
 import { noteDoc } from '../src/platforms/substack-parse.ts';
 import { PLATFORM_IDS } from '../src/posts.ts';
 import { COMMENT_TEXT_MAX, clock, localStamp } from '../src/render.ts';
@@ -574,7 +574,7 @@ describe('panel and daily autoscroll', () => {
       digests: [],
       running: null,
       comments: { drafts: [], posted: [], postedNotes: [], postedPosts: [], today: 0, posting: [], checkedAt: null, queued: [], notesToday: 0, postsToday: 0 },
-      postPlatforms: ['reddit', 'x', 'threads', 'bilibili'],
+      postPlatforms: [...POST_PLATFORMS],
       caps: {
         maxPosts: MAX_POSTS_CAP, maxSec: MAX_SEC_CAP, jobPosts: JOB_POSTS_CAP, jobs: MAX_JOBS, commentsPerDay: COMMENTS_PER_DAY_CAP,
         replyCheckMin: REPLY_CHECK_MS / 60_000, repliesPerAccount: REPLIES_PER_ACCOUNT,
@@ -699,7 +699,7 @@ describe('environment prompt', () => {
       'social.images': t.envImages.skip,
       'social.autoscroll': t.envAutoscroll([]),
       'social.comments': t.envComments(cfg.comments),
-      'social.posts': t.envPosts({ ...cfg.posts, platforms: ['Reddit', 'X', 'Threads', 'Bilibili'] }),
+      'social.posts': t.envPosts({ ...cfg.posts, platforms: POST_PLATFORMS.map((p) => t.platform[p]) }),
       'social.substack': t.envSubstack({ ...cfg.substack, publication: null }),
     });
     const doc = world.webUi('en').promptDocs![0]!;
@@ -1245,11 +1245,12 @@ describe('new posts', () => {
     const refused = async (args: Record<string, unknown>) => (await made.call('social_post', args)).text;
     expect(await refused({ platform: 'substack', text: 'x' })).toBe(t.notRun('social_post', t.postOnSubstack));
     // the platforms named are those turned on
-    for (const platform of ['instagram', 'fixturebook']) expect(await refused({ platform, text: 'x' })).toBe(t.notRun('social_post', t.postPlatforms(['Reddit', 'X', 'Bilibili'])));
+    const named = POST_PLATFORMS.filter((p) => p !== 'threads').map((p) => t.platform[p]);
+    for (const platform of ['instagram', 'fixturebook']) expect(await refused({ platform, text: 'x' })).toBe(t.notRun('social_post', t.postPlatforms(named)));
     expect(await refused({ platform: 'threads', text: 'x' })).toBe(t.notRun('social_post', t.platformOff('Threads')));
     expect(await refused({ ...redditPost, title: ' ' })).toBe(t.notRun('social_post', t.postNeeds('Reddit', 'title')));
     expect(await refused({ ...redditPost, community: '' })).toBe(t.notRun('social_post', t.postNeeds('Reddit', 'community')));
-    expect(await refused({ ...redditPost, title: 'x'.repeat(301) })).toBe(t.notRun('social_post', t.titleTooLong(300)));
+    expect(await refused({ ...redditPost, title: 'x'.repeat(REDDIT_TITLE_MAX + 1) })).toBe(t.notRun('social_post', t.titleTooLong(REDDIT_TITLE_MAX)));
     expect(await refused({ ...redditPost, text: '  ' })).toBe(t.notRun('social_post', t.commentEmpty));
     const max = limitOf('x', 'post', true);
     expect(await refused({ platform: 'x', text: 'x'.repeat(max + 1) })).toBe(t.notRun('social_post', t.commentTooLong(max)));
@@ -1267,7 +1268,7 @@ describe('new posts', () => {
     expect(shown).toBe(1);
     expect(sent).toEqual([]);
     await expect(made.panel('commentPost', draft!.id, redditPost.text, ' ')).rejects.toThrow(c.titleEmpty);
-    await expect(made.panel('commentPost', draft!.id, redditPost.text, 'x'.repeat(301))).rejects.toThrow(c.titleTooLong(300));
+    await expect(made.panel('commentPost', draft!.id, redditPost.text, 'x'.repeat(REDDIT_TITLE_MAX + 1))).rejects.toThrow(c.titleTooLong(REDDIT_TITLE_MAX));
     const state = await made.panel('commentPost', draft!.id, redditPost.text, ' Late-night ramen ');
     expect(sent).toEqual([{ api_type: 'json', raw_json: '1', sr: 'fixture', kind: 'self', title: 'Late-night ramen', text: redditPost.text, resubmit: 'true' }]);
     expect(state.comments).toMatchObject({ drafts: [], posted: [], postsToday: 1, today: 0, postedPosts: [{ platform: 'reddit', kind: 'post', title: 'Late-night ramen', community: 'r/fixture', link: linkOf(1), edited: true }] });
