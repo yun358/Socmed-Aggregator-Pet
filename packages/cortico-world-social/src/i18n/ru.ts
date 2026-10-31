@@ -2,7 +2,7 @@ import type { Translation } from 'cortico/core/language.ts';
 import type { SocialText } from './index.ts';
 
 const ru: Translation<SocialText> = {
-  platforms: { reddit: 'Reddit', x: 'X', facebook: 'Facebook', threads: 'Threads', instagram: 'Instagram', youtube: 'YouTube', bilibili: 'Bilibili', rednote: 'Rednote', substack: 'Substack' },
+  platforms: { reddit: 'Reddit', x: 'X', facebook: 'Facebook', threads: 'Threads', instagram: 'Instagram', youtube: 'YouTube', bilibili: 'Bilibili', rednote: 'Rednote', substack: 'Substack', news: 'Google Новости', web: 'Веб' },
 
   console: {
     label: 'Соцсети',
@@ -19,6 +19,7 @@ const ru: Translation<SocialText> = {
       'social.comments': 'Включены ли черновики комментариев, и дневной лимит',
       'social.posts': 'Включены ли новые посты, дневной лимит и платформы',
       'social.substack': 'Substack: заметки, ежедневные заметки и издание',
+      'social.news': 'Выпуск Google Новостей',
     },
     storage: {
       profile: { label: 'Профиль браузера (входы на платформы)', note: 'После очистки на каждой платформе нужно войти заново' },
@@ -36,6 +37,7 @@ const ru: Translation<SocialText> = {
     maxTranscriptChars: { title: 'Символов расшифровки за раз', description: 'Сколько символов расшифровки видео читается за один раз самое большее; остальное читается следующими частями' },
     showBrowser: { title: 'Показывать браузер', description: 'Показывать окно браузера Coo во время чтения' },
     browserFile: { title: 'Путь к браузеру', description: 'Если пусто, ищется Chrome, Edge, Brave или Chromium' },
+    newsEdition: { title: 'Выпуск Google Новостей', description: 'Страна и язык Google Новостей в записи Google, например US:en или RU:ru; если пусто, следует языку приложения' },
     platformEnabled: (name: string) => `${name}: включено`,
     autoscrollEnabled: { title: 'Ежедневная автопрокрутка', description: 'Каждый день в заданное время читает посты; потом Coo рассказывает вам краткое содержание' },
     autoscrollMaxMinutes: { title: 'Минут на задание', description: 'Сколько минут самое большее занимает одно задание ежедневной автопрокрутки' },
@@ -56,6 +58,7 @@ const ru: Translation<SocialText> = {
   },
 
   sources: { feed: 'Лента', search: 'Поиск', account: 'Аккаунт', community: 'Сообщество' },
+  newsSources: { feed: 'Главные новости', community: 'Тема' },
 
   panel: {
     limitsTitle: 'На один запрос',
@@ -90,6 +93,10 @@ const ru: Translation<SocialText> = {
     showBrowser: 'Показывать браузер',
     showBrowserCheck: 'Показывать окно браузера Coo во время чтения',
     showBrowserHint: 'Некоторые платформы не пускают скрытый браузер; включите это, если видите проверки или пустые результаты.',
+    newsEdition: 'Выпуск Google Новостей',
+    newsEditionHint: 'Страна и язык в записи Google Новостей: US:en, GB:en, RU:ru, UA:ru и т. д. Если пусто, следует языку приложения.',
+    newsEditionBad: 'Укажите как страна:язык, например US:en.',
+    noLogin: 'Вход не нужен',
     loginOpened: (name: string) => `Открыто окно входа в ${name}. Закройте его, когда войдёте.`,
 
     autoscrollTitle: 'Ежедневная автопрокрутка',

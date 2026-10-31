@@ -2,7 +2,7 @@ import type { Translation } from 'cortico/core/language.ts';
 import type { SocialText } from './index.ts';
 
 const es419: Translation<SocialText> = {
-  platforms: { reddit: 'Reddit', x: 'X', facebook: 'Facebook', threads: 'Threads', instagram: 'Instagram', youtube: 'YouTube', bilibili: 'Bilibili', rednote: 'Rednote', substack: 'Substack' },
+  platforms: { reddit: 'Reddit', x: 'X', facebook: 'Facebook', threads: 'Threads', instagram: 'Instagram', youtube: 'YouTube', bilibili: 'Bilibili', rednote: 'Rednote', substack: 'Substack', news: 'Google Noticias', web: 'Web' },
 
   console: {
     label: 'Redes sociales',
@@ -19,6 +19,7 @@ const es419: Translation<SocialText> = {
       'social.comments': 'Si los borradores de comentarios están activados, y el límite diario',
       'social.posts': 'Si las publicaciones nuevas están activadas, el límite diario y las plataformas',
       'social.substack': 'Substack: las Notes, las Notes diarias y el boletín',
+      'social.news': 'La edición de Google Noticias',
     },
     storage: {
       profile: { label: 'Perfil del navegador (sesiones en las plataformas)', note: 'Después hay que volver a iniciar sesión en cada plataforma' },
@@ -36,6 +37,7 @@ const es419: Translation<SocialText> = {
     maxTranscriptChars: { title: 'Caracteres de transcripción por lectura', description: 'La cantidad máxima de caracteres de la transcripción de un video por lectura; el resto se lee en las partes siguientes' },
     showBrowser: { title: 'Mostrar el navegador', description: 'Mostrar la ventana del navegador de Coo mientras lee' },
     browserFile: { title: 'Ruta del navegador', description: 'Vacío: se busca Chrome, Edge, Brave o Chromium' },
+    newsEdition: { title: 'Edición de Google Noticias', description: 'País e idioma de Google Noticias, escritos como los escribe Google, por ejemplo US:en o MX:es-419; vacío, sigue el idioma de la app' },
     platformEnabled: (name: string) => `${name}: activado`,
     autoscrollEnabled: { title: 'Desplazamiento automático diario', description: 'Lee publicaciones todos los días a las horas fijadas; después Coo te cuenta un resumen' },
     autoscrollMaxMinutes: { title: 'Minutos por tarea', description: 'La cantidad máxima de minutos que dura una tarea del desplazamiento automático diario' },
@@ -56,6 +58,7 @@ const es419: Translation<SocialText> = {
   },
 
   sources: { feed: 'Feed', search: 'Búsqueda', account: 'Cuenta', community: 'Comunidad' },
+  newsSources: { feed: 'Noticias destacadas', community: 'Tema' },
 
   panel: {
     limitsTitle: 'Cada solicitud',
@@ -90,6 +93,10 @@ const es419: Translation<SocialText> = {
     showBrowser: 'Mostrar el navegador',
     showBrowserCheck: 'Mostrar la ventana del navegador de Coo mientras lee',
     showBrowserHint: 'Algunas plataformas rechazan un navegador oculto; actívalo cuando veas verificaciones o resultados vacíos.',
+    newsEdition: 'Edición de Google Noticias',
+    newsEditionHint: 'País e idioma, escritos como los escribe Google Noticias: US:en, MX:es-419, AR:es-419, CO:es-419, etc. Vacío, sigue el idioma de la app.',
+    newsEditionBad: 'Escríbela como país:idioma, por ejemplo US:en.',
+    noLogin: 'No requiere iniciar sesión',
     loginOpened: (name: string) => `La ventana para iniciar sesión en ${name} está abierta. Ciérrala cuando hayas iniciado sesión.`,
 
     autoscrollTitle: 'Desplazamiento automático diario',

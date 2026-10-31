@@ -1,7 +1,7 @@
 import type { SocialText } from './index.ts';
 
 const en: SocialText = {
-  platforms: { reddit: 'Reddit', x: 'X', facebook: 'Facebook', threads: 'Threads', instagram: 'Instagram', youtube: 'YouTube', bilibili: 'Bilibili', rednote: 'Rednote', substack: 'Substack' },
+  platforms: { reddit: 'Reddit', x: 'X', facebook: 'Facebook', threads: 'Threads', instagram: 'Instagram', youtube: 'YouTube', bilibili: 'Bilibili', rednote: 'Rednote', substack: 'Substack', news: 'Google News', web: 'Web' },
 
   console: {
     label: 'Social media',
@@ -18,6 +18,7 @@ const en: SocialText = {
       'social.comments': 'Whether comment drafts are on, and the daily limit',
       'social.posts': 'Whether new posts are on, the daily limit and the platforms',
       'social.substack': 'Substack: Notes, the daily Notes and the publication',
+      'social.news': 'The Google News edition',
     },
     storage: {
       profile: { label: 'Browser profile (platform logins)', note: 'Every platform needs a new login afterwards' },
@@ -35,6 +36,7 @@ const en: SocialText = {
     maxTranscriptChars: { title: 'Transcript characters per read', description: 'The most characters of a video transcript per read; the rest is read in further parts' },
     showBrowser: { title: 'Show the browser', description: "Show Coo's browser window while it reads" },
     browserFile: { title: 'Browser path', description: 'Empty finds Chrome, Edge, Brave or Chromium' },
+    newsEdition: { title: 'Google News edition', description: 'Country and language of Google News, written as Google does, such as US:en or JP:ja; empty follows the app language' },
     platformEnabled: (name) => `${name}: on`,
     autoscrollEnabled: { title: 'Daily autoscroll', description: 'Reads posts every day at the set times; Coo then tells you a summary' },
     autoscrollMaxMinutes: { title: 'Minutes per job', description: 'The most minutes one daily autoscroll job takes' },
@@ -55,6 +57,7 @@ const en: SocialText = {
   },
 
   sources: { feed: 'Feed', search: 'Search', account: 'Account', community: 'Community' },
+  newsSources: { feed: 'Top stories', community: 'Topic' },
 
   panel: {
     limitsTitle: 'Each request',
@@ -89,6 +92,10 @@ const en: SocialText = {
     showBrowser: 'Show the browser',
     showBrowserCheck: "Show Coo's browser window while it reads",
     showBrowserHint: 'Some platforms turn away a hidden browser; turn this on when you see checks or empty results.',
+    newsEdition: 'Google News edition',
+    newsEditionHint: 'Country and language, written as Google News does: US:en, GB:en, IN:en, SG:en, JP:ja, DE:de and so on. Empty follows the app language.',
+    newsEditionBad: 'Write it as country:language, such as US:en.',
+    noLogin: 'No login needed',
     loginOpened: (name) => `The ${name} login window is open. Close it once you have logged in.`,
 
     autoscrollTitle: 'Daily autoscroll',

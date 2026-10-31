@@ -3,18 +3,20 @@
 # cortico-world-social
 
 [Cortico](https://github.com/Pal-AI-Lab/Cortico) 的社交媒体 World,随 Coopanion 打包。bot 用自己的浏览器替使用者浏览
-Reddit、X、Facebook、Threads、Instagram、YouTube、哔哩哔哩、小红书与 Substack,在使用者设定的上限内读帖子、读视频文字稿,
+Reddit、X、Facebook、Threads、Instagram、YouTube、哔哩哔哩、小红书与 Substack,也看 Google 新闻、搜索网页、读任何网页,
+在使用者设定的上限内读帖子、读视频文字稿,
 用 OCR 读帖子图片里的文字,每天按设定自动浏览并交给 bot 写摘要,并累计在每个平台花的时间。bot 写的评论(每个平台)、
 新帖(X、Threads、Reddit、哔哩哔哩)与 Substack 短帖默认是草稿,由使用者在面板上发出;Substack 的文章只建草稿。
+Google 新闻与网页只读不写。
 
 ## 工具
 
 | 工具 | 作用 | 回执 |
 |---|---|---|
 | `social_browse(platform, source, query?, sort?, period?, max_posts?)` | 列出帖子:`feed` 首页推荐、`search` 搜索、`account` 某账号的帖子、`community` 社区(Reddit 子版、Facebook 小组)。YouTube 与哔哩哔哩列出的是视频;其他平台的视频帖子略过 | 每条帖子的正文(列表里截到 1200 字)、图片的处理结果、链接;略过了什么、为什么停、这次请求用了多少 |
-| `social_read(url, comments?)` | 打开一条帖子读全文与图片;Reddit、X、Threads、哔哩哔哩带热门评论 | 同上,算一条 |
+| `social_read(url, comments?)` | 打开一条帖子读全文与图片;Reddit、X、Threads、哔哩哔哩带热门评论。不属于任何平台的链接按网页读(见「网页与文章」),Google 新闻的链接跟到出版方的文章 | 同上,算一条 |
 | `social_transcript(video, from_sec?)` | YouTube 或哔哩哔哩视频的字幕文字稿,约 30 秒一段、带时间;超过 `maxTranscriptChars` 时写明从哪一秒续读 | 同一请求里同一个视频只算一条,续读从内存缓存取 |
-| `social_login(platform)` | 用同一份资料目录单独启动浏览器(不受自动化控制),停在平台登录页,让使用者登录或完成验证;窗口开着时读取类工具拒绝执行 | 立即返回;窗口关掉后 `social.login` 事件写明登录是否生效 |
+| `social_login(platform, url?)` | 用同一份资料目录单独启动浏览器(不受自动化控制),停在平台登录页,让使用者登录或完成验证;`web` 时打开 `url` 给的网页(某个网站的登录页或弹出验证的页面);窗口开着时读取类工具拒绝执行 | 立即返回;窗口关掉后 `social.login` 事件写明登录是否生效,没有登录的平台只说窗口关了 |
 | `social_comment(url, text)` | 以使用者的名义给任一平台的帖子或视频写评论,或凭评论的链接在 Reddit、X、Threads、哔哩哔哩回复评论:草稿,或在自动评论、自动回复下排队。`text` 的上限按平台计(见「各平台的写入」),并为自动发出时末尾的说明留出位置 | 草稿 id,或排队后约何时发出;拒绝时写明原因 |
 | `social_post(platform, text, title?, community?)` | 以使用者的名义在 X、Threads、Reddit(子版里的文字帖,要 `title` 与 `community`)或哔哩哔哩(动态)写新帖:草稿,或在自动新帖下排队 | 同上 |
 | `social_note(text, reply_to?)` | 写 Substack 短帖,或回复一条短帖(`reply_to` 给它的链接):草稿,或在自动短帖下排队 | 同上 |
@@ -72,6 +74,20 @@ Reddit、X、Facebook、Threads、Instagram、YouTube、哔哩哔哩、小红书
 | 哔哩哔哩 | feed、search、account(UP 主) | 从 bilibili.com 页面请求 Web API,`wbi/` 接口带 WBI 签名;UP 主列表被风控拒绝时读空间页 | AI 字幕需要 |
 | 小红书 | feed、search、account(主页链接) | 列表卡片取自 `__INITIAL_STATE__`(或 DOM),每条笔记带卡片的 `xsec_token` 打开详情页读全文与图片,笔记之间停 2.5 秒 | 搜索需要;登录从页面判断 |
 | Substack | feed、account(刊物、`@作者` 或 `me`)、community(类别) | 从页面请求 Substack 网页自己用的 JSON:刊物的 `/api/v1/archive`(`new` 或 `top`),作者的 `/api/v1/reader/feed/profile/<id>`(`notes` 或 `posts` 只取一种),类别的排行 `/api/v1/category/leaderboard/<id>/<trending 或 paid>` 及前 10 个刊物各自最受欢迎的 2 篇近期文章;刊物有自己的域名时,打开它的 substack.com 地址跟随跳转,链接留在 substack.com 上 | `me` 与写入需要;登录从 `/api/v1/user/profile/self` 判断 |
+| Google 新闻 | feed(要闻)、search、community(主题:world、nation、business、technology、entertainment、sports、science、health,其他的按搜索) | 从 news.google.com 页面请求它的 RSS:`/rss`、`/rss/headlines/section/topic/<主题>`、`/rss/search?q=`(`period` 写成 `when:1d` 等);版本是 `ceid`(如 `US:en`),Google 据它补齐其余参数 | 不需要;要求选择 Cookie 时(consent.google.com)记为 `consent` |
+| 网页 | search | 依次在 Bing、DuckDuckGo(HTML 版)、Google 的结果页上读,见「网页与文章」 | 不需要 |
+
+## 网页与文章
+
+不属于任何平台的链接,以及 Google 新闻的报道(页面用脚本跳转到出版方,最多等 10 秒)按网页读取(`platforms/article.ts`):标题、网站、作者与时间
+取自页面自己的元数据(Open Graph、schema.org JSON-LD),正文取自含有页面七成以上段落文字的最小的块,导航、侧栏、页脚、表单、分享与订阅框、
+相关报道和评论区除外,链接占六成以上的行也除外;页面的 JSON-LD 里有更长的 `articleBody` 时用它。不是文章的页面(没有文章类的 JSON-LD,
+`og:type` 也不是 article),比如新闻网站的首页,读出各条标题与链接(至少 5 条,最多 60 条)。网页不读图片。页面是人机验证
+(Cloudflare、DataDome、PerimeterX 之类)时记为 `captcha`,回执让 bot 用 `social_login` 带上这个网址打开窗口。
+
+搜索网页时依次问 Bing、DuckDuckGo、Google:一家弹出验证、打不开、没有结果,或前 3 条结果都没有提到查询里有意义的词(把浏览器当成机器人的
+搜索引擎会这样答非所问)时换下一家;都不行时给出第一家答非所问的结果,三家都被拦下时记为 `captcha`。结果去掉搜索引擎自己的跳转链接
+(Bing 的 `/ck/a?u=a1…`、DuckDuckGo 的 `/l/?uddg=`、Google 的 `/url?q=`)和 Bing 的 `msockid`,广告略过。
 
 ## 各平台的写入
 
@@ -156,6 +172,7 @@ Facebook 的 `comment_id`、Substack 的 `/comment/`)在不支持回复评论的
 | `maxTranscriptChars` | 30000 | 文字稿每次最多返回的字数(2000–200000) |
 | `showBrowser` | false | 读取时显示浏览器窗口 |
 | `browserFile` | 空 | 浏览器可执行文件;空时自动查找 |
+| `newsEdition` | 空 | Google 新闻的版本(`ceid`,如 `US:en`、`GB:en`、`JP:ja`);空时按应用语言 |
 | `platforms.<id>.enabled` | true | 关掉的平台,工具拒绝执行,环境提示词里不列出 |
 | `autoscroll.enabled` | false | 每日自动浏览的总开关 |
 | `autoscroll.maxMinutes` | 15 | 每一项最多用的分钟数(1–120) |

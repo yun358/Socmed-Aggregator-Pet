@@ -3,15 +3,15 @@
  * is what the page or the platform's own data said; nothing is inferred.
  */
 
-export const PLATFORM_IDS = ['reddit', 'x', 'facebook', 'threads', 'instagram', 'youtube', 'bilibili', 'rednote', 'substack'] as const;
+export const PLATFORM_IDS = ['reddit', 'x', 'facebook', 'threads', 'instagram', 'youtube', 'bilibili', 'rednote', 'substack', 'news', 'web'] as const;
 export type PlatformId = (typeof PLATFORM_IDS)[number];
 
 /** Video platforms list videos; the others list posts and leave video posts out. */
 export const VIDEO_PLATFORMS: ReadonlySet<PlatformId> = new Set(['youtube', 'bilibili']);
 
 /**
- * Where a listing comes from: the platform's own feed (home or recommended), a search, one account's
- * posts, or a community (a subreddit, a Facebook group).
+ * Where a listing comes from: the platform's own feed (home or recommended; Google News' top stories),
+ * a search, one account's posts, or a community (a subreddit, a Facebook group; a Google News topic).
  */
 export type SourceKind = 'feed' | 'search' | 'account' | 'community';
 

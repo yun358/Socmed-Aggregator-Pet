@@ -2,7 +2,7 @@ import type { Translation } from 'cortico/core/language.ts';
 import type { SocialText } from './index.ts';
 
 const zhHant: Translation<SocialText> = {
-  platforms: { reddit: 'Reddit', x: 'X', facebook: 'Facebook', threads: 'Threads', instagram: 'Instagram', youtube: 'YouTube', bilibili: '嗶哩嗶哩', rednote: '小紅書', substack: 'Substack' },
+  platforms: { reddit: 'Reddit', x: 'X', facebook: 'Facebook', threads: 'Threads', instagram: 'Instagram', youtube: 'YouTube', bilibili: '嗶哩嗶哩', rednote: '小紅書', substack: 'Substack', news: 'Google 新聞', web: '網頁' },
 
   console: {
     label: '社群媒體',
@@ -19,6 +19,7 @@ const zhHant: Translation<SocialText> = {
       'social.comments': '留言草稿是否開啟與每天的上限',
       'social.posts': '新貼文是否開啟、每天的上限與平台',
       'social.substack': 'Substack：短文、每日短文與刊物',
+      'social.news': 'Google 新聞的版本',
     },
     storage: {
       profile: { label: '瀏覽器設定檔（各平台的登入）', note: '清除後各平台都要重新登入' },
@@ -36,6 +37,7 @@ const zhHant: Translation<SocialText> = {
     maxTranscriptChars: { title: '逐字稿每次的字數', description: '影片逐字稿每次讀取的最多字數，其餘部分分次讀取' },
     showBrowser: { title: '顯示瀏覽器', description: 'Coo 瀏覽時顯示瀏覽器視窗' },
     browserFile: { title: '瀏覽器路徑', description: '留空時自動尋找 Chrome、Edge、Brave 或 Chromium' },
+    newsEdition: { title: 'Google 新聞的版本', description: 'Google 新聞的國家或地區與語言，依 Google 的寫法，例如 US:en 或 TW:zh-Hant；留空則跟隨應用程式語言' },
     platformEnabled: (name: string) => `${name}：開啟`,
     autoscrollEnabled: { title: '每日自動瀏覽', description: '每天依設定的時間讀取貼文，讀完後 Coo 告訴你摘要' },
     autoscrollMaxMinutes: { title: '每項最長時間', description: '每日自動瀏覽的每一項最多花費多少分鐘' },
@@ -56,6 +58,7 @@ const zhHant: Translation<SocialText> = {
   },
 
   sources: { feed: '首頁推薦', search: '搜尋', account: '帳號', community: '社群' },
+  newsSources: { feed: '焦點新聞', community: '主題' },
 
   panel: {
     limitsTitle: '每次請求',
@@ -90,6 +93,10 @@ const zhHant: Translation<SocialText> = {
     showBrowser: '顯示瀏覽器',
     showBrowserCheck: 'Coo 瀏覽時顯示瀏覽器視窗',
     showBrowserHint: '有些平台不接受隱藏的瀏覽器；遇到驗證或空白結果時請開啟。',
+    newsEdition: 'Google 新聞的版本',
+    newsEditionHint: '國家或地區與語言，依 Google 新聞的寫法：US:en、GB:en、TW:zh-Hant、HK:zh-Hant、JP:ja 等。留空則跟隨應用程式語言。',
+    newsEditionBad: '請依「國家或地區:語言」的寫法填寫，例如 US:en。',
+    noLogin: '不需登入',
     loginOpened: (name: string) => `已開啟${name}的登入視窗。登入後關閉視窗。`,
 
     autoscrollTitle: '每日自動瀏覽',

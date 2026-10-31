@@ -2,7 +2,7 @@ import type { Translation } from 'cortico/core/language.ts';
 import type { SocialText } from './index.ts';
 
 const ptBR: Translation<SocialText> = {
-  platforms: { reddit: 'Reddit', x: 'X', facebook: 'Facebook', threads: 'Threads', instagram: 'Instagram', youtube: 'YouTube', bilibili: 'Bilibili', rednote: 'Rednote', substack: 'Substack' },
+  platforms: { reddit: 'Reddit', x: 'X', facebook: 'Facebook', threads: 'Threads', instagram: 'Instagram', youtube: 'YouTube', bilibili: 'Bilibili', rednote: 'Rednote', substack: 'Substack', news: 'Google Notícias', web: 'Web' },
 
   console: {
     label: 'Redes sociais',
@@ -19,6 +19,7 @@ const ptBR: Translation<SocialText> = {
       'social.comments': 'Se os rascunhos de comentários estão ativados, e o limite diário',
       'social.posts': 'Se as publicações novas estão ativadas, o limite diário e as plataformas',
       'social.substack': 'Substack: as Notes, as Notes diárias e a newsletter',
+      'social.news': 'A edição do Google Notícias',
     },
     storage: {
       profile: { label: 'Perfil do navegador (logins nas plataformas)', note: 'Depois, cada plataforma precisa de um novo login' },
@@ -36,6 +37,7 @@ const ptBR: Translation<SocialText> = {
     maxTranscriptChars: { title: 'Caracteres de transcrição por leitura', description: 'O máximo de caracteres da transcrição de um vídeo por leitura; o resto é lido nas partes seguintes' },
     showBrowser: { title: 'Mostrar o navegador', description: 'Mostrar a janela do navegador de Coo durante a leitura' },
     browserFile: { title: 'Caminho do navegador', description: 'Vazio: procura Chrome, Edge, Brave ou Chromium' },
+    newsEdition: { title: 'Edição do Google Notícias', description: 'País e idioma do Google Notícias, escritos como o Google os escreve, por exemplo US:en ou BR:pt-419; vazio, segue o idioma do app' },
     platformEnabled: (name: string) => `${name}: ligado`,
     autoscrollEnabled: { title: 'Rolagem automática diária', description: 'Lê publicações todos os dias nos horários definidos; depois Coo conta um resumo para você' },
     autoscrollMaxMinutes: { title: 'Minutos por tarefa', description: 'O máximo de minutos que uma tarefa da rolagem automática diária leva' },
@@ -56,6 +58,7 @@ const ptBR: Translation<SocialText> = {
   },
 
   sources: { feed: 'Feed', search: 'Busca', account: 'Conta', community: 'Comunidade' },
+  newsSources: { feed: 'Principais notícias', community: 'Tema' },
 
   panel: {
     limitsTitle: 'Cada pedido',
@@ -90,6 +93,10 @@ const ptBR: Translation<SocialText> = {
     showBrowser: 'Mostrar o navegador',
     showBrowserCheck: 'Mostrar a janela do navegador de Coo durante a leitura',
     showBrowserHint: 'Algumas plataformas recusam um navegador oculto; ligue esta opção quando aparecerem verificações ou resultados vazios.',
+    newsEdition: 'Edição do Google Notícias',
+    newsEditionHint: 'País e idioma, escritos como o Google Notícias os escreve: US:en, BR:pt-419, PT:pt-150, etc. Vazio, segue o idioma do app.',
+    newsEditionBad: 'Escreva como país:idioma, por exemplo US:en.',
+    noLogin: 'Não precisa de login',
     loginOpened: (name: string) => `A janela de login de ${name} está aberta. Feche-a depois de fazer login.`,
 
     autoscrollTitle: 'Rolagem automática diária',

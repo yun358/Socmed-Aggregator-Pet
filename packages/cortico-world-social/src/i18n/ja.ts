@@ -2,7 +2,7 @@ import type { Translation } from 'cortico/core/language.ts';
 import type { SocialText } from './index.ts';
 
 const ja: Translation<SocialText> = {
-  platforms: { reddit: 'Reddit', x: 'X', facebook: 'Facebook', threads: 'Threads', instagram: 'Instagram', youtube: 'YouTube', bilibili: 'ビリビリ動画', rednote: '小紅書（RED）', substack: 'Substack' },
+  platforms: { reddit: 'Reddit', x: 'X', facebook: 'Facebook', threads: 'Threads', instagram: 'Instagram', youtube: 'YouTube', bilibili: 'ビリビリ動画', rednote: '小紅書（RED）', substack: 'Substack', news: 'Google ニュース', web: 'ウェブ' },
 
   console: {
     label: 'ソーシャルメディア',
@@ -19,6 +19,7 @@ const ja: Translation<SocialText> = {
       'social.comments': 'コメントの下書きのオン・オフと 1 日の上限',
       'social.posts': '新規投稿のオン・オフ、1 日の上限と対象のプラットフォーム',
       'social.substack': 'Substack：ノート、毎日のノート、パブリケーション',
+      'social.news': 'Google ニュースのエディション',
     },
     storage: {
       profile: { label: 'ブラウザーのプロファイル（各プラットフォームのログイン）', note: '消去すると、どのプラットフォームにもログインし直す必要があります' },
@@ -36,6 +37,7 @@ const ja: Translation<SocialText> = {
     maxTranscriptChars: { title: '1 回に読む文字起こしの文字数', description: '動画の文字起こしを 1 回に読む最大文字数。残りは続けて分けて読みます' },
     showBrowser: { title: 'ブラウザーを表示', description: 'Coo が読んでいる間、Coo のブラウザーのウィンドウを表示します' },
     browserFile: { title: 'ブラウザーのパス', description: '空欄なら Chrome、Edge、Brave、Chromium を探します' },
+    newsEdition: { title: 'Google ニュースのエディション', description: 'Google ニュースの国と言語。Google の書き方で、たとえば US:en や JP:ja。空欄ならアプリの言語に合わせます' },
     platformEnabled: (name: string) => `${name}：オン`,
     autoscrollEnabled: { title: '毎日の自動スクロール', description: '毎日決めた時刻に投稿を読み、そのあと Coo が要約を伝えます' },
     autoscrollMaxMinutes: { title: 'ジョブごとの時間', description: '毎日の自動スクロールのジョブ 1 つにかける最大分数' },
@@ -56,6 +58,7 @@ const ja: Translation<SocialText> = {
   },
 
   sources: { feed: 'フィード', search: '検索', account: 'アカウント', community: 'コミュニティ' },
+  newsSources: { feed: 'トップニュース', community: 'トピック' },
 
   panel: {
     limitsTitle: '1 回のリクエスト',
@@ -90,6 +93,10 @@ const ja: Translation<SocialText> = {
     showBrowser: 'ブラウザーを表示',
     showBrowserCheck: 'Coo が読んでいる間、Coo のブラウザーのウィンドウを表示する',
     showBrowserHint: '非表示のブラウザーを受け付けないプラットフォームがあります。確認画面や空の結果が出るときはオンにしてください。',
+    newsEdition: 'Google ニュースのエディション',
+    newsEditionHint: '国と言語を Google ニュースの書き方で入力します。US:en、GB:en、JP:ja、DE:de など。空欄ならアプリの言語に合わせます。',
+    newsEditionBad: '「国:言語」の形で、たとえば US:en のように入力してください。',
+    noLogin: 'ログイン不要',
     loginOpened: (name: string) => `${name} のログインウィンドウを開きました。ログインしたら閉じてください。`,
 
     autoscrollTitle: '毎日の自動スクロール',

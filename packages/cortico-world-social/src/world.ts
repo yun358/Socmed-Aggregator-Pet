@@ -32,7 +32,8 @@ import { readImages } from './images.ts';
 import { Lifetime } from './lifetime.ts';
 import { MODEL_TEXT, type Limits, type ModelLanguage, type ModelText } from './model-text.ts';
 import { Ocr, ocrLanguagesFor } from './ocr.ts';
-import { ADAPTERS, POST_PLATFORMS, lengthOn, limitOf, markOf, platformOf, type Adapter, type BrowseRequest, type TranscriptResult } from './platforms/index.ts';
+import { ADAPTERS, POST_PLATFORMS, hasLogin, lengthOn, limitOf, markOf, platformOf, type Adapter, type BrowseRequest, type TranscriptResult } from './platforms/index.ts';
+import { editionOf } from './platforms/news-parse.ts';
 import { bilibiliVideoId } from './platforms/bilibili-parse.ts';
 import { redditInbox } from './platforms/reddit.ts';
 import { createSubstackDraft, postSubstackNote, substackNoteId } from './platforms/substack.ts';
@@ -127,7 +128,12 @@ export interface SocialPanelState {
     comments: { enabled: boolean; maxPerDay: number; auto: boolean; autoReply: boolean; sign: boolean };
     posts: SocialConfigSection['posts'];
     substack: SocialConfigSection['substack'];
+    newsEdition: string;
   };
+  /** The Google News edition in use: the one set, else the app language's. */
+  edition: string;
+  /** The platforms with no login to check or show. */
+  loginless: PlatformId[];
   jobs: AutoscrollJob[];
   /** The browser that will be run, null when none is found. */
   browser: string | null;
@@ -411,6 +417,16 @@ export class SocialWorld implements World {
     return { stopped: collector.stopReason(interrupted), ...found, cut };
   }
 
+  /** `req` with what the World adds for `platform`: Google News' edition. */
+  private request(platform: PlatformId, req: BrowseRequest): BrowseRequest {
+    return platform === 'news' ? { ...req, region: this.edition } : req;
+  }
+
+  /** The Google News edition: the one set, else the app language's. */
+  private get edition(): string {
+    return editionOf(this.cfg.newsEdition, this.opts.language?.() ?? 'zh');
+  }
+
   private async browse(args: Record<string, unknown>, signal?: AbortSignal): Promise<string | ToolOutcome> {
     const t = this.t;
     const picked = this.platformArg('social_browse', args.platform);
@@ -424,7 +440,7 @@ export class SocialWorld implements World {
     const left = this.left();
     if (left.posts <= 0 || left.ms <= 0) return t.notRun('social_browse', t.limitUsed(this.limits()));
     const want = Math.min(left.posts, Math.max(1, int(args.max_posts) ?? left.posts));
-    const req: BrowseRequest = { source, query, sort: str(args.sort) || undefined, period: str(args.period) || undefined };
+    const req = this.request(platform, { source, query, sort: str(args.sort) || undefined, period: str(args.period) || undefined });
     const collector = new Collector(platform, want, this.cfg.images, new Deadline(left.ms, this.now));
     let result: Gathered;
     try {
@@ -463,8 +479,9 @@ export class SocialWorld implements World {
   private async read(args: Record<string, unknown>, signal?: AbortSignal): Promise<string | ToolOutcome> {
     const t = this.t;
     const url = str(args.url).trim();
-    const owner = platformOf(url);
-    if (!owner) return t.notRun('social_read', t.notPlatformUrl);
+    // a page no platform owns is read as a web page
+    const owner = /^https?:\/\/[^/]/i.test(url) ? platformOf(url) ?? 'web' : null;
+    if (!owner) return t.notRun('social_read', t.notWebUrl);
     const picked = this.platformArg('social_read', owner);
     if ('refusal' in picked) return picked.refusal;
     const { platform } = picked;
@@ -480,7 +497,7 @@ export class SocialWorld implements World {
       await this.browser.withPage(async (page) => {
         // a share link is opened first; it leads to the post's own page on the same platform
         const target = adapter.shareLink?.(new URL(url)) ? await page.goto(url) : url;
-        if (platformOf(target) !== platform) return;
+        if ((platformOf(target) ?? 'web') !== platform) return;
         detail = await adapter.read(page, target, comments, deadline);
         if (detail) await this.images(page, [detail.post], platform, this.cfg.images, deadline, images);
       }, this.pageLimits(deadline, signal));
@@ -565,9 +582,11 @@ export class SocialWorld implements World {
     const t = this.t;
     const platform = PLATFORM_IDS.find((p) => p === args.platform);
     if (!platform) return t.notRun('social_login', t.error(`unknown platform ${String(args.platform)}`));
-    const adapter = ADAPTERS[platform];
-    await this.browser.openLogin(adapter.loginUrl, () => void this.loginClosed(platform, fromPanel));
-    return t.loginOpened(t.platform[platform]);
+    // on the web, the site the person is to log in to or pass the check of
+    const page = str(args.url).trim();
+    const at = platform === 'web' && /^https?:\/\/[^/]/i.test(page) ? page : ADAPTERS[platform].loginUrl;
+    await this.browser.openLogin(at, () => void this.loginClosed(platform, fromPanel));
+    return hasLogin(platform) ? t.loginOpened(t.platform[platform]) : t.windowOpened(at);
   }
 
   /* ---------- comments, posts and Notes ---------- */
@@ -582,13 +601,14 @@ export class SocialWorld implements World {
     const t = this.t;
     const notRun = (why: string) => ({ refusal: t.notRun('social_comment', why) });
     const owner = platformOf(url);
-    if (!owner) return notRun(t.notPlatformUrl);
+    const writer = owner ? ADAPTERS[owner].write : undefined;
+    if (!owner || !writer) return notRun(t.commentElsewhere);
     const picked = this.platformArg('social_comment', owner);
     if ('refusal' in picked) return picked;
     const u = new URL(url);
     if (ADAPTERS[owner].shareLink?.(u)) return notRun(t.commentShareLink);
     if (owner === 'substack' && substackNoteId(url) !== null) return notRun(t.commentOnNote);
-    const target = u.protocol === 'https:' || u.protocol === 'http:' ? ADAPTERS[owner].write.replyTarget(u) : null;
+    const target = u.protocol === 'https:' || u.protocol === 'http:' ? writer.replyTarget(u) : null;
     return target ? { platform: owner, target } : notRun(t.commentNoTarget(t.platform[owner]));
   }
 
@@ -633,7 +653,7 @@ export class SocialWorld implements World {
     if (!p.enabled) return notRun(t.postsOff);
     const platform = PLATFORM_IDS.find((x) => x === args.platform);
     if (platform === 'substack') return notRun(t.postOnSubstack);
-    const writer = platform ? ADAPTERS[platform].write.posts : undefined;
+    const writer = platform ? ADAPTERS[platform].write?.posts : undefined;
     if (!platform || !writer) return notRun(t.postPlatforms(this.postable()));
     const picked = this.platformArg('social_post', platform);
     if ('refusal' in picked) return picked.refusal;
@@ -758,6 +778,7 @@ export class SocialWorld implements World {
     const writer = ADAPTERS[post.platform].write;
     const { link } = await this.browser.withPage((page) => {
       if (post.kind === 'note') return postSubstackNote(page, text, post.target ? Number(post.target) : undefined);
+      if (!writer) throw new CommentRefused(post.platform, 'the bot writes nothing here');
       if (post.kind === 'comment') return writer.comment(page, post.target, text);
       if (!writer.posts) throw new CommentRefused(post.platform, 'the bot writes no posts here');
       return writer.posts.publish(page, { text, title: post.title, community: post.community });
@@ -781,7 +802,7 @@ export class SocialWorld implements World {
     if (lengthOn(draft.platform, body) > longest) throw new Error(s.tooLong(longest));
     const heading = draft.title === undefined || title === undefined ? draft.title : str(title).trim();
     if (heading === '') throw new Error(s.titleEmpty);
-    const titleMax = ADAPTERS[draft.platform].write.posts?.titleMax;
+    const titleMax = ADAPTERS[draft.platform].write?.posts?.titleMax;
     if (heading && titleMax && heading.length > titleMax) throw new Error(s.titleTooLong(titleMax));
     if (!this.cfg.platforms[draft.platform]?.enabled) throw new Error(words.panel.platformOff(words.platforms[draft.platform]));
     const max = draft.kind === 'note' ? this.cfg.substack.maxNotesPerDay : draft.kind === 'post' ? this.cfg.posts.maxPerDay : this.cfg.comments.maxPerDay;
@@ -914,6 +935,13 @@ export class SocialWorld implements World {
 
   /** After a login window closes: whether a login holds, told to the bot (with the next batch when the person opened it). */
   private async loginClosed(platform: PlatformId, fromPanel: boolean): Promise<void> {
+    const t = this.t;
+    if (!hasLogin(platform)) {
+      // a window for a check or a site's own login: there is no login of the platform's to look for
+      await this.push(`${SOCIAL_ID}.login`, t.windowClosed(t.platform[platform]), fromPanel ? 'piggyback' : 'flush', 'internal')
+        .catch((err: Error) => this.host?.log.warn(`social event not sent: ${err.message}`));
+      return;
+    }
     let holds = false;
     try {
       holds = await this.loggedIn(platform);
@@ -922,7 +950,7 @@ export class SocialWorld implements World {
       return;
     }
     this.logins[platform] = holds;
-    await this.push(`${SOCIAL_ID}.login`, this.t.loginEvent(this.t.platform[platform], holds), fromPanel ? 'piggyback' : 'flush', 'internal')
+    await this.push(`${SOCIAL_ID}.login`, t.loginEvent(t.platform[platform], holds), fromPanel ? 'piggyback' : 'flush', 'internal')
       .catch((err: Error) => this.host?.log.warn(`social event not sent: ${err.message}`));
   }
 
@@ -947,7 +975,7 @@ export class SocialWorld implements World {
   private checkLogins(): Promise<void> {
     this.checkingLogins ??= (async () => {
       try {
-        for (const p of PLATFORM_IDS.filter((x) => this.cfg.platforms[x]?.enabled)) {
+        for (const p of PLATFORM_IDS.filter((x) => this.cfg.platforms[x]?.enabled && hasLogin(x))) {
           try {
             this.logins[p] = await this.loggedIn(p);
           } catch (err) {
@@ -1050,7 +1078,7 @@ export class SocialWorld implements World {
     const d: Digest = { id: digestId(date, job), job, startedAt: new Date(this.now()).toISOString(), ms: 0, posts: [], skipped: collector.skipped, stopped: 'end' };
     let r: Omit<Gathered, 'blobs'> = { stopped: 'end', ocrFailure: null, cut: null };
     try {
-      r = await this.gather(adapter, { source: job.source, query: job.query }, collector, job.images);
+      r = await this.gather(adapter, this.request(job.platform, { source: job.source, query: job.query }), collector, job.images);
       d.stopped = r.stopped;
     } catch (err) {
       d.error = this.why(err);
@@ -1090,6 +1118,7 @@ export class SocialWorld implements World {
       'social.comments': t.envComments(this.cfg.comments),
       'social.posts': t.envPosts({ ...this.cfg.posts, platforms: this.postable() }),
       'social.substack': t.envSubstack({ ...this.cfg.substack, publication: publicationAddress(this.cfg.substack.publication) }),
+      'social.news': t.envNews(this.edition),
     };
   }
 
@@ -1110,7 +1139,10 @@ export class SocialWorld implements World {
         comments: { enabled: c.comments.enabled, maxPerDay: c.comments.maxPerDay, auto: c.comments.auto, autoReply: c.comments.autoReply, sign: c.comments.sign },
         posts: { ...c.posts },
         substack: { ...c.substack },
+        newsEdition: c.newsEdition,
       },
+      edition: this.edition,
+      loginless: PLATFORM_IDS.filter((p) => !hasLogin(p)),
       jobs: this.jobs(),
       browser: findBrowser(c.browserFile),
       logins: { ...this.logins },
@@ -1238,7 +1270,7 @@ export class SocialWorld implements World {
         ...c.envPrompt,
         path: this.envPromptFile(),
         role: 'envPrompt',
-        vars: ['social.platforms', 'social.maxPosts', 'social.maxSec', 'social.images', 'social.autoscroll', 'social.comments', 'social.posts', 'social.substack']
+        vars: ['social.platforms', 'social.maxPosts', 'social.maxSec', 'social.images', 'social.autoscroll', 'social.comments', 'social.posts', 'social.substack', 'social.news']
           .map((name) => ({ name, description: c.vars[name] ?? name, ...(name === 'social.autoscroll' ? { multiline: true } : {}) })),
       }],
     };

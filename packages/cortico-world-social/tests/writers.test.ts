@@ -1,5 +1,5 @@
 /**
- * The platform writers without a browser: how each names what a comment replies to, how X weighs
+ * The platform writers without a browser, and the web search's topic check: how each names what a comment replies to, how X weighs
  * text, Instagram's media ids, the page-typed writers' steps (`compose`) on a stand-in page, and the
  * API writers' requests and refusals on `ScriptedBrowser` pages answering like the platforms.
  */
@@ -16,6 +16,7 @@ import { AUTO_NOTE, REDDIT_POST_MAX, postRedditSubmission, subredditOf } from '.
 import { REDNOTE_COMMENT_MAX, rednoteReplyTarget } from '../src/platforms/rednote.ts';
 import { SUBSTACK_TEXT_MAX } from '../src/platforms/substack.ts';
 import { threadsReplyTarget } from '../src/platforms/threads.ts';
+import { onTopic } from '../src/platforms/web.ts';
 import { X_TEXT_MAX, xLength, xReplyTarget } from '../src/platforms/x.ts';
 import { ScriptedBrowser, json, type PageScript } from './helpers/scripted-browser.ts';
 
@@ -69,10 +70,10 @@ describe('what a comment replies to', () => {
   });
 
   it('YouTube and Substack: a video or a post, but no comment under it', () => {
-    expect(ADAPTERS.youtube.write.replyTarget(u('https://www.youtube.com/watch?v=aaaaaaaaaaa&t=30'))).toBe('aaaaaaaaaaa');
-    expect(ADAPTERS.youtube.write.replyTarget(u('https://www.youtube.com/watch?v=aaaaaaaaaaa&lc=UgxFixture'))).toBeNull();
-    expect(ADAPTERS.substack.write.replyTarget(u('https://fixturewriter.substack.com/p/autumn-walks/comments'))).toBe('https://fixturewriter.substack.com/p/autumn-walks/comments');
-    expect(ADAPTERS.substack.write.replyTarget(u('https://fixturewriter.substack.com/p/autumn-walks/comment/55'))).toBeNull();
+    expect(ADAPTERS.youtube.write!.replyTarget(u('https://www.youtube.com/watch?v=aaaaaaaaaaa&t=30'))).toBe('aaaaaaaaaaa');
+    expect(ADAPTERS.youtube.write!.replyTarget(u('https://www.youtube.com/watch?v=aaaaaaaaaaa&lc=UgxFixture'))).toBeNull();
+    expect(ADAPTERS.substack.write!.replyTarget(u('https://fixturewriter.substack.com/p/autumn-walks/comments'))).toBe('https://fixturewriter.substack.com/p/autumn-walks/comments');
+    expect(ADAPTERS.substack.write!.replyTarget(u('https://fixturewriter.substack.com/p/autumn-walks/comment/55'))).toBeNull();
   });
 
   it('Reddit: the subreddit a new post goes to, however it is written', () => {
@@ -261,5 +262,19 @@ describe('writers that call the platform', () => {
     answer.current = json({ message: 'Comments on this post have been limited.', status: 'fail' }, 400);
     expect((await onPage(script, (page) => postInstagramComment(page, 'BA', 'x'))).result).toMatchObject({ detail: 'Comments on this post have been limited.' });
     expect((await onPage({ run: () => '' }, (page) => postInstagramComment(page, 'BA', 'x'))).result).toMatchObject({ kind: 'login' });
+  });
+});
+
+describe('web search results', () => {
+  const result = (title: string, snippet = '') => ({ url: 'https://fixture.test/', title, snippet, site: 'fixture.test' });
+  it("are on the topic when one of the first three names a word of the query that tells its topic", () => {
+    expect(onTopic([result('Heat pumps explained')], 'how do heat pumps work')).toBe(true);
+    expect(onTopic([result('DO: meaning'), result('How to use do'), result('Grammar of do')], 'how do heat pumps work')).toBe(false);
+    // the fourth result is not looked at
+    expect(onTopic([result('a'), result('b'), result('c'), result('heat')], 'heat pumps')).toBe(false);
+    expect(onTopic([result('Pompes à chaleur', 'Une pompe à chaleur déplace la chaleur')], 'pompe chaleur')).toBe(true);
+    // a query of common words or Han characters alone has nothing to check against
+    expect(onTopic([result('x')], 'how to do it')).toBe(true);
+    expect(onTopic([result('x')], '热泵怎么工作')).toBe(true);
   });
 });

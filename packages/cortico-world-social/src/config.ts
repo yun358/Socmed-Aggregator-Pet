@@ -72,6 +72,8 @@ export interface SocialConfigSection extends WorldSection {
     /** The bot's posts go out on their own, spaced out. */
     auto: boolean;
   };
+  /** Google News' edition (its `ceid`, such as US:en); empty follows the app language. */
+  newsEdition: string;
   /** Substack: post drafts in the person's publication, and the Notes the bot writes. */
   substack: {
     /** The person's publication, where post drafts go: its name, name.substack.com or its own domain. */
@@ -111,6 +113,7 @@ export const SOCIAL_DEFAULTS: SocialConfigSection = {
   comments: { enabled: false, maxPerDay: 10, auto: false, autoReply: false, sign: true },
   posts: { enabled: false, maxPerDay: 3, auto: false },
   substack: { publication: '', notes: false, autoNotes: false, maxNotesPerDay: 3, dailyNotes: 0, topic: '' },
+  newsEdition: '',
 };
 
 const K = `worlds.${SOCIAL_ID}`;
@@ -142,6 +145,7 @@ export function socialConfigGroup(language: Language = 'zh'): ConfigGroup {
         [`${K}.posts.enabled`]: { type: 'boolean', title: c.postsEnabled.title, description: c.postsEnabled.description, 'x-hot': true },
         [`${K}.posts.maxPerDay`]: { type: 'integer', title: c.postsPerDay.title, description: c.postsPerDay.description, minimum: 1, maximum: POSTS_PER_DAY_CAP, 'x-hot': true },
         [`${K}.posts.auto`]: { type: 'boolean', title: c.postsAuto.title, description: c.postsAuto.description, 'x-hot': true },
+        [`${K}.newsEdition`]: { type: 'string', title: c.newsEdition.title, description: c.newsEdition.description, 'x-hot': true },
         [`${K}.substack.publication`]: { type: 'string', title: c.substackPublication.title, description: c.substackPublication.description, 'x-hot': true },
         [`${K}.substack.notes`]: { type: 'boolean', title: c.substackNotes.title, description: c.substackNotes.description, 'x-hot': true },
         [`${K}.substack.autoNotes`]: { type: 'boolean', title: c.substackAutoNotes.title, description: c.substackAutoNotes.description, 'x-hot': true },

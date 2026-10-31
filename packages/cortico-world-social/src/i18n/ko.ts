@@ -2,7 +2,7 @@ import type { Translation } from 'cortico/core/language.ts';
 import type { SocialText } from './index.ts';
 
 const ko: Translation<SocialText> = {
-  platforms: { reddit: 'Reddit', x: 'X', facebook: 'Facebook', threads: 'Threads', instagram: 'Instagram', youtube: 'YouTube', bilibili: '빌리빌리', rednote: '샤오훙수', substack: 'Substack' },
+  platforms: { reddit: 'Reddit', x: 'X', facebook: 'Facebook', threads: 'Threads', instagram: 'Instagram', youtube: 'YouTube', bilibili: '빌리빌리', rednote: '샤오훙수', substack: 'Substack', news: 'Google 뉴스', web: '웹' },
 
   console: {
     label: '소셜 미디어',
@@ -19,6 +19,7 @@ const ko: Translation<SocialText> = {
       'social.comments': '댓글 초안 사용 여부와 하루 한도',
       'social.posts': '새 게시물 사용 여부, 하루 한도와 플랫폼',
       'social.substack': 'Substack: 노트, 매일 노트, 뉴스레터',
+      'social.news': 'Google 뉴스 에디션',
     },
     storage: {
       profile: { label: '브라우저 프로필(플랫폼 로그인)', note: '지운 뒤에는 모든 플랫폼에 다시 로그인해야 합니다' },
@@ -36,6 +37,7 @@ const ko: Translation<SocialText> = {
     maxTranscriptChars: { title: '한 번에 읽는 스크립트 글자 수', description: '동영상 스크립트를 한 번에 읽는 최대 글자 수. 나머지는 이어서 나눠 읽습니다' },
     showBrowser: { title: '브라우저 표시', description: 'Coo가 읽는 동안 Coo의 브라우저 창을 보여 줍니다' },
     browserFile: { title: '브라우저 경로', description: '비워 두면 Chrome, Edge, Brave, Chromium을 찾습니다' },
+    newsEdition: { title: 'Google 뉴스 에디션', description: 'Google 뉴스의 국가와 언어. Google의 표기대로 US:en이나 KR:ko처럼 씁니다. 비워 두면 앱 언어를 따릅니다' },
     platformEnabled: (name: string) => `${name}: 켜기`,
     autoscrollEnabled: { title: '매일 자동 스크롤', description: '매일 정한 시각에 게시물을 읽고, 그 뒤 Coo가 요약을 알려 줍니다' },
     autoscrollMaxMinutes: { title: '작업당 시간', description: '매일 자동 스크롤 작업 하나에 쓰는 최대 분' },
@@ -56,6 +58,7 @@ const ko: Translation<SocialText> = {
   },
 
   sources: { feed: '피드', search: '검색', account: '계정', community: '커뮤니티' },
+  newsSources: { feed: '주요 뉴스', community: '주제' },
 
   panel: {
     limitsTitle: '요청마다',
@@ -90,6 +93,10 @@ const ko: Translation<SocialText> = {
     showBrowser: '브라우저 표시',
     showBrowserCheck: 'Coo가 읽는 동안 Coo의 브라우저 창 보이기',
     showBrowserHint: '숨겨진 브라우저를 거부하는 플랫폼이 있습니다. 인증 화면이나 빈 결과가 보이면 켜세요.',
+    newsEdition: 'Google 뉴스 에디션',
+    newsEditionHint: '국가와 언어를 Google 뉴스 표기대로 씁니다: US:en, GB:en, KR:ko, JP:ja 등. 비워 두면 앱 언어를 따릅니다.',
+    newsEditionBad: 'US:en처럼 「국가:언어」 형식으로 입력하세요.',
+    noLogin: '로그인 필요 없음',
     loginOpened: (name: string) => `${name} 로그인 창을 열었습니다. 로그인한 뒤 창을 닫으세요.`,
 
     autoscrollTitle: '매일 자동 스크롤',

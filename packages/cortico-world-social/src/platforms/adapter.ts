@@ -11,6 +11,8 @@ export interface BrowseRequest {
   sort?: string;
   /** For ranked lists: hour, day, week, month, year or all. */
   period?: string;
+  /** The edition a platform localizes its listings to (Google News' `ceid`); the World sets it. */
+  region?: string;
 }
 
 export interface PostDetail {
@@ -46,8 +48,8 @@ export interface Adapter {
   shareLink?(url: URL): boolean;
   /** Whether a login holds, for a platform whose cookies cannot tell (it sets the session cookie for guests too). */
   loggedIn?(page: PageSession): Promise<boolean>;
-  /** Writing with the browser's login. */
-  write: Writer;
+  /** Writing with the browser's login; absent where the bot writes nothing (Google News, the web). */
+  write?: Writer;
 }
 
 /** A new post of the person's own: its text, and a title and a community where the platform needs them. */

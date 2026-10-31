@@ -18,15 +18,15 @@ export const SOCIAL_TOOL_DECLS: ReadonlyArray<Omit<ToolDef, 'handler'>> = [
   {
     name: 'social_browse',
     tags: ['read'],
-    description: "List posts from a social media platform, read in your own browser: its feed, a search, an account's posts, or a community. On YouTube and Bilibili the items are videos (title, channel, length, views); elsewhere video posts are left out. Counts against the request's limits and stops when they are reached. The receipt gives each post's text, what its images say, and its link, then what was left out and how much of the limits is used.",
+    description: "List posts from a social media platform, read in your own browser: its feed, a search, an account's posts, or a community. On YouTube and Bilibili the items are videos (title, channel, length, views); elsewhere video posts are left out. On news (Google News) the items are headlines with their publisher, and on web they are search results (title, snippet, site); open any of them with social_read. Counts against the request's limits and stops when they are reached. The receipt gives each post's text, what its images say, and its link, then what was left out and how much of the limits is used.",
     parameters: {
       type: 'object',
       properties: {
         platform: { type: 'string', enum: [...PLATFORM_IDS] },
-        source: { type: 'string', enum: [...SOURCE_KINDS], description: "feed: the platform's own feed or recommendations (personal when logged in). search: posts matching query. account: posts of the account in query (handle, name, id or profile link). community: the subreddit or Facebook group in query; on Substack, a category (such as Technology), read as the publications on its leaderboard with the most liked of their recent posts." },
-        query: { type: 'string', description: 'Search terms, account or community; leave out for feed. Reddit search accepts subreddit:name to stay in one subreddit; Instagram search takes #tag for a hashtag; a Rednote account is its profile link; a Substack account is a publication (its name, name.substack.com or its address), a person (@handle) for their Notes and posts, or me for the person\'s own.' },
+        source: { type: 'string', enum: [...SOURCE_KINDS], description: "feed: the platform's own feed or recommendations (personal when logged in). search: posts matching query. account: posts of the account in query (handle, name, id or profile link). community: the subreddit or Facebook group in query; on Substack, a category (such as Technology), read as the publications on its leaderboard with the most liked of their recent posts. On news: feed is the top stories of the person's edition, community a topic (world, nation, business, technology, entertainment, sports, science or health; any other is searched), search finds articles. On web, only search, with query written as keywords rather than a question (heat pump running cost, not how much does a heat pump cost to run): Bing, or DuckDuckGo and Google when one is blocked." },
+        query: { type: 'string', description: 'Search terms, account, community or Google News topic; leave out for feed. Reddit search accepts subreddit:name to stay in one subreddit; Instagram search takes #tag for a hashtag; a Rednote account is its profile link; a Substack account is a publication (its name, name.substack.com or its address), a person (@handle) for their Notes and posts, or me for the person\'s own.' },
         sort: { type: 'string', description: 'Optional order. Reddit listings: hot, new, top, rising; Reddit search: relevance, top, new, comments. X search: top or latest. YouTube and Bilibili search: relevance, date or views. Threads search: top or recent. A Substack publication: new or top (most liked); a Substack person or me: notes or posts for only those; a Substack category: rising or paid (bestsellers).' },
-        period: { type: 'string', enum: ['hour', 'day', 'week', 'month', 'year', 'all'], description: 'For Reddit top: the period ranked. For YouTube search: only videos uploaded within the last day, week, month or year.' },
+        period: { type: 'string', enum: ['hour', 'day', 'week', 'month', 'year', 'all'], description: 'For Reddit top: the period ranked. For YouTube search: only videos uploaded within the last day, week, month or year. For a news search: only articles from the last hour, day, week, month or year.' },
         max_posts: { type: 'integer', minimum: 1, description: 'How many to return; by default all the request has left.' },
       },
       required: ['platform', 'source'],
@@ -35,11 +35,11 @@ export const SOCIAL_TOOL_DECLS: ReadonlyArray<Omit<ToolDef, 'handler'>> = [
   {
     name: 'social_read',
     tags: ['read'],
-    description: 'Open one post by its link and read all of it: the full text, its first 4 images (as the image setting says), and on Reddit, X, Threads, Bilibili and Substack its top comments. Counts as one post against the request\'s limits.',
+    description: 'Open one post, article or any web page by its link and read all of it: the full text, its first 4 images (as the image setting says), and on Reddit, X, Threads, Bilibili and Substack its top comments. A page of no platform here, and the article a Google News link leads to, are read as web pages, without images: an article gives its title, site, author, time and text; a page that is no article, such as a news site\'s front page, gives its headlines with their links. Counts as one post against the request\'s limits.',
     parameters: {
       type: 'object',
       properties: {
-        url: { type: 'string', description: 'The post link, as a receipt gave it.' },
+        url: { type: 'string', description: 'The link of the post or page, as a receipt gave it or the person named it.' },
         comments: { type: 'integer', minimum: 0, maximum: COMMENTS_MAX, description: `Top comments to include; default ${COMMENTS_DEFAULT}.` },
       },
       required: ['url'],
@@ -61,11 +61,12 @@ export const SOCIAL_TOOL_DECLS: ReadonlyArray<Omit<ToolDef, 'handler'>> = [
   {
     name: 'social_login',
     tags: ['act'],
-    description: "Open a visible window of your browser at a platform's login page, so the person can log in there, or pass a check the platform showed. Returns at once; when the person closes the window, an event says whether a login holds. Logins are kept in your browser's own profile, apart from the person's everyday browser.",
+    description: "Open a visible window of your browser at a platform's login page, so the person can log in there, or pass a check the platform showed. On web, open a page of the person's choice instead, such as a news site's login page or a page that showed a check. Returns at once; when the person closes the window, an event says whether a login holds. Logins are kept in your browser's own profile, apart from the person's everyday browser.",
     parameters: {
       type: 'object',
       properties: {
         platform: { type: 'string', enum: [...PLATFORM_IDS] },
+        url: { type: 'string', description: 'With platform web: the page to open (http or https).' },
       },
       required: ['platform'],
     },
@@ -73,7 +74,7 @@ export const SOCIAL_TOOL_DECLS: ReadonlyArray<Omit<ToolDef, 'handler'>> = [
   {
     name: 'social_comment',
     tags: ['act'],
-    description: `Write a comment in the person's name on a post or video of any platform, or, on Reddit, X, Threads and Bilibili, a reply to a comment by the comment's link. Usually it becomes a draft that waits on the Social media page of the settings window, where the person edits it, posts it or discards it, and an event says which. When the person has turned on automatic comments, or automatic replies and this answers a reply an event told you of, it is queued instead: it goes out on its own a minute or more later, spaced from their other comments, and an event gives its link. One with a link, or past a limit, still waits as a draft. Comment only when the person asks you to, or to answer such a reply. At most ${DRAFTS_MAX} drafts wait at a time.`,
+    description: `Write a comment in the person's name on a post or video of any social platform here (not Google News or other web pages), or, on Reddit, X, Threads and Bilibili, a reply to a comment by the comment's link. Usually it becomes a draft that waits on the Social media page of the settings window, where the person edits it, posts it or discards it, and an event says which. When the person has turned on automatic comments, or automatic replies and this answers a reply an event told you of, it is queued instead: it goes out on its own a minute or more later, spaced from their other comments, and an event gives its link. One with a link, or past a limit, still waits as a draft. Comment only when the person asks you to, or to answer such a reply. At most ${DRAFTS_MAX} drafts wait at a time.`,
     parameters: {
       type: 'object',
       properties: {

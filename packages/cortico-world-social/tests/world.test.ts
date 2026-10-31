@@ -24,7 +24,10 @@ import { findBrowser } from '../src/find-browser.ts';
 import { socialText } from '../src/i18n/index.ts';
 import { MODEL_TEXT, type ModelLanguage } from '../src/model-text.ts';
 import { Ocr, OcrImageError } from '../src/ocr.ts';
-import { ADAPTERS, POST_PLATFORMS, limitOf } from '../src/platforms/index.ts';
+import { ADAPTERS, POST_PLATFORMS, hasLogin, limitOf } from '../src/platforms/index.ts';
+import { botCheck, readArticle, type ArticleRead } from '../src/platforms/article.ts';
+import { editionOf } from '../src/platforms/news-parse.ts';
+import { ENGINES, readSearchResults, type Engine } from '../src/platforms/web.ts';
 import { AUTO_NOTE, REDDIT_TITLE_MAX } from '../src/platforms/reddit.ts';
 import { noteDoc } from '../src/platforms/substack-parse.ts';
 import { PLATFORM_IDS } from '../src/posts.ts';
@@ -332,13 +335,13 @@ describe('refusals', () => {
     expect(browser.requests).toEqual([]);
   });
 
-  it('refuses a source the platform lacks, a listing without a query, an unknown platform, a link elsewhere and a non-video', async () => {
+  it('refuses a source the platform lacks, a listing without a query, an unknown platform, a link that is no web link and a non-video', async () => {
     const { call, browser } = await makeWorld(everything());
     expect((await call('social_browse', { platform: 'threads', source: 'community', query: 'fixture' })).text)
       .toBe(t.notRun('social_browse', t.noSource('Threads', 'community', [...ADAPTERS.threads.sources])));
     expect((await call('social_browse', { platform: 'reddit', source: 'search' })).text).toBe(t.notRun('social_browse', t.needQuery));
     expect((await call('social_browse', { platform: 'fixturebook', source: 'feed' })).text).toBe(t.notRun('social_browse', t.error('unknown platform fixturebook')));
-    expect((await call('social_read', { url: 'https://fixture.test/posts/1' })).text).toBe(t.notRun('social_read', t.notPlatformUrl));
+    for (const url of ['ftp://fixture.test/posts/1', 'fixture posts', 'javascript:alert(1)']) expect((await call('social_read', { url })).text).toBe(t.notRun('social_read', t.notWebUrl));
     expect((await call('social_transcript', { video: postUrl('r1') })).text).toBe(t.notRun('social_transcript', t.notVideo));
     expect(browser.requests).toEqual([]);
   });
@@ -506,8 +509,9 @@ describe('lifetime counter', () => {
     browser.cookies = { '.reddit.com': ['reddit_session'], '.bilibili.com': ['buvid3'] };
     expect((await call('social_stats')).text).toContain(t.statsNone);
     const state = await panel('checkLogins');
-    expect(state.logins).toEqual(Object.fromEntries(PLATFORM_IDS.map((p) => [p, p === 'reddit'])));
-    const others = PLATFORM_IDS.filter((p) => p !== 'reddit').map((p) => t.platform[p]);
+    // Google News and the web have no login to check
+    expect(state.logins).toEqual(Object.fromEntries(PLATFORM_IDS.filter(hasLogin).map((p) => [p, p === 'reddit'])));
+    const others = PLATFORM_IDS.filter((p) => p !== 'reddit' && hasLogin(p)).map((p) => t.platform[p]);
     expect((await call('social_stats')).text).toContain(t.statsLogins(['Reddit'], others));
   });
 
@@ -565,7 +569,10 @@ describe('panel and daily autoscroll', () => {
         comments: { enabled: cfg.comments.enabled, maxPerDay: cfg.comments.maxPerDay, auto: cfg.comments.auto, autoReply: cfg.comments.autoReply, sign: cfg.comments.sign },
         posts: cfg.posts,
         substack: cfg.substack,
+        newsEdition: cfg.newsEdition,
       },
+      edition: editionOf(cfg.newsEdition, 'en'),
+      loginless: ['news', 'web'],
       jobs: [],
       browser: findBrowser(cfg.browserFile),
       logins: {},
@@ -701,6 +708,7 @@ describe('environment prompt', () => {
       'social.comments': t.envComments(cfg.comments),
       'social.posts': t.envPosts({ ...cfg.posts, platforms: POST_PLATFORMS.map((p) => t.platform[p]) }),
       'social.substack': t.envSubstack({ ...cfg.substack, publication: null }),
+      'social.news': t.envNews(editionOf(cfg.newsEdition, 'en')),
     });
     const doc = world.webUi('en').promptDocs![0]!;
     expect(doc.vars?.map((v) => v.name).sort()).toEqual(Object.keys(vars).sort());
@@ -808,7 +816,7 @@ describe('comments', () => {
     const made = await makeWorld({}, on);
     const refused = async (args: Record<string, unknown>) => (await made.call('social_comment', args)).text;
     const max = limitOf('reddit', 'comment', true);
-    expect(await refused({ url: 'https://fixture.test/post/1', text: 'x' })).toBe(t.notRun('social_comment', t.notPlatformUrl));
+    for (const url of ['https://fixture.test/post/1', 'https://news.google.com/rss/articles/CBMiFixture']) expect(await refused({ url, text: 'x' })).toBe(t.notRun('social_comment', t.commentElsewhere));
     expect(await refused({ url: `${REDDIT}/r/fixture/s/AbCdEf123`, text: 'x' })).toBe(t.notRun('social_comment', t.commentShareLink));
     expect(await refused({ url: `${REDDIT}/r/fixture/`, text: 'x' })).toBe(t.notRun('social_comment', t.commentNoTarget('Reddit')));
     expect(await refused({ url: 'javascript://www.reddit.com/r/fixture/comments/r1/x/%0Aalert(1)', text: 'x' })).toBe(t.notRun('social_comment', t.commentNoTarget('Reddit')));
@@ -1336,6 +1344,159 @@ describe('new posts', () => {
     expect(sent[0]!.url.searchParams.get('csrf')).toBe('fixturejct');
     expect(sent[0]!.body).toMatchObject({ dyn_req: { content: { contents: [{ raw_text: `今天读完了一本好书。\n\n${AUTO_LINE_ZH}`, type: 1 }] }, scene: 1 } });
     expect(made.host.events).toMatchObject([{ type: 'social.posted', text: t.autoSent(t.kind.post, 'Bilibili', 'https://www.bilibili.com/opus/900000000000000001') }]);
+  });
+});
+
+describe('the web and Google News', () => {
+  const NEWS = 'https://news.google.com';
+  const RSS = readFileSync(new URL('./fixtures/news-rss.xml', import.meta.url), 'utf8');
+  const STORY = `${NEWS}/rss/articles/CBMiFixtureOne?oc=5`;
+  const ARTICLE: ArticleRead = {
+    url: 'https://times.fixture.test/2026/10/31/harbour', title: 'Harbour reopens after the storm', site: 'Fixture Times', byline: 'Ada Fixture',
+    published: '2026-10-31T20:00:00Z', text: 'The harbour reopened on Saturday.\n\nShips had queued since dawn.', description: '',
+  };
+  const BLOCKED = 'https://blocked.fixture.test/story';
+  /**
+   * A browser where Google News answers every feed with the fixture, a link leads where `redirect`
+   * says, and a page's in-page reads answer as the page at that address would: `articles` and the
+   * bot checks of `checks`; search engines answer as `engines` says.
+   */
+  function web(opts: { redirect?: Record<string, string>; articles?: Record<string, ArticleRead>; checks?: string[]; engines?: Partial<Record<Engine, ReturnType<typeof readSearchResults> | Error>> } = {}) {
+    let at = 'about:blank';
+    const feeds: string[] = [];
+    const opened: string[] = [];
+    const script: PageScript = {
+      fetch: (url) => {
+        if (!url.startsWith(`${NEWS}/rss`)) return undefined;
+        feeds.push(url);
+        return { status: 200, text: RSS };
+      },
+      redirect: (url) => { opened.push(url); at = opts.redirect?.[url] ?? url; return at; },
+      run: (fn, arg) => {
+        if (fn === botCheck) return opts.checks?.includes(at) ? 'captcha' : null;
+        if (fn === readArticle) return opts.articles?.[at] ?? { url: at, title: '', site: '', byline: '', published: '', text: '', description: '' };
+        if (fn === readSearchResults) {
+          const engine = opts.engines?.[arg as Engine];
+          if (engine instanceof Error) throw engine;
+          return engine ?? { results: [] };
+        }
+        throw new Error(`no stand-in for ${fn.name}`);
+      },
+    };
+    return { script, feeds, opened };
+  }
+
+  it("lists the top stories of the app language's edition, and of the edition set once one is", async () => {
+    const { script, feeds } = web();
+    const { call, cfg } = await makeWorld(script, (c) => { c.maxPosts = 10; });
+    const r = (await call('social_browse', { platform: 'news', source: 'feed' })).text;
+    expect(feeds).toEqual([`${NEWS}/rss?ceid=${encodeURIComponent(editionOf('', 'en'))}`]);
+    expect(r).toContain(t.posts(3, false));
+    expect(r).toContain(t.title('Harbour reopens after the storm'));
+    expect(r).toContain('Fixture Times');
+    expect(r).toContain(STORY);
+    cfg.newsEdition = 'SG:en';
+    await call('social_browse', { platform: 'news', source: 'feed', max_posts: 1 });
+    expect(feeds[1]).toBe(`${NEWS}/rss?ceid=SG%3Aen`);
+  });
+
+  it("lists a topic's latest and a search's articles, a period kept and named in the receipt", async () => {
+    const { script, feeds } = web();
+    const { call } = await makeWorld(script, (c) => { c.maxPosts = 10; });
+    await call('social_browse', { platform: 'news', source: 'community', query: 'Technology', max_posts: 1 });
+    const r = (await call('social_browse', { platform: 'news', source: 'search', query: 'rail line', period: 'week', max_posts: 1 })).text;
+    const ceid = encodeURIComponent(editionOf('', 'en'));
+    expect(feeds).toEqual([`${NEWS}/rss/headlines/section/topic/TECHNOLOGY?ceid=${ceid}`, `${NEWS}/rss/search?q=rail%20line%20when%3A7d&ceid=${ceid}`]);
+    expect(r).toContain(t.source('search', 'rail line', undefined, 'week'));
+    expect((await call('social_browse', { platform: 'news', source: 'account', query: 'x' })).text)
+      .toBe(t.notRun('social_browse', t.noSource('Google News', 'account', [...ADAPTERS.news.sources])));
+  });
+
+  it('reads a story at the publisher\'s page its Google News link leads to', async () => {
+    const { script } = web({ redirect: { [STORY]: ARTICLE.url }, articles: { [ARTICLE.url]: ARTICLE } });
+    const { call } = await makeWorld(script);
+    const r = (await call('social_read', { url: STORY })).text;
+    expect(r).toContain('[social_read] Google News');
+    expect(r).toContain(t.title(ARTICLE.title));
+    expect(r).toContain('> The harbour reopened on Saturday.\n> Ships had queued since dawn.');
+    expect(r).toContain('Ada Fixture');
+    expect(r).toContain(ARTICLE.url);
+  });
+
+  it("takes Google's cookie question, where the law asks it first, for a consent block on listing and on reading", async () => {
+    const consent = 'https://consent.google.com/ml?continue=https://news.google.com/';
+    const { script } = web({ redirect: { [`${NEWS}/robots.txt`]: consent, [STORY]: consent } });
+    const { call } = await makeWorld(script);
+    const block = t.blocked('Google News', 'news', 'consent', '');
+    expect(await call('social_browse', { platform: 'news', source: 'feed' })).toEqual({ text: t.failed('social_browse', block), failed: true });
+    expect(await call('social_read', { url: STORY })).toEqual({ text: t.failed('social_read', block), failed: true });
+  });
+
+  it('reads any page no platform owns as a web page, and a bot check as a block the person can pass at that page', async () => {
+    const { script } = web({ articles: { [ARTICLE.url]: ARTICLE }, checks: [BLOCKED] });
+    const { call, cfg } = await makeWorld(script);
+    const r = (await call('social_read', { url: ARTICLE.url })).text;
+    expect(r).toContain('[social_read] Web');
+    expect(r).toContain(t.title(ARTICLE.title));
+    expect(await call('social_read', { url: BLOCKED })).toEqual({ text: t.failed('social_read', t.blocked('Web', 'web', 'captcha', BLOCKED)), failed: true });
+    cfg.platforms.web.enabled = false;
+    expect((await call('social_read', { url: ARTICLE.url })).text).toBe(t.notRun('social_read', t.platformOff('Web')));
+  });
+
+  it('searches the web on Bing, and hands the search on to the next engine while one shows a check', async () => {
+    const hit = { url: 'https://wiki.fixture.test/Electric_car', title: 'Electric car', snippet: 'An electric car runs on a battery.', site: 'Fixture Wiki' };
+    const { script, opened } = web({ engines: { bing: { check: 'captcha' }, duckduckgo: { results: [hit] } } });
+    const { call } = await makeWorld(script);
+    const r = (await call('social_browse', { platform: 'web', source: 'search', query: 'electric cars' })).text;
+    expect(opened).toEqual(ENGINES.slice(0, 2).map((e) => e.url('electric cars')));
+    expect(r).toContain(t.title('Electric car'));
+    expect(r).toContain('> An electric car runs on a battery.');
+    expect(r).toContain('Fixture Wiki');
+    expect(r).toContain(hit.url);
+  });
+
+  it('passes over an engine out of reach and one whose first results are off the topic, and gives those when no engine does better', async () => {
+    const off = { url: 'https://dictionary.fixture.test/do', title: 'DO: meaning and use', snippet: 'How to use do in a sentence.', site: 'Fixture Dictionary' };
+    const hit = { url: 'https://energy.fixture.test/heat-pumps', title: 'Heat pumps explained', snippet: 'A heat pump moves heat instead of making it.', site: 'Fixture Energy' };
+    const unreachable = new Error('page.goto: net::ERR_ABORTED');
+    const found = web({ engines: { bing: { results: [off] }, duckduckgo: unreachable, google: { results: [hit] } } });
+    const made = await makeWorld(found.script);
+    const r = (await made.call('social_browse', { platform: 'web', source: 'search', query: 'how do heat pumps work' })).text;
+    expect(r).toContain(t.title('Heat pumps explained'));
+    expect(r).not.toContain('DO: meaning');
+    const none = web({ engines: { bing: { results: [off] }, duckduckgo: unreachable, google: { check: 'captcha' } } });
+    const fallback = (await (await makeWorld(none.script)).call('social_browse', { platform: 'web', source: 'search', query: 'how do heat pumps work' })).text;
+    expect(fallback).toContain(t.title('DO: meaning and use'));
+  });
+
+  it('says every engine showed a check, naming social_login', async () => {
+    const { script } = web({ engines: { bing: { check: 'captcha' }, duckduckgo: { check: 'captcha' }, google: { check: 'consent' } } });
+    const { call } = await makeWorld(script);
+    expect(await call('social_browse', { platform: 'web', source: 'search', query: 'electric cars' }))
+      .toEqual({ text: t.failed('social_browse', t.blocked('Web', 'web', 'captcha', 'bing: captcha, duckduckgo: captcha, google: consent')), failed: true });
+  });
+
+  it('opens a window at the page named on the web, else at the platform\'s own page, and tells the bot when it is closed', async () => {
+    const { call, browser, host } = await makeWorld();
+    const login = 'https://times.fixture.test/login';
+    expect((await call('social_login', { platform: 'web', url: login })).text).toBe(t.windowOpened(login));
+    expect((await call('social_login', { platform: 'news', url: login })).text).toBe(t.windowOpened(ADAPTERS.news.loginUrl));
+    expect((await call('social_login', { platform: 'web', url: 'javascript:alert(1)' })).text).toBe(t.windowOpened(ADAPTERS.web.loginUrl));
+    expect(browser.logins.map((l) => l.url)).toEqual([login, ADAPTERS.news.loginUrl, ADAPTERS.web.loginUrl]);
+    browser.logins[0]!.close();
+    await expect.poll(() => host.events.length).toBe(1);
+    expect(host.events[0]).toMatchObject({ type: 'social.login', text: t.windowClosed('Web') });
+  });
+
+  it('runs a daily autoscroll job on Google News in the edition set', async () => {
+    const { script, feeds } = web();
+    const { panel, host } = await makeWorld(script, (c) => { c.autoscroll.enabled = true; c.newsEdition = 'GB:en'; });
+    const job: AutoscrollJob = { platform: 'news', source: 'community', query: 'science', maxPosts: 2, at: '07:00', images: 'skip' };
+    await panel('setJobs', [job]);
+    await panel('runNow', jobKey(job));
+    await expect.poll(() => host.events.length).toBe(1);
+    expect(feeds).toEqual([`${NEWS}/rss/headlines/section/topic/SCIENCE?ceid=GB%3Aen`]);
+    expect((await panel('state')).digests[0]).toMatchObject({ posts: 2 });
   });
 });
 

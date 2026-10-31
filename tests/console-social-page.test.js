@@ -20,7 +20,8 @@ import { CONSOLE } from 'cortico/worlds/console/definition.ts';
 import { socialDefinition } from 'cortico-world-social';
 import { SOCIAL_DEFAULTS, parseJobs } from '../packages/cortico-world-social/src/config.ts';
 import { socialText } from '../packages/cortico-world-social/src/i18n/index.ts';
-import { ADAPTERS } from '../packages/cortico-world-social/src/platforms/index.ts';
+import { ADAPTERS, hasLogin } from '../packages/cortico-world-social/src/platforms/index.ts';
+import { editionOf } from '../packages/cortico-world-social/src/platforms/news-parse.ts';
 import { PLATFORM_IDS } from '../packages/cortico-world-social/src/posts.ts';
 
 const CORTICO = resolve(import.meta.dirname, '../vendor/cortico');
@@ -192,6 +193,30 @@ it('shows a new post the bot drafted with its platform, subreddit and title, and
   }
 });
 
+it('shows no login for Google News and the web, and the Google News edition in use, flagging one written wrong', async () => {
+  const { root } = await mountPage();
+  const rows = [...root.querySelectorAll('.social-platform')];
+  for (const [i, id] of PLATFORM_IDS.entries()) {
+    const none = rows[i].querySelector('.social-muted');
+    expect(none.hidden, id).toBe(hasLogin(id));
+    expect(rows[i].querySelector('.btn').hidden, id).toBe(!hasLogin(id));
+  }
+  expect(rows[PLATFORM_IDS.indexOf('web')].textContent).toContain(s.noLogin);
+  const edition = root.querySelector('input.mono:not([placeholder="' + s.browserPathPlaceholder + '"])');
+  // the edition in use when none is set: the app language's, as the World has it
+  const inUse = (await world.webUi('en').invoke('social', 'state', [])).edition;
+  expect(inUse).toBe(editionOf('', 'zh'));
+  await vi.waitFor(() => expect(edition.placeholder).toBe(inUse));
+  change(edition, 'england');
+  await vi.waitFor(() => expect(live.newsEdition).toBe('england'));
+  await vi.waitFor(() => expect(root.textContent).toContain(s.newsEditionBad));
+  change(edition, 'GB:en');
+  await vi.waitFor(() => expect(root.textContent).toContain(s.newsEditionHint));
+  expect(live.newsEdition).toBe('GB:en');
+  change(edition, '');
+  await vi.waitFor(() => expect(live.newsEdition).toBe(''));
+});
+
 it('writes the Substack publication through /api/config, and says when it names no publication', async () => {
   const { root } = await mountPage();
   const sb = socialText(W.LANGUAGE).substack;
@@ -235,8 +260,9 @@ it('saves the job list whole and only while every job is complete', async () => 
   await vi.waitFor(() => expect(root.textContent).toContain(s.noJobs));
 });
 
-it('offers for each platform exactly the sources its adapter lists', async () => {
+it('offers for each platform exactly the sources its adapter lists, under Google News\' own names for its feed and topics', async () => {
   const { button, jobLines } = await mountPage();
+  const text = socialText(W.LANGUAGE);
   button(s.addJob).click();
   await vi.waitFor(() => expect(jobLines()).toHaveLength(1));
   const [platform, source] = jobLines()[0].querySelectorAll('select');
@@ -244,6 +270,8 @@ it('offers for each platform exactly the sources its adapter lists', async () =>
     change(platform, id);
     expect([...source.options].map((o) => o.value)).toEqual([...ADAPTERS[id].sources]);
   }
+  change(platform, 'news');
+  expect([...source.options].map((o) => o.textContent)).toEqual([text.newsSources.feed, text.sources.search, text.newsSources.community]);
   button(s.removeJob).click();
   await vi.waitFor(() => expect(live.autoscroll.jobs).toEqual([]));
 });

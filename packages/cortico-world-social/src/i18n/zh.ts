@@ -1,5 +1,5 @@
 const zh = {
-  platforms: { reddit: 'Reddit', x: 'X', facebook: 'Facebook', threads: 'Threads', instagram: 'Instagram', youtube: 'YouTube', bilibili: '哔哩哔哩', rednote: '小红书', substack: 'Substack' },
+  platforms: { reddit: 'Reddit', x: 'X', facebook: 'Facebook', threads: 'Threads', instagram: 'Instagram', youtube: 'YouTube', bilibili: '哔哩哔哩', rednote: '小红书', substack: 'Substack', news: 'Google 新闻', web: '网页' },
 
   console: {
     label: '社交媒体',
@@ -16,6 +16,7 @@ const zh = {
       'social.comments': '评论草稿是否打开与每天的上限',
       'social.posts': '新帖是否打开、每天的上限与平台',
       'social.substack': 'Substack：短帖、每日短帖与刊物',
+      'social.news': 'Google 新闻的版本',
     } as Record<string, string>,
     storage: {
       profile: { label: '浏览器资料（各平台的登录）', note: '清除后各平台都要重新登录' },
@@ -33,6 +34,7 @@ const zh = {
     maxTranscriptChars: { title: '文字稿每次的字数', description: '视频文字稿每次读取的最多字数，余下的部分分次读' },
     showBrowser: { title: '显示浏览器', description: 'Coo 浏览时显示浏览器窗口' },
     browserFile: { title: '浏览器路径', description: '留空时自动查找 Chrome、Edge、Brave 或 Chromium' },
+    newsEdition: { title: 'Google 新闻的版本', description: 'Google 新闻的国家或地区与语言，按 Google 的写法，例如 US:en 或 JP:ja；留空则跟随应用语言' },
     platformEnabled: (name: string) => `${name}：开启`,
     autoscrollEnabled: { title: '每日自动浏览', description: '每天按设置的时间读取帖子，读完后 Coo 告诉你摘要' },
     autoscrollMaxMinutes: { title: '每项最多用时', description: '每日自动浏览的每一项最多花多少分钟' },
@@ -53,6 +55,7 @@ const zh = {
   },
 
   sources: { feed: '首页推荐', search: '搜索', account: '账号', community: '社区' },
+  newsSources: { feed: '要闻', community: '主题' },
 
   panel: {
     limitsTitle: '每次请求',
@@ -87,6 +90,10 @@ const zh = {
     showBrowser: '显示浏览器',
     showBrowserCheck: 'Coo 浏览时显示浏览器窗口',
     showBrowserHint: '有的平台不接受隐藏的浏览器；遇到验证或空白结果时打开它。',
+    newsEdition: 'Google 新闻的版本',
+    newsEditionHint: '国家或地区与语言，按 Google 新闻的写法：US:en、GB:en、IN:en、SG:en、JP:ja、DE:de 等。留空则跟随应用语言。',
+    newsEditionBad: '请按「国家或地区:语言」的写法填写，例如 US:en。',
+    noLogin: '无需登录',
     loginOpened: (name: string) => `已打开${name}的登录窗口。登录后关掉窗口。`,
 
     autoscrollTitle: '每日自动浏览',

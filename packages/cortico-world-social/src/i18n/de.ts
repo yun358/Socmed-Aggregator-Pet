@@ -2,7 +2,7 @@ import type { Translation } from 'cortico/core/language.ts';
 import type { SocialText } from './index.ts';
 
 const de: Translation<SocialText> = {
-  platforms: { reddit: 'Reddit', x: 'X', facebook: 'Facebook', threads: 'Threads', instagram: 'Instagram', youtube: 'YouTube', bilibili: 'Bilibili', rednote: 'Rednote', substack: 'Substack' },
+  platforms: { reddit: 'Reddit', x: 'X', facebook: 'Facebook', threads: 'Threads', instagram: 'Instagram', youtube: 'YouTube', bilibili: 'Bilibili', rednote: 'Rednote', substack: 'Substack', news: 'Google News', web: 'Web' },
 
   console: {
     label: 'Soziale Medien',
@@ -19,6 +19,7 @@ const de: Translation<SocialText> = {
       'social.comments': 'Ob Kommentarentwürfe an sind, und das Tageslimit',
       'social.posts': 'Ob neue Beiträge an sind, das Tageslimit und die Plattformen',
       'social.substack': 'Substack: Notes, tägliche Notes und die Publikation',
+      'social.news': 'Die Ausgabe von Google News',
     },
     storage: {
       profile: { label: 'Browserprofil (Anmeldungen bei den Plattformen)', note: 'Danach braucht jede Plattform eine neue Anmeldung' },
@@ -36,6 +37,7 @@ const de: Translation<SocialText> = {
     maxTranscriptChars: { title: 'Transkript-Zeichen pro Lesevorgang', description: 'Höchstens so viele Zeichen eines Videotranskripts pro Lesevorgang; der Rest wird in weiteren Teilen gelesen' },
     showBrowser: { title: 'Browser anzeigen', description: 'Coos Browserfenster beim Lesen anzeigen' },
     browserFile: { title: 'Browserpfad', description: 'Leer: Chrome, Edge, Brave oder Chromium wird gesucht' },
+    newsEdition: { title: 'Ausgabe von Google News', description: 'Land und Sprache von Google News, so geschrieben wie bei Google, etwa US:en oder DE:de; leer folgt sie der Sprache der App' },
     platformEnabled: (name: string) => `${name}: an`,
     autoscrollEnabled: { title: 'Tägliches Auto-Scrollen', description: 'Liest jeden Tag zu den eingestellten Zeiten Beiträge; danach gibt dir Coo eine Zusammenfassung' },
     autoscrollMaxMinutes: { title: 'Minuten pro Auftrag', description: 'Höchstens so viele Minuten dauert ein Auftrag des täglichen Auto-Scrollens' },
@@ -56,6 +58,7 @@ const de: Translation<SocialText> = {
   },
 
   sources: { feed: 'Feed', search: 'Suche', account: 'Konto', community: 'Community' },
+  newsSources: { feed: 'Top-Meldungen', community: 'Thema' },
 
   panel: {
     limitsTitle: 'Pro Anfrage',
@@ -90,6 +93,10 @@ const de: Translation<SocialText> = {
     showBrowser: 'Browser anzeigen',
     showBrowserCheck: 'Coos Browserfenster beim Lesen anzeigen',
     showBrowserHint: 'Manche Plattformen weisen einen versteckten Browser ab; schalte das ein, wenn Prüfungen oder leere Ergebnisse erscheinen.',
+    newsEdition: 'Ausgabe von Google News',
+    newsEditionHint: 'Land und Sprache, so geschrieben wie bei Google News: US:en, GB:en, DE:de, AT:de, CH:de usw. Leer folgt sie der Sprache der App.',
+    newsEditionBad: 'Schreib sie als Land:Sprache, etwa US:en.',
+    noLogin: 'Keine Anmeldung nötig',
     loginOpened: (name: string) => `Das Anmeldefenster für ${name} ist offen. Schließe es, sobald du angemeldet bist.`,
 
     autoscrollTitle: 'Tägliches Auto-Scrollen',

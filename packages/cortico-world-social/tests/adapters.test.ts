@@ -716,6 +716,110 @@ describe.skipIf(!EXE)('adapters through the World', () => {
     }, 30_000);
   });
 
+  /* ---------- the web and Google News ---------- */
+
+  describe('the web and Google News', () => {
+    const SITE = 'https://times.fixture.test';
+    const ARTICLE = `${SITE}/2026/10/31/harbour`;
+    const STORY = 'https://news.google.com/rss/articles/CBMiFixtureOne?oc=5';
+    const head = (extra: string) => `<!doctype html><html><head><meta charset="utf-8">${extra}</head>`;
+    /** An article page as news sites build theirs: its text split into blocks, among menus, share and newsletter boxes, related stories and comments. */
+    const article = { contentType: 'text/html; charset=utf-8', body: `${head(`<title>Harbour reopens after the storm | Fixture Times</title>
+      <meta property="og:title" content="Harbour reopens after the storm"><meta property="og:site_name" content="Fixture Times"><meta property="og:type" content="article">
+      <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebPage","name":"x"},{"@type":"NewsArticle","headline":"Harbour reopens","datePublished":"2026-10-31T20:00:00Z","author":[{"@type":"Person","name":"Ada Fixture"},{"@type":"Person","name":"Ben Fixture"}]}]}</script>`)}
+      <body><header role="banner"><nav><ul><li><a href="/world">World news from every corner of the globe</a></li></ul></nav></header>
+      <main><article><h1>Harbour reopens after the storm</h1>
+        <div class="block"><div><p>The harbour reopened on Saturday morning, three days after the storm closed it.</p></div></div>
+        <div class="block"><div><p>Ships had queued since dawn, and the first one docked a little after nine.</p></div></div>
+        <div class="share-tools"><p>Share this story with your friends on every network you use today.</p></div>
+        <h2>What comes next</h2>
+        <div class="block"><div><p>Repairs to the old pier will take the rest of the month, the port authority said.</p></div></div>
+        <div class="newsletter-signup"><p>Sign up for our morning newsletter to get stories like this one.</p></div>
+      </article>
+      <aside><h3>Related stories</h3><p>Another story about the storm, long enough to count as a paragraph.</p></aside>
+      <section class="comments"><p>A reader wrote a comment that is long enough to count as a paragraph.</p></section></main>
+      <footer><p>Copyright Fixture Times, all rights reserved, every single one of them.</p></footer></body></html>` };
+    const front = { contentType: 'text/html; charset=utf-8', body: `${head('<title>Fixture Times</title><meta property="og:type" content="website">')}<body><main>
+      ${['Harbour reopens after the storm', 'Council approves the new rail line', 'Markets end a quiet week higher', 'Museum opens its doors at night', 'Local team wins the cup final']
+        .map((h, i) => `<div class="card"><h3><a href="/2026/10/31/story-${i}">${h}</a></h3><p>Short teaser line.</p></div>`).join('')}</main></body></html>` };
+    const check = { contentType: 'text/html; charset=utf-8', body: `${head('<title>Just a moment...</title>')}<body><div id="challenge-form">Checking your browser</div></body></html>` };
+    const page = (body: string) => ({ contentType: 'text/html; charset=utf-8', body: `${head('')}<body>${body}</body></html>` });
+    const b64 = (url: string) => Buffer.from(url).toString('base64url');
+    const bing = page(`<ol id="b_results">
+      <li class="b_ad"><h2><a href="https://ads.fixture.test/">An ad</a></h2></li>
+      <li class="b_algo"><div class="b_tpcn"><a class="tilk" href="https://wiki.fixture.test/"><div class="tptt">Fixture Wiki</div></a></div>
+        <h2><a href="https://www.bing.com/ck/a?!&amp;&amp;p=fixture&amp;u=a1${b64('https://wiki.fixture.test/Electric_car')}&amp;ntb=1">Electric car - Fixture Wiki</a></h2>
+        <div class="b_caption"><p class="b_lineclamp2">An electric car runs on a battery.</p></div></li>
+      <li class="b_algo"><h2><a href="https://reviews.fixture.test/best-evs?msockid=fixture1">Best electric cars of 2026</a></h2><div class="b_caption"><p>Our picks, tested.</p></div></li>
+    </ol>`);
+    const bingCheck = page('<div>Please solve the challenge below to continue</div>');
+    const duckCheck = page('<div class="anomaly-modal">Unfortunately, bots use DuckDuckGo too.</div>');
+    const google = page(`<div id="search"><div class="g" data-hveid="1"><a href="/url?q=https://wiki.fixture.test/Electric_car&amp;sa=U"><h3>Electric car</h3></a>
+      <div class="VwiC3b">An electric car runs on a battery.</div></div>
+      <div class="g" data-hveid="2"><a href="https://www.google.com/search?q=more"><h3>More searches</h3></a></div></div>`);
+    const duck = page(`<div class="result results_links result--ad"><a class="result__a" href="https://duckduckgo.com/y.js?ad=1">An ad</a></div>
+      <div class="result results_links"><h2 class="result__title"><a class="result__a" href="//duckduckgo.com/l/?uddg=${encodeURIComponent('https://wiki.fixture.test/Electric_car')}&amp;rut=x">Electric car</a></h2>
+      <a class="result__snippet" href="https://wiki.fixture.test/Electric_car">An electric car runs on a battery.</a></div>`);
+    const engines = (byHost: Record<string, Fixture>): Router => (u) => byHost[u.hostname] ?? null;
+
+    it('reads an article: its title, site, authors and time, and its text without the boxes and lists around it', async () => {
+      const { call } = await makeWorld((u) => (u.href === ARTICLE ? article : null));
+      const r = (await call('social_read', { url: ARTICLE })).text;
+      expect(r).toContain(t.title('Harbour reopens after the storm'));
+      expect(r).toContain(`Fixture Times · Ada Fixture, Ben Fixture · ${localStamp('2026-10-31T20:00:00Z', TZ)}`);
+      expect(r).toContain([
+        '> The harbour reopened on Saturday morning, three days after the storm closed it.',
+        '> Ships had queued since dawn, and the first one docked a little after nine.',
+        '> ## What comes next',
+        '> Repairs to the old pier will take the rest of the month, the port authority said.',
+      ].join('\n'));
+      for (const left of ['Share this story', 'newsletter', 'Another story', 'reader wrote', 'Copyright', 'World news']) expect(r).not.toContain(left);
+    });
+
+    it("reads a site's front page as its headlines with their links", async () => {
+      const { call } = await makeWorld((u) => (u.href === `${SITE}/` ? front : null));
+      const r = (await call('social_read', { url: `${SITE}/` })).text;
+      expect(r).toContain(`> - Harbour reopens after the storm ${SITE}/2026/10/31/story-0`);
+      expect(r).toContain(`> - Local team wins the cup final ${SITE}/2026/10/31/story-4`);
+      expect(r).not.toContain('Short teaser');
+    });
+
+    it('takes a bot check for a block the person can pass at that page', async () => {
+      const { call } = await makeWorld((u) => (u.href === `${SITE}/locked` ? check : null));
+      expect(await call('social_read', { url: `${SITE}/locked` })).toEqual({ text: t.failed('social_read', t.blocked('Web', 'web', 'captcha', `${SITE}/locked`)), failed: true });
+    });
+
+    it("searches Bing, taking off its redirects and visit ids and leaving ads out", async () => {
+      const { call } = await makeWorld(engines({ 'www.bing.com': bing }));
+      const r = (await call('social_browse', { platform: 'web', source: 'search', query: 'electric cars' })).text;
+      expect(r).toContain(t.posts(2, false));
+      expect(r).toContain(`${t.title('Electric car - Fixture Wiki')}\n> An electric car runs on a battery.\nhttps://wiki.fixture.test/Electric_car`);
+      expect(r).toMatch(/^https:\/\/reviews\.fixture\.test\/best-evs$/m);
+      expect(r).not.toContain('msockid');
+      expect(r).not.toContain('An ad');
+    });
+
+    it('hands the search to DuckDuckGo while Bing shows a check, and to Google while DuckDuckGo does too', async () => {
+      const viaDuck = await makeWorld(engines({ 'www.bing.com': bingCheck, 'html.duckduckgo.com': duck }));
+      const r = (await viaDuck.call('social_browse', { platform: 'web', source: 'search', query: 'electric cars' })).text;
+      expect(r).toContain(`${t.title('Electric car')}\n> An electric car runs on a battery.\nhttps://wiki.fixture.test/Electric_car`);
+      expect(r).not.toContain('An ad');
+      const viaGoogle = await makeWorld(engines({ 'www.bing.com': bingCheck, 'html.duckduckgo.com': duckCheck, 'www.google.com': google }));
+      const g = (await viaGoogle.call('social_browse', { platform: 'web', source: 'search', query: 'electric cars' })).text;
+      expect(g).toContain(t.posts(1, false));
+      expect(g).toContain(`${t.title('Electric car')}\n> An electric car runs on a battery.\nhttps://wiki.fixture.test/Electric_car`);
+    });
+
+    it("follows a Google News story's link to the publisher's article", async () => {
+      const redirecting = page(`<script>setTimeout(() => location.replace(${JSON.stringify(ARTICLE)}), 300);</script>`);
+      const { call } = await makeWorld((u) => (u.href === STORY ? redirecting : u.href === ARTICLE ? article : null));
+      const r = (await call('social_read', { url: STORY })).text;
+      expect(r).toContain('[social_read] Google News');
+      expect(r).toContain('> The harbour reopened on Saturday morning, three days after the storm closed it.');
+      expect(r).toContain(ARTICLE);
+    });
+  });
+
   /* ---------- blocks ---------- */
 
   describe('blocks', () => {

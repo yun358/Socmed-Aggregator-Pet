@@ -23,7 +23,7 @@ type Unread = 'time' | 'cap' | 'download' | 'decode' | 'ocr';
 type Block = 'login' | 'captcha' | 'consent' | 'blocked';
 
 const zh = {
-  platform: { reddit: 'Reddit', x: 'X', facebook: 'Facebook', threads: 'Threads', instagram: 'Instagram', youtube: 'YouTube', bilibili: '哔哩哔哩', rednote: '小红书', substack: 'Substack' } as Record<PlatformId, string>,
+  platform: { reddit: 'Reddit', x: 'X', facebook: 'Facebook', threads: 'Threads', instagram: 'Instagram', youtube: 'YouTube', bilibili: '哔哩哔哩', rednote: '小红书', substack: 'Substack', news: 'Google 新闻', web: '网页' } as Record<PlatformId, string>,
   /** What a listing reads: the feed, a search, an account or a community. */
   source: (kind: SourceKind, query: string, sort?: string, period?: string): string => {
     const order = [sort, period].filter(Boolean).join(',');
@@ -74,18 +74,20 @@ const zh = {
   noBrowser: '这台电脑上没找到基于 Chromium 的浏览器(Chrome、Edge、Brave 或 Chromium)。对方可以装一个,或在「社交媒体」页填写浏览器的路径。',
   noBrowserAt: (path: string) => `「社交媒体」页填写的浏览器路径不存在:${path}。对方可以改正它,或清空它让应用自己查找。`,
   loginWindowOpen: '浏览器的登录窗口还开着,对方关掉它之后才能继续读取(Mac 上要用 Cmd+Q 退出那个浏览器)。',
-  blocked: (platform: string, id: PlatformId, kind: Block, detail: string): string => ({
+  blocked: (platform: string, id: PlatformId, kind: Block, detail: string): string => (id === 'web' && kind === 'captcha' && /^https?:/.test(detail)
+    ? `网页 ${detail} 弹出了人机验证。调用 social_login,platform 给 web,url 给 ${detail},让对方在窗口里完成验证。`
+    : {
     login: `${platform}要求登录。调用 social_login(${id})打开一个窗口,让对方在里面登录。`,
     captcha: `${platform}弹出了人机验证。调用 social_login(${id}),让对方在窗口里完成验证。`,
     consent: `${platform}先要选择是否接受 Cookie。调用 social_login(${id}),让对方在窗口里选择。`,
     blocked: `${platform}拒绝了请求${detail ? `(${detail})` : ''},过一会儿再试可能可以。`,
-  })[kind],
+  }[kind]),
   busy: (pages: number) => `浏览器正在后台读取(${pages} 个页面,每日自动浏览),读完后才能打开窗口。`,
   error: (message: string) => `出错:${message}`,
 
   readHead: (platform: string, took: string) => `[social_read] ${platform},用时 ${took}:`,
   readNone: '页面上没有找到帖子。',
-  notPlatformUrl: '这不是这几个平台的链接:Reddit、X、Facebook、Threads、Instagram、YouTube、哔哩哔哩、小红书、Substack。',
+  notWebUrl: '这不是网页链接(http 或 https)。',
   comments: (n: number) => `热门评论(${n} 条):`,
   comment: (author: string, text: string, score?: string) => `- ${author}${score ? `(${score})` : ''}:${text}`,
 
@@ -103,12 +105,15 @@ const zh = {
   interruptedNothing: '被打断了,还什么都没读到。',
 
   loginOpened: (platform: string) => `[social_login] 已在${platform}的登录页打开浏览器窗口。告诉对方在里面登录,登录完关掉窗口;之后会有事件说明登录是否生效。`,
+  windowOpened: (where: string) => `[social_login] 已打开浏览器窗口:${where}。告诉对方在里面登录或完成验证,完成后关掉窗口;关掉后会有事件告诉你。`,
   loginEvent: (platform: string, holds: boolean) => `[social] ${platform}的登录窗口关掉了。${holds ? '登录已生效。' : '没有发现登录。'}`,
+  windowClosed: (platform: string) => `[social] ${platform}的浏览器窗口关掉了。`,
 
   kind: { comment: '评论', note: '短帖(Note)', post: '新帖' } as Record<WriteKind, string>,
   commentDrafted: (tool: string, id: string) => `[${tool}] 草稿 ${id} 在设置窗口的「社交媒体」页等对方处理:对方可以修改后发出,也可以丢弃。只有对方在那里点「发出」才会发出;事件告诉你结果之前,不要说已经发出。`,
   commentsOff: '评论草稿在「社交媒体」页是关着的;对方可以在那里打开。',
   commentOnNote: '这是 Substack 的短帖:回复它用 social_note,reply_to 给它的链接。',
+  commentElsewhere: '只能给社交平台上的帖子或视频写评论,不能写在 Google 新闻、新闻网站或其他网页上。',
   commentQueued: (tool: string, time: string) => `[${tool}] 已排队,约 ${time} 自动发出,与对方的其他发帖错开;发出后会有事件告诉你。在那之前不要说已经发出。`,
   commentShareLink: '分享链接看不出指向哪条帖子。先用 social_read 打开它,再用回执里的帖子链接。',
   commentNoTarget: (platform: string) => `这个链接没有指向${platform}上可以评论的内容;请给帖子或视频本身的链接。`,
@@ -181,6 +186,7 @@ const zh = {
   envComments: (c: { enabled: boolean; maxPerDay: number; auto: boolean; autoReply: boolean }) => (c.enabled
     ? `已打开,对方每天最多发出 ${c.maxPerDay} 条。${c.auto ? '自动评论开着:你写的评论排队后自动发出,彼此错开,不等对方过目。' : '你写的评论先作为草稿,等对方发出。'}${c.autoReply ? '自动回复开着:有人回复对方在 Reddit 的评论或帖子时会有 [social] 事件,你对那条回复的回应自动发出。' : ''}`
     : '已关闭:对方在「社交媒体」页打开之前,social_comment 不会执行。'),
+  envNews: (edition: string) => `Google 新闻用的是 ${edition} 版(对方可以在「社交媒体」页更改)。`,
   envPosts: (p: { enabled: boolean; maxPerDay: number; auto: boolean; platforms: string[] }) => (p.enabled
     ? `已打开,每天最多 ${p.maxPerDay} 条${p.auto ? ',排队后自动发出,彼此错开,不等对方过目' : ',先作为草稿等对方发出'}。能写新帖的平台:${p.platforms.length ? p.platforms.join('、') : '都被关掉了'}。`
     : '已关闭:对方在「社交媒体」页打开之前,social_post 不会执行。'),
@@ -191,7 +197,7 @@ const zh = {
 export type ModelText = typeof zh;
 
 const en: ModelText = {
-  platform: { reddit: 'Reddit', x: 'X', facebook: 'Facebook', threads: 'Threads', instagram: 'Instagram', youtube: 'YouTube', bilibili: 'Bilibili', rednote: 'Rednote', substack: 'Substack' },
+  platform: { reddit: 'Reddit', x: 'X', facebook: 'Facebook', threads: 'Threads', instagram: 'Instagram', youtube: 'YouTube', bilibili: 'Bilibili', rednote: 'Rednote', substack: 'Substack', news: 'Google News', web: 'Web' },
   source: (kind, query, sort, period) => {
     const order = [sort, period].filter(Boolean).join(', ');
     const base = kind === 'feed' ? 'feed' : kind === 'search' ? `search "${query}"` : kind === 'account' ? `account ${query}` : `community ${query}`;
@@ -241,18 +247,20 @@ const en: ModelText = {
   noBrowser: 'No Chromium-based browser (Chrome, Edge, Brave or Chromium) was found on this computer. The person can install one, or set its path on the Social media page.',
   noBrowserAt: (path) => `The browser path set on the Social media page does not exist: ${path}. The person can correct it, or clear it so the app finds a browser itself.`,
   loginWindowOpen: "A login window of the browser is still open; reading resumes once the person closes it (on a Mac, by quitting that browser with Cmd+Q).",
-  blocked: (platform, id, kind, detail) => ({
+  blocked: (platform, id, kind, detail) => (id === 'web' && kind === 'captcha' && /^https?:/.test(detail)
+    ? `The page ${detail} showed a verification check. Call social_login with platform web and url ${detail} so the person can pass it in a window.`
+    : {
     login: `${platform} asked for a login. Call social_login with ${id} to open a window where the person can log in.`,
     captcha: `${platform} showed a verification check. Call social_login with ${id} so the person can pass it in a window.`,
     consent: `${platform} asked about cookies first. Call social_login with ${id} so the person can answer in a window.`,
     blocked: `${platform} refused the request${detail ? ` (${detail})` : ''}; trying again later may work.`,
-  })[kind],
+  }[kind]),
   busy: (pages) => `The browser is reading in the background (${pages} ${pages === 1 ? 'page' : 'pages'}, the daily autoscroll); a window can open once that finishes.`,
   error: (message) => `Error: ${message}`,
 
   readHead: (platform, took) => `[social_read] ${platform}, in ${took}:`,
   readNone: 'The page held no post.',
-  notPlatformUrl: 'This is not a link to one of the platforms: Reddit, X, Facebook, Threads, Instagram, YouTube, Bilibili, Rednote, Substack.',
+  notWebUrl: 'This is not a web link (http or https).',
   comments: (n) => `Top comments (${n}):`,
   comment: (author, text, score) => `- ${author}${score ? ` (${score})` : ''}: ${text}`,
 
@@ -270,12 +278,15 @@ const en: ModelText = {
   interruptedNothing: 'It was interrupted before anything was read.',
 
   loginOpened: (platform) => `[social_login] A browser window is open at the ${platform} login page. Tell the person to log in there and close the window when done; an event will say whether a login holds.`,
+  windowOpened: (where) => `[social_login] A browser window is open at ${where}. Tell the person to log in or pass the check there and close the window when done; an event will say when it is closed.`,
   loginEvent: (platform, holds) => `[social] The ${platform} login window was closed. ${holds ? 'A login holds.' : 'No login was found.'}`,
+  windowClosed: (platform) => `[social] The ${platform} browser window was closed.`,
 
   kind: { comment: 'comment', note: 'Note', post: 'post' },
   commentDrafted: (tool, id) => `[${tool}] Draft ${id} waits for the person on the Social media page of the settings window, where they can edit and post it, or discard it. It is posted only when they click Post there; until an event says what they did, don't say it was posted.`,
   commentsOff: 'Drafting comments is turned off on the Social media page; the person can turn it on there.',
   commentOnNote: 'This is a Substack Note: reply to it with social_note, its link as reply_to.',
+  commentElsewhere: "Comments go on posts and videos of the social platforms only, not on Google News, news sites or other web pages.",
   commentQueued: (tool, time) => `[${tool}] Queued: it goes out on its own at about ${time}, spaced from the person's other posts, and an event says when it is up. Until then, don't say it was posted.`,
   commentShareLink: "A share link doesn't say which post it leads to. Open it with social_read first, then use the post link the receipt gives.",
   commentNoTarget: (platform) => `This link names nothing on ${platform} that takes a comment; give the link of the post or video itself.`,
@@ -348,6 +359,7 @@ const en: ModelText = {
   envComments: (c) => (c.enabled
     ? `On; the person posts at most ${c.maxPerDay} a day. ${c.auto ? 'Automatic comments are on: what you write is queued and goes out on its own, spaced out, without waiting for the person.' : 'What you write waits as a draft for the person to post.'}${c.autoReply ? " Automatic replies are on: a [social] event brings new replies to the person's Reddit comments and posts, and your answer to one goes out on its own." : ''}`
     : "Off: social_comment doesn't run until the person turns it on on the Social media page."),
+  envNews: (edition) => `Google News shows its ${edition} edition (the person can change it on the Social media page).`,
   envPosts: (p) => (p.enabled
     ? `On; at most ${p.maxPerDay} a day${p.auto ? ', queued and posted on their own, spaced out, without waiting for the person' : ', as drafts the person posts'}. Platforms that take new posts: ${p.platforms.length ? p.platforms.join(', ') : 'all turned off'}.`
     : "Off: social_post doesn't run until the person turns it on on the Social media page."),

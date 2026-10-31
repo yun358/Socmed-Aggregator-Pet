@@ -14,6 +14,7 @@ import type { WebUiClientBundle, WebUiPanelContext } from 'cortico/web/shared/cl
 import type { CommentDraft, PostedComment, QueuedPost } from '../comments.ts';
 import { IMAGE_MODES, SOCIAL_ID, parseJobs, socialConfigGroup, type AutoscrollJob, type ImageMode } from '../config.ts';
 import { socialText } from '../i18n/index.ts';
+import { EDITION } from '../platforms/news-parse.ts';
 import { publicationAddress } from '../platforms/substack-parse.ts';
 import { PLATFORM_IDS, VIDEO_PLATFORMS, type PlatformId, type SourceKind } from '../posts.ts';
 import type { SocialPanelState } from '../world.ts';
@@ -34,6 +35,8 @@ const SOURCES: Readonly<Record<PlatformId, readonly SourceKind[]>> = {
   bilibili: ['feed', 'search', 'account'],
   rednote: ['feed', 'search', 'account'],
   substack: ['feed', 'account', 'community'],
+  news: ['feed', 'search', 'community'],
+  web: ['search'],
 };
 
 /** `jobKey` of src/autoscroll.ts, which runs in Node. */
@@ -298,9 +301,15 @@ function mount(ctx: WebUiPanelContext): void {
     on.input.setAttribute('aria-label', name);
     const login = ui.pill(s.unchecked);
     const open = ui.button(s.login, { size: 'sm', onClick: () => void read('login', [id], platformsMsg, s.loginOpened(name)) });
-    control.append(on.el, login, open);
-    return { id, el: row(name, control), on, login, open };
+    // Google News and the web have no login to show
+    const none = ui.h('span', 'social-muted', s.noLogin);
+    none.hidden = true;
+    control.append(on.el, login, open, none);
+    return { id, el: row(name, control), on, login, open, none };
   });
+  const edition = textSetting('newsEdition', '', platformsMsg);
+  edition.input.classList.add('mono');
+  const editionHint = ui.h('p', 'home-note');
   const check = ui.button(s.checkLogins, { size: 'sm', onClick: () => checkLogins() });
   const checkLogins = () => {
     check.disabled = true;
@@ -316,6 +325,7 @@ function mount(ctx: WebUiPanelContext): void {
   platforms.body.append(
     ...platformRows.map((p) => p.el),
     row('', check),
+    row(s.newsEdition, edition.input, editionHint),
     row(s.browser, pathInput, browserLine),
     row(s.showBrowser, showBrowser.el, s.showBrowserHint),
     platformsMsg,
@@ -349,7 +359,9 @@ function mount(ctx: WebUiPanelContext): void {
   /** The draft holds an incomplete job, which is not saved. */
   let incomplete = false;
   let jobRows: Array<{ set(job: AutoscrollJob): void; paint(): void }> = [];
-  const describe = (j: AutoscrollJob) => [text.platforms[j.platform], text.sources[j.source], j.query].filter(Boolean).join(' · ');
+  /** A source's name on a platform: Google News names its feed and communities its own way. */
+  const sourceName = (p: PlatformId, k: SourceKind) => (p === 'news' ? text.newsSources[k as 'feed' | 'community'] : undefined) ?? text.sources[k];
+  const describe = (j: AutoscrollJob) => [text.platforms[j.platform], sourceName(j.platform, j.source), j.query].filter(Boolean).join(' · ');
 
   const commitJobs = async () => {
     if (parseJobs(draft).length !== draft.length) {
@@ -418,7 +430,7 @@ function mount(ctx: WebUiPanelContext): void {
       if (!focused(platform)) platform.value = job.platform;
       if (source.dataset.platform !== job.platform) {
         source.dataset.platform = job.platform;
-        source.replaceChildren(...SOURCES[job.platform].map((k) => { const o = ui.h('option', null, text.sources[k]); o.value = k; return o; }));
+        source.replaceChildren(...SOURCES[job.platform].map((k) => { const o = ui.h('option', null, sourceName(job.platform, k)); o.value = k; return o; }));
       }
       if (!focused(source)) source.value = job.source;
       // the feed reads no query: the field keeps its room, so the jobs' fields stay in columns
@@ -590,6 +602,9 @@ function mount(ctx: WebUiPanelContext): void {
 
     for (const p of platformRows) {
       p.on.setChecked(c.platforms[p.id]);
+      const none = next.loginless.includes(p.id);
+      p.login.hidden = p.open.hidden = none;
+      p.none.hidden = !none;
       const known = next.logins[p.id];
       p.login.textContent = known === undefined ? s.unchecked : known ? s.loggedIn : s.loggedOut;
       p.login.className = known === undefined ? 'pill' : known ? 'pill on' : 'pill off';
@@ -601,6 +616,11 @@ function mount(ctx: WebUiPanelContext): void {
     browserLine.textContent = next.browser ? s.browserFound(next.browser) : c.browserFile ? s.browserFileMissing : s.browserMissing;
     browserLine.classList.toggle('social-bad', !next.browser);
     showBrowser.setChecked(c.showBrowser);
+    edition.set(c.newsEdition);
+    edition.input.placeholder = next.edition;
+    const badEdition = !!c.newsEdition.trim() && !EDITION.test(c.newsEdition.trim());
+    editionHint.textContent = badEdition ? s.newsEditionBad : s.newsEditionHint;
+    editionHint.classList.toggle('social-bad', badEdition);
 
     autoscrollOn.setChecked(c.autoscroll.enabled);
     minutes.set(c.autoscroll.maxMinutes);
