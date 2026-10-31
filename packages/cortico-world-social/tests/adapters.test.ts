@@ -16,7 +16,8 @@ import { MODEL_TEXT } from '../src/model-text.ts';
 import { Ocr } from '../src/ocr.ts';
 import { wbiSign } from '../src/platforms/bilibili-parse.ts';
 import { localStamp } from '../src/render.ts';
-import { SocialWorld } from '../src/world.ts';
+import { socialText } from '../src/i18n/index.ts';
+import { SocialWorld, type SocialPanelState } from '../src/world.ts';
 import { FakeHost } from './helpers/fake-host.ts';
 import { FixtureBrowser, FixtureServer, findTestBrowser, html, jsonFixture, pageData, redirect, solidPng, type Fixture, type Router } from './helpers/live-browser.ts';
 
@@ -67,7 +68,8 @@ describe.skipIf(!EXE)('adapters through the World', () => {
       const r = await tools.get(name)!.handler(args, { role: 'main', log: host.log });
       return typeof r === 'string' ? { text: r } : r;
     };
-    return { world, host, cfg, call };
+    const panel = async (method: string, ...args: unknown[]) => await world.webUi('en').invoke!('social', method, args) as SocialPanelState;
+    return { world, host, cfg, call, panel };
   }
 
   /* ---------- Reddit ---------- */
@@ -541,6 +543,177 @@ describe.skipIf(!EXE)('adapters through the World', () => {
       expect(r.text).toContain('[1] Fixture Member\n> Where to find laksa in the east, and when the stalls open.\nhttps://www.facebook.com/groups/fixturegroup/posts/1000/');
       expect(r.text).toContain('[2] Fixture Other\n> Try the stall by the river\nhttps://www.facebook.com/groups/fixturegroup/posts/3000/');
     });
+  });
+
+  /* ---------- writing in the platforms' pages ---------- */
+
+  /**
+   * Comments and posts typed into pages built like the platforms' own: a box, often behind a
+   * placeholder, and a send button (or Enter) whose script sends the box's text the way the
+   * platform's page does. The router keeps each body sent and answers as the platform does.
+   */
+  describe('writing in the page', () => {
+    const c = socialText('en').comments;
+    const on = (cfg: SocialConfigSection) => { cfg.comments.enabled = true; cfg.posts.enabled = true; };
+    /** A page script sending `body(text)` to `url` when `trigger` fires, `text` read from the box. */
+    const sends = (url: string, body: string, contentType = 'application/json') =>
+      `fetch(${JSON.stringify(url)}, { method: 'POST', headers: { 'content-type': '${contentType}' }, body: ${body} });`;
+    /** Writes with `tool`, then posts the draft from the panel as it stands; what the panel shows after. */
+    async function writeAndPost(made: Awaited<ReturnType<typeof makeWorld>>, tool: string, args: Record<string, unknown>) {
+      const receipt = (await made.call(tool, args)).text;
+      const [draft] = (await made.panel('state')).comments.drafts;
+      expect(draft, receipt).toBeDefined();
+      return await made.panel('commentPost', draft!.id, draft!.text);
+    }
+    const kept = (bodies: string[]) => (url: URL, request: { method(): string; postData(): string | null }) => {
+      if (request.method() === 'POST') bodies.push(request.postData() ?? '');
+    };
+
+    it('X: replies in the box under the post and posts from the compose page, keeping line breaks, with the links X gives', async () => {
+      const bodies: string[] = [];
+      const keep = kept(bodies);
+      const composer = (button: string) => html(`<main><article data-testid="tweet"><div data-testid="tweetText">Original</div></article>
+        <div data-testid="tweetTextarea_0" contenteditable="true" role="textbox"></div><button data-testid="${button}">Post</button></main>
+        <script>document.querySelector('[data-testid="${button}"]').addEventListener('click', () => {
+          const text = document.querySelector('[data-testid="tweetTextarea_0"]').innerText;
+          ${sends('/i/api/graphql/fixtureQ/CreateTweet', "JSON.stringify({ variables: { tweet_text: text }, queryId: 'fixtureQ' })")}
+        });</script>`);
+      const made = await makeWorld((u, request) => {
+        if (u.pathname === '/i/status/1850000000000000001') return composer('tweetButtonInline');
+        if (u.pathname === '/compose/post') return composer('tweetButton');
+        if (u.pathname === '/i/api/graphql/fixtureQ/CreateTweet') {
+          keep(u, request);
+          return jsonFixture({ data: { create_tweet: { tweet_results: { result: { rest_id: `18500000000000000${90 + bodies.length}` } } } } });
+        }
+        return null;
+      }, on);
+      const reply = await writeAndPost(made, 'social_comment', { url: 'https://x.com/fixture_alice/status/1850000000000000001', text: 'Agreed.\nThe noodles were worth it.' });
+      expect(reply.comments.posted).toMatchObject([{ platform: 'x', link: 'https://x.com/i/status/1850000000000000091' }]);
+      const post = await writeAndPost(made, 'social_post', { platform: 'x', text: 'Laksa season, día uno 🍜' });
+      expect(post.comments.postedPosts).toMatchObject([{ platform: 'x', link: 'https://x.com/i/status/1850000000000000092' }]);
+      expect(bodies.map((b) => (JSON.parse(b) as { variables: { tweet_text: string } }).variables.tweet_text)).toEqual(['Agreed.\nThe noodles were worth it.', 'Laksa season, día uno 🍜']);
+    });
+
+    it("YouTube: opens the comment box under the video, sends the comment, and links it by the id YouTube gives", async () => {
+      const bodies: string[] = [];
+      const keep = kept(bodies);
+      const made = await makeWorld((u, request) => {
+        if (u.pathname === '/watch') return html(`<div id="player">Fixture video</div><ytd-comments><ytd-comment-simplebox-renderer>
+          <div id="placeholder-area">Add a comment…</div>
+          <div id="editor" hidden><div id="contenteditable-root" contenteditable="true"></div><button id="submit-button">Comment</button></div>
+        </ytd-comment-simplebox-renderer></ytd-comments>
+        <script>
+          const box = document.querySelector('ytd-comment-simplebox-renderer');
+          box.querySelector('#placeholder-area').addEventListener('click', () => { box.querySelector('#placeholder-area').hidden = true; box.querySelector('#editor').hidden = false; });
+          box.querySelector('#submit-button').addEventListener('click', () => {
+            const text = box.querySelector('#contenteditable-root').innerText;
+            ${sends('/youtubei/v1/comment/create_comment?prettyPrint=false', "JSON.stringify({ createCommentParams: 'FIXTURE', commentText: text })")}
+          });
+        </script>`);
+        if (u.pathname === '/youtubei/v1/comment/create_comment') {
+          keep(u, request);
+          return jsonFixture({ actions: [{ createCommentAction: { contents: { commentThreadRenderer: { comment: { commentRenderer: { commentId: 'UgxFixture1' } } } } } }] });
+        }
+        return null;
+      }, on);
+      const state = await writeAndPost(made, 'social_comment', { url: 'https://www.youtube.com/watch?v=aaaaaaaaaaa', text: 'Clear explanation, thank you.' });
+      expect(state.comments.posted).toMatchObject([{ platform: 'youtube', link: 'https://www.youtube.com/watch?v=aaaaaaaaaaa&lc=UgxFixture1' }]);
+      expect(bodies.map((b) => (JSON.parse(b) as { commentText: string }).commentText)).toEqual(['Clear explanation, thank you.']);
+    });
+
+    it("Threads: replies in the dialog the reply button opens, and posts from the dialog the share intent fills", async () => {
+      const bodies: string[] = [];
+      const keep = kept(bodies);
+      const dialog = (prefill: string) => `<div role="dialog"><div contenteditable="true" role="textbox">${prefill}</div><div role="button" id="send">Post</div></div>
+        <script>document.querySelector('#send').addEventListener('click', () => {
+          const text = document.querySelector('div[role="dialog"] div[contenteditable="true"]').innerText;
+          ${sends('/api/graphql', "new URLSearchParams({ variables: JSON.stringify({ text_post_app_info: { text_with_entities: { text } } }) }).toString()", 'application/x-www-form-urlencoded')}
+        });</script>`;
+      const made = await makeWorld((u, request) => {
+        if (u.pathname === '/@fixture_alice/post/DAbCdEf1234') return html(`<div data-pressable-container="true"><span>Original</span>
+          <div role="button"><svg aria-label="Reply" width="20" height="20" role="img"><rect width="20" height="20"></rect></svg></div></div><div id="root"></div>
+          <script>document.querySelector('svg[aria-label="Reply"]').addEventListener('click', () => {
+            const root = document.querySelector('#root');
+            root.innerHTML = ${JSON.stringify(dialog('')).replace(/<\//g, '<\\/')};
+            for (const s of root.querySelectorAll('script')) { const n = document.createElement('script'); n.textContent = s.textContent; s.replaceWith(n); }
+          });</script>`);
+        if (u.pathname === '/intent/post') return html(dialog(u.searchParams.get('text')!.replace(/[<>&]/g, '')));
+        if (u.pathname === '/api/graphql') {
+          keep(u, request);
+          return jsonFixture({ data: { create_post: { post: { pk: '1' } } } });
+        }
+        return null;
+      }, on);
+      const reply = await writeAndPost(made, 'social_comment', { url: 'https://www.threads.net/@fixture_alice/post/DAbCdEf1234', text: "It's (really) the best stall." });
+      expect(reply.comments.posted).toMatchObject([{ platform: 'threads', link: null }]);
+      const post = await writeAndPost(made, 'social_post', { platform: 'threads', text: 'Morning walk by the river.' });
+      expect(post.comments.postedPosts).toMatchObject([{ platform: 'threads', link: null }]);
+      const texts = bodies.map((b) => (JSON.parse(new URLSearchParams(b).get('variables')!) as { text_post_app_info: { text_with_entities: { text: string } } }).text_post_app_info.text_with_entities.text);
+      expect(texts).toEqual(["It's (really) the best stall.", 'Morning walk by the river.']);
+    });
+
+    it('Facebook: types the comment into the box under the post and sends it with Enter', async () => {
+      const bodies: string[] = [];
+      const keep = kept(bodies);
+      const made = await makeWorld((u, request) => {
+        if (u.pathname === '/fixturegroup/posts/123456789') return html(`<div role="main"><div>Original</div><div role="textbox" contenteditable="true" aria-label="Write a comment"></div></div>
+          <script>const box = document.querySelector('[role="textbox"]');
+          box.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' || e.shiftKey) return;
+            e.preventDefault();
+            ${sends('/api/graphql/', "new URLSearchParams({ fb_api_req_friendly_name: 'useCometUFICreateCommentMutation', variables: JSON.stringify({ input: { message: { text: box.innerText } } }) }).toString()", 'application/x-www-form-urlencoded')}
+          });</script>`);
+        if (u.pathname === '/api/graphql/') {
+          keep(u, request);
+          return { body: 'for (;;);{"data":{"comment_create":{"feedback_comment_edge":{"node":{"id":"Y29tbWVudDox"}}}}}', contentType: 'application/json' };
+        }
+        return null;
+      }, on);
+      const state = await writeAndPost(made, 'social_comment', { url: 'https://www.facebook.com/fixturegroup/posts/123456789', text: 'Lovely photos!\nSee you there.' });
+      expect(state.comments.posted).toMatchObject([{ platform: 'facebook', link: null }]);
+      const sent = JSON.parse(new URLSearchParams(bodies[0]).get('variables')!) as { input: { message: { text: string } } };
+      expect(sent.input.message.text).toBe('Lovely photos!\nSee you there.');
+    });
+
+    it('Rednote: opens the comment bar under the note and sends the comment', async () => {
+      const bodies: string[] = [];
+      const keep = kept(bodies);
+      const id = 'a1'.repeat(12);
+      const made = await makeWorld((u, request) => {
+        if (u.pathname === `/explore/${id}`) return html(`<div id="noteContainer"><div class="note-content">Original</div>
+          <div class="engage-bar"><div class="input-box"><div class="inner-when-not-active">说点什么...</div></div></div></div>
+          <script>const bar = document.querySelector('.engage-bar');
+          bar.querySelector('.inner-when-not-active').addEventListener('click', () => {
+            bar.innerHTML = '<div class="input-box"><p id="content-textarea" contenteditable="true"></p></div><button class="btn submit">发送</button>';
+            bar.querySelector('button.submit').addEventListener('click', () => {
+              ${sends('https://edith.xiaohongshu.com/api/sns/web/v1/comment/post', "JSON.stringify({ note_id: 'x', content: document.querySelector('#content-textarea').innerText, at_users: [] })", 'text/plain')}
+            });
+          });</script>`);
+        if (u.pathname === '/api/sns/web/v1/comment/post') {
+          keep(u, request);
+          return jsonFixture({ code: 0, success: true, data: { comment: { id: 'c1' } } }, { 'access-control-allow-origin': 'https://www.xiaohongshu.com' });
+        }
+        return null;
+      }, on);
+      const state = await writeAndPost(made, 'social_comment', { url: `https://www.xiaohongshu.com/explore/${id}?xsec_token=FIXTURE`, text: '收藏了,周末去试试。' });
+      expect(state.comments.posted).toMatchObject([{ platform: 'rednote', link: null }]);
+      expect((JSON.parse(bodies[0]!) as { content: string }).content).toBe('收藏了,周末去试试。');
+    });
+
+    it("keeps the draft and says why when the page shows no box, or the platform wants a login", async () => {
+      const made = await makeWorld((u) => {
+        if (u.pathname === '/i/status/1850000000000000001') return html('<main><article data-testid="tweet">Original</article></main>');
+        if (u.pathname === '/compose/post') return redirect('https://x.com/i/flow/login?redirect_after_login=%2Fcompose%2Fpost');
+        if (u.pathname === '/i/flow/login') return html('<h1>Sign in</h1>');
+        return null;
+      }, on);
+      await made.call('social_comment', { url: 'https://x.com/fixture_alice/status/1850000000000000001', text: 'Agreed.' });
+      await made.call('social_post', { platform: 'x', text: 'Hello.' });
+      const [reply, post] = (await made.panel('state')).comments.drafts;
+      await expect(made.panel('commentPost', reply!.id, 'Agreed.')).rejects.toThrow(c.refused('X', 'no text box showed on the page; it may need a login, or the page changed'));
+      await expect(made.panel('commentPost', post!.id, 'Hello.')).rejects.toThrow(c.login('X'));
+      expect((await made.panel('state')).comments.drafts).toHaveLength(2);
+    }, 30_000);
   });
 
   /* ---------- blocks ---------- */

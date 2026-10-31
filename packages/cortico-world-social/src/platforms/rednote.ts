@@ -2,13 +2,16 @@
  * Rednote (Xiaohongshu) from its pages: explore, search and a profile list note cards; each note's
  * full text and images are on its own page, which needs the card's `xsec_token`. Notes are opened
  * with a pause between them, since Rednote sends fast visitors to a captcha. Search needs a login.
- * Rednote sets its session cookie for guests too, so a login is read from the page.
+ * Rednote sets its session cookie for guests too, so a login is read from the page. A comment is
+ * typed into the comment bar on the note's page (`compose`), whose link keeps its `xsec_token`.
  */
 import type { PageSession } from '../browser.ts';
 import { PlatformBlocked, scrollCollect, type Collector } from '../collect.ts';
+import { AUTO_LINE_ZH } from '../comments.ts';
 import type { Post } from '../posts.ts';
 import { readRednoteCards, readRednoteNote, rednoteBlocked, scrollDown, type RednoteCard } from './dom.ts';
 import { hostIs, type Adapter } from './adapter.ts';
+import { compose } from './compose.ts';
 
 const ORIGIN = 'https://www.xiaohongshu.com';
 /** Pause between note pages. */
@@ -97,6 +100,28 @@ async function fromCards(page: PageSession, collector: Collector, source: CardSo
   return true;
 }
 
+/** The longest comment the bot sends on Rednote. */
+export const REDNOTE_COMMENT_MAX = 280;
+
+/** What a comment on a Rednote link replies to: the note's page, with the token in its link. */
+export function rednoteReplyTarget(url: URL): string | null {
+  if (!hostIs(url, 'xiaohongshu.com', 'rednote.com')) return null;
+  const id = /^\/(?:explore|discovery\/item)\/([0-9a-f]{24})/.exec(url.pathname)?.[1];
+  return id ? `${ORIGIN}/explore/${id}${url.search}` : null;
+}
+
+/** Comments `text` on the note at `target`, in the comment bar under it. */
+export async function postRednoteComment(page: PageSession, target: string, text: string): Promise<{ link: string | null }> {
+  await open(page, target);
+  await compose(page, 'rednote', {
+    open: ['.engage-bar .input-box', '.inner-when-not-active'],
+    box: '#content-textarea, .engage-bar [contenteditable="true"], textarea.comment-input',
+    send: 'button.btn.submit, .engage-bar button.submit, button.send-btn',
+    request: /\/api\/sns\/web\/v1\/comment\/post\b/,
+  }, text);
+  return { link: null };
+}
+
 export const REDNOTE: Adapter = {
   id: 'rednote',
   loginUrl: `${ORIGIN}/explore`,
@@ -119,6 +144,13 @@ export const REDNOTE: Adapter = {
 
   // the app shares xhslink.com links, which redirect to the note
   shareLink: (url) => hostIs(url, 'xhslink.com'),
+
+  write: {
+    replyTarget: rednoteReplyTarget,
+    comment: postRednoteComment,
+    commentMax: REDNOTE_COMMENT_MAX,
+    mark: AUTO_LINE_ZH,
+  },
 
   async loggedIn(page) {
     await open(page, `${ORIGIN}/explore`);

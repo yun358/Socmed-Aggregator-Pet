@@ -4,11 +4,12 @@
  * turn of the bot: what every `social_*` read in that turn used is added up and checked against
  * `maxPosts` and `maxSec`, and starts again from nothing when the turn ends. The daily autoscroll
  * runs here, outside any turn, and tells the bot when a run's posts are ready, once it is idle.
- * Comments and Notes the bot writes wait for the person on the panel, which alone posts them, unless
- * the person turned on an automatic switch; then they are queued and sent from the schedule, spaced
- * by `GAPS` (`comments.ts`). While automatic replies are on, the inbox is looked at every
- * `REPLY_CHECK_MS` and new replies are told; while daily Notes are on, the bot is asked for each at
- * its planned time. Substack post drafts are created in the person's publication and never published.
+ * Comments, new posts and Notes the bot writes, each sent by its platform's writer (`Writer`), wait
+ * for the person on the panel, which alone posts them, unless the person turned on an automatic
+ * switch; then they are queued and sent from the schedule, spaced by `GAPS` (`comments.ts`). While
+ * automatic replies are on, the inbox is looked at every `REPLY_CHECK_MS` and new replies are told;
+ * while daily Notes are on, the bot is asked for each at its planned time. Substack post drafts are
+ * created in the person's publication and never published.
  */
 import { existsSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
@@ -22,7 +23,7 @@ import { BrowserBusy, BrowserMissing, Interrupted, LoginWindowOpen, SocialBrowse
 import { Collector, Deadline, PlatformBlocked, type StopReason } from './collect.ts';
 import { CommentRefused, CommentStore, DRAFTS_MAX, hasLink, type CommentDraft, type PostedComment, type QueuedPost, type WriteKind } from './comments.ts';
 import {
-  COMMENTS_PER_DAY_CAP, DAILY_NOTES_CAP, MAX_JOBS, JOB_POSTS_CAP, MAX_POSTS_CAP, MAX_SEC_CAP, NOTES_PER_DAY_CAP, SOCIAL_ID, SOURCE_KINDS, parseJobs, socialConfigGroup,
+  COMMENTS_PER_DAY_CAP, DAILY_NOTES_CAP, MAX_JOBS, JOB_POSTS_CAP, MAX_POSTS_CAP, MAX_SEC_CAP, NOTES_PER_DAY_CAP, POSTS_PER_DAY_CAP, SOCIAL_ID, SOURCE_KINDS, parseJobs, socialConfigGroup,
   type AutoscrollJob, type ImageMode, type SocialConfigSection,
 } from './config.ts';
 import { findBrowser } from './find-browser.ts';
@@ -31,10 +32,10 @@ import { readImages } from './images.ts';
 import { Lifetime } from './lifetime.ts';
 import { MODEL_TEXT, type Limits, type ModelLanguage, type ModelText } from './model-text.ts';
 import { Ocr, ocrLanguagesFor } from './ocr.ts';
-import { ADAPTERS, platformOf, type Adapter, type BrowseRequest, type TranscriptResult } from './platforms/index.ts';
+import { ADAPTERS, POST_PLATFORMS, lengthOn, limitOf, markOf, platformOf, type Adapter, type BrowseRequest, type TranscriptResult } from './platforms/index.ts';
 import { bilibiliVideoId } from './platforms/bilibili-parse.ts';
-import { AUTO_NOTE, BOT_COMMENT_MAX, REDDIT_COMMENT_MAX, postRedditComment, redditInbox, redditReplyTarget } from './platforms/reddit.ts';
-import { SUBSTACK_AUTO_NOTE, createSubstackDraft, postSubstackComment, postSubstackNote, substackNoteId, substackPostRef } from './platforms/substack.ts';
+import { redditInbox } from './platforms/reddit.ts';
+import { createSubstackDraft, postSubstackNote, substackNoteId } from './platforms/substack.ts';
 import { publicationAddress } from './platforms/substack-parse.ts';
 import { youtubeVideoId } from './platforms/youtube-parse.ts';
 import { PLATFORM_IDS, VIDEO_PLATFORMS, type PlatformId, type Post, type Transcript } from './posts.ts';
@@ -60,8 +61,8 @@ const READ_TEXT_MAX = 20000;
 const LOGIN_CHECK_MS = 20_000;
 /** Transcripts kept for `from_sec` follow-ups without reloading the video. */
 const TRANSCRIPT_CACHE = 4;
-/** Time posting one comment may take. */
-const POST_MS = 30_000;
+/** Time posting one comment or post may take; one typed into a platform's page takes the longest. */
+const POST_MS = 60_000;
 /** Posted comments the panel lists. */
 const POSTED_SHOWN = 10;
 /** How often the inbox is looked at while automatic replies are on. */
@@ -79,7 +80,7 @@ const NO_ANSWER = new Set(['automoderator', '[deleted]']);
 /** The least wait before an automatic post goes out; the wait varies up to twice it. */
 export const FIRST_WAIT_MS = 60_000;
 /** The least time between two automatic posts of a kind on one platform; the time varies up to twice it. */
-export const GAPS: Record<WriteKind, number> = { comment: 4 * 60_000, note: 90 * 60_000 };
+export const GAPS: Record<WriteKind, number> = { comment: 4 * 60_000, post: 60 * 60_000, note: 90 * 60_000 };
 /** Daily Notes are planned between these local times, in minutes after midnight. */
 export const WRITE_FROM_MIN = 9 * 60;
 export const WRITE_TO_MIN = 21 * 60;
@@ -124,6 +125,7 @@ export interface SocialPanelState {
     platforms: Record<PlatformId, boolean>;
     autoscroll: { enabled: boolean; maxMinutes: number };
     comments: { enabled: boolean; maxPerDay: number; auto: boolean; autoReply: boolean; sign: boolean };
+    posts: SocialConfigSection['posts'];
     substack: SocialConfigSection['substack'];
   };
   jobs: AutoscrollJob[];
@@ -141,6 +143,8 @@ export interface SocialPanelState {
     posted: PostedComment[];
     /** The last Notes posted, newest first. */
     postedNotes: PostedComment[];
+    /** The last new posts posted, newest first. */
+    postedPosts: PostedComment[];
     /** Posted today, by the local date. */
     today: number;
     /** Drafts being posted now. */
@@ -149,12 +153,15 @@ export interface SocialPanelState {
     checkedAt: string | null;
     /** Automatic posts waiting for their time, the next first. */
     queued: QueuedPost[];
-    /** Notes posted today, by the local date. */
+    /** Notes and new posts posted today, by the local date. */
     notesToday: number;
+    postsToday: number;
   };
+  /** The platforms the bot writes new posts on; it comments on all. */
+  postPlatforms: PlatformId[];
   caps: {
     maxPosts: number; maxSec: number; jobPosts: number; jobs: number; commentsPerDay: number; replyCheckMin: number; repliesPerAccount: number;
-    notesPerDay: number; dailyNotes: number; commentGapMin: number; noteGapMin: number;
+    notesPerDay: number; dailyNotes: number; postsPerDay: number; commentGapMin: number; noteGapMin: number; postGapMin: number;
     /** Daily Notes are asked for between these local times, in minutes after midnight. */
     writeFromMin: number; writeToMin: number;
   };
@@ -176,6 +183,16 @@ const str = (v: unknown): string => (typeof v === 'string' ? v : '');
 /** An error's first line without terminal colors; Playwright adds a call log on further lines. */
 const firstLine = (err: unknown): string => String((err as Error)?.message ?? err).replace(/\u001b\[[\d;]*m/g, '').split('\n')[0].trim();
 const int = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? Math.floor(v) : undefined);
+/** What of a queued post or a draft becomes a draft again: all but its id, times and the account it answers. */
+const draftOf = (p: CommentDraft): Omit<CommentDraft, 'id' | 'at'> => ({
+  platform: p.platform, kind: p.kind, url: p.url, target: p.target, text: p.text,
+  ...(p.title !== undefined ? { title: p.title } : {}), ...(p.community !== undefined ? { community: p.community } : {}),
+});
+/** What of a draft or a queued post the record of its posting keeps. */
+const postedOf = (p: CommentDraft) => {
+  const { target: _target, text: _text, ...kept } = draftOf(p);
+  return kept;
+};
 
 export class SocialWorld implements World {
   readonly id = SOCIAL_ID;
@@ -302,6 +319,7 @@ export class SocialWorld implements World {
       social_login: (a) => this.login(a),
       social_comment: async (a) => this.comment(a),
       social_note: async (a) => this.note(a),
+      social_post: async (a) => this.post(a),
       social_draft: (a, s) => this.draftPost(a, s),
       social_stats: async () => this.stats(),
       social_digest: async (a) => this.digest(a),
@@ -552,23 +570,26 @@ export class SocialWorld implements World {
     return t.loginOpened(t.platform[platform]);
   }
 
-  /* ---------- comments and Notes ---------- */
+  /* ---------- comments, posts and Notes ---------- */
 
-  /** Where a comment on `url` goes: a Reddit post or comment, or a Substack post; the refusal otherwise. */
+  /** The names of the platforms turned on that take new posts from the bot. */
+  private postable(): string[] {
+    return POST_PLATFORMS.filter((p) => this.cfg.platforms[p]?.enabled !== false).map((p) => this.t.platform[p]);
+  }
+
+  /** Where a comment on `url` goes: the platform and what the post or comment is named there; the refusal otherwise. */
   private commentTarget(url: string): { platform: PlatformId; target: string } | { refusal: string } {
     const t = this.t;
     const notRun = (why: string) => ({ refusal: t.notRun('social_comment', why) });
     const owner = platformOf(url);
-    if (owner !== 'reddit' && owner !== 'substack') return notRun(owner ? t.commentPlatforms : t.notPlatformUrl);
+    if (!owner) return notRun(t.notPlatformUrl);
     const picked = this.platformArg('social_comment', owner);
     if ('refusal' in picked) return picked;
-    if (owner === 'substack') {
-      if (substackNoteId(url) !== null) return notRun(t.commentOnNote);
-      return substackPostRef(url) ? { platform: owner, target: url } : notRun(t.commentNoSubstackPost);
-    }
-    const target = redditReplyTarget(url);
-    if (!target) return notRun(ADAPTERS.reddit.shareLink?.(new URL(url)) ? t.commentShareLink : t.commentNoTarget);
-    return { platform: owner, target };
+    const u = new URL(url);
+    if (ADAPTERS[owner].shareLink?.(u)) return notRun(t.commentShareLink);
+    if (owner === 'substack' && substackNoteId(url) !== null) return notRun(t.commentOnNote);
+    const target = u.protocol === 'https:' || u.protocol === 'http:' ? ADAPTERS[owner].write.replyTarget(u) : null;
+    return target ? { platform: owner, target } : notRun(t.commentNoTarget(t.platform[owner]));
   }
 
   /**
@@ -587,7 +608,8 @@ export class SocialWorld implements World {
     if ('refusal' in where) return where.refusal;
     const text = str(args.text).trim();
     if (!text) return notRun(t.commentEmpty);
-    if (text.length > BOT_COMMENT_MAX) return notRun(t.commentTooLong(BOT_COMMENT_MAX));
+    const max = limitOf(where.platform, 'comment', true);
+    if (lengthOn(where.platform, text) > max) return notRun(t.commentTooLong(max));
     if (this.comments.todayWithQueued(this.opts.timezone, 'comment') >= c.maxPerDay) return notRun(t.commentDayFull(c.maxPerDay));
     const answering = this.answering(where.target);
     const post = { platform: where.platform, kind: 'comment' as const, url, target: where.target, text };
@@ -598,6 +620,39 @@ export class SocialWorld implements World {
     const queued = this.queue({ ...post, ...(answering ? { to: answering.author } : {}) });
     this.awaiting.delete(where.target);
     return t.commentQueued('social_comment', localStamp(queued.due, this.opts.timezone));
+  }
+
+  /**
+   * A new post of the person's own the bot wrote: queued to go out on its own while automatic posts
+   * are on, unless it has a link; otherwise a draft, brought up on the panel.
+   */
+  private post(args: Record<string, unknown>): string {
+    const t = this.t;
+    const p = this.cfg.posts;
+    const notRun = (why: string) => t.notRun('social_post', why);
+    if (!p.enabled) return notRun(t.postsOff);
+    const platform = PLATFORM_IDS.find((x) => x === args.platform);
+    if (platform === 'substack') return notRun(t.postOnSubstack);
+    const writer = platform ? ADAPTERS[platform].write.posts : undefined;
+    if (!platform || !writer) return notRun(t.postPlatforms(this.postable()));
+    const picked = this.platformArg('social_post', platform);
+    if ('refusal' in picked) return picked.refusal;
+    const text = str(args.text).trim();
+    const title = str(args.title).trim();
+    const community = str(args.community).trim();
+    if (!text) return notRun(t.commentEmpty);
+    for (const need of writer.needs) if (!(need === 'title' ? title : community)) return notRun(t.postNeeds(t.platform[platform], need));
+    if (writer.titleMax && title.length > writer.titleMax) return notRun(t.titleTooLong(writer.titleMax));
+    const max = limitOf(platform, 'post', true);
+    if (lengthOn(platform, text) > max) return notRun(t.commentTooLong(max));
+    if (this.comments.todayWithQueued(this.opts.timezone, 'post') >= p.maxPerDay) return notRun(t.postDayFull(p.maxPerDay));
+    const draft = {
+      platform, kind: 'post' as const, url: '', target: '', text,
+      ...(writer.needs.includes('title') ? { title } : {}), ...(writer.needs.includes('community') ? { community } : {}),
+    };
+    if (!p.auto) return this.draft(draft, 'social_post', null, true);
+    if (hasLink(text)) return this.draft(draft, 'social_post', t.heldLink, true);
+    return t.commentQueued('social_post', localStamp(this.queue(draft).due, this.opts.timezone));
   }
 
   /**
@@ -617,7 +672,8 @@ export class SocialWorld implements World {
     if (replyTo && parent === null) return notRun(t.noteNoTarget);
     const text = str(args.text).trim();
     if (!text) return notRun(t.commentEmpty);
-    if (text.length > BOT_COMMENT_MAX) return notRun(t.commentTooLong(BOT_COMMENT_MAX));
+    const max = limitOf('substack', 'note', true);
+    if (text.length > max) return notRun(t.commentTooLong(max));
     if (this.comments.todayWithQueued(this.opts.timezone, 'note') >= s.maxNotesPerDay) return notRun(t.noteDayFull(s.maxNotesPerDay));
     const post = { platform: 'substack' as const, kind: 'note' as const, url: replyTo, target: parent === null ? '' : String(parent), text };
     const asked = this.now() - this.promptedAt > WRITE_WAIT_MS;
@@ -627,7 +683,7 @@ export class SocialWorld implements World {
   }
 
   /** `post` as a draft for the person, brought up on the panel when `show`; the receipt of `tool`. */
-  private draft(post: Omit<CommentDraft, 'id' | 'at'>, tool: 'social_comment' | 'social_note', held: string | null, show: boolean): string {
+  private draft(post: Omit<CommentDraft, 'id' | 'at'>, tool: 'social_comment' | 'social_post' | 'social_note', held: string | null, show: boolean): string {
     const t = this.t;
     if (this.comments.drafts().length >= DRAFTS_MAX) return t.notRun(tool, t.commentDraftsFull(DRAFTS_MAX));
     const draft = this.comments.add(post);
@@ -649,6 +705,7 @@ export class SocialWorld implements World {
   private stillAutomatic(post: QueuedPost): boolean {
     if (this.cfg.platforms[post.platform]?.enabled === false) return false;
     if (post.kind === 'note') return this.cfg.substack.notes && this.cfg.substack.autoNotes;
+    if (post.kind === 'post') return this.cfg.posts.enabled && this.cfg.posts.auto;
     return this.cfg.comments.enabled && (post.to ? this.cfg.comments.autoReply : this.cfg.comments.auto);
   }
 
@@ -664,15 +721,14 @@ export class SocialWorld implements World {
       .catch((err: Error) => this.host?.log.warn(`social event not sent: ${err.message}`));
     const toDraft = async (why: string) => {
       this.comments.unqueue(post.id);
-      const draft = this.comments.add({ platform: post.platform, kind: post.kind, url: post.url, target: post.target, text: post.text });
+      const draft = this.comments.add(draftOf(post));
       await tell(t.autoHeld(t.kind[post.kind], t.platform[post.platform], why, draft.id));
     };
     if (!this.stillAutomatic(post)) return toDraft(t.heldSwitchedOff);
     this.sending = post.id;
     try {
-      const mark = post.platform === 'reddit' ? AUTO_NOTE : SUBSTACK_AUTO_NOTE;
-      const link = await this.publish(post, this.cfg.comments.sign ? `${post.text}\n\n${mark}` : post.text);
-      this.comments.record({ platform: post.platform, kind: post.kind, url: post.url, link, text: post.text, edited: false, auto: true, ...(post.to ? { to: post.to } : {}) }, post.id);
+      const link = await this.publish(post, this.cfg.comments.sign ? `${post.text}\n\n${markOf(post.platform, post.kind)}` : post.text);
+      this.comments.record({ ...postedOf(post), link, text: post.text, edited: false, auto: true, ...(post.to ? { to: post.to } : {}) }, post.id);
       await tell(t.autoSent(t.kind[post.kind], t.platform[post.platform], link));
     } catch (err) {
       // a post cut off may have reached the platform
@@ -698,35 +754,43 @@ export class SocialWorld implements World {
   }
 
   /** Posts `text` where `post` goes, with the browser's login; the link of what was posted when the platform named it. */
-  private async publish(post: Pick<CommentDraft, 'platform' | 'kind' | 'target'>, text: string, signal?: AbortSignal): Promise<string | null> {
+  private async publish(post: Pick<CommentDraft, 'platform' | 'kind' | 'target' | 'title' | 'community'>, text: string, signal?: AbortSignal): Promise<string | null> {
+    const writer = ADAPTERS[post.platform].write;
     const { link } = await this.browser.withPage((page) => {
-      if (post.platform === 'reddit') return postRedditComment(page, post.target, text);
       if (post.kind === 'note') return postSubstackNote(page, text, post.target ? Number(post.target) : undefined);
-      return postSubstackComment(page, post.target, text);
+      if (post.kind === 'comment') return writer.comment(page, post.target, text);
+      if (!writer.posts) throw new CommentRefused(post.platform, 'the bot writes no posts here');
+      return writer.posts.publish(page, { text, title: post.title, community: post.community });
     }, this.pageLimits(new Deadline(POST_MS, this.now), signal));
     return link;
   }
 
   /**
-   * Posts draft `id` with the text the person left in it, and tells the bot. A failure is worded for
-   * the panel and keeps the draft for another try.
+   * Posts draft `id` with the text, and the title of a post that has one, the person left in it, and
+   * tells the bot. A title left out keeps the draft's. A failure is worded for the panel and keeps
+   * the draft for another try.
    */
-  private async postDraft(id: unknown, text: unknown, words: SocialText): Promise<void> {
+  private async postDraft(id: unknown, text: unknown, title: unknown, words: SocialText): Promise<void> {
     const s = words.comments;
     const draft = typeof id === 'string' ? this.comments.draft(id) : undefined;
     if (!draft) throw new Error(s.gone);
     if (this.posting.has(draft.id)) throw new Error(s.posting);
     const body = str(text).trim();
     if (!body) throw new Error(s.empty);
-    if (body.length > REDDIT_COMMENT_MAX) throw new Error(s.tooLong(REDDIT_COMMENT_MAX));
+    const longest = limitOf(draft.platform, draft.kind, false);
+    if (lengthOn(draft.platform, body) > longest) throw new Error(s.tooLong(longest));
+    const heading = draft.title === undefined || title === undefined ? draft.title : str(title).trim();
+    if (heading === '') throw new Error(s.titleEmpty);
+    const titleMax = ADAPTERS[draft.platform].write.posts?.titleMax;
+    if (heading && titleMax && heading.length > titleMax) throw new Error(s.titleTooLong(titleMax));
     if (!this.cfg.platforms[draft.platform]?.enabled) throw new Error(words.panel.platformOff(words.platforms[draft.platform]));
-    const max = draft.kind === 'note' ? this.cfg.substack.maxNotesPerDay : this.cfg.comments.maxPerDay;
+    const max = draft.kind === 'note' ? this.cfg.substack.maxNotesPerDay : draft.kind === 'post' ? this.cfg.posts.maxPerDay : this.cfg.comments.maxPerDay;
     const posting = [...this.posting].filter((x) => this.comments.draft(x)?.kind === draft.kind).length;
     if (this.comments.todayWithQueued(this.opts.timezone, draft.kind) + posting >= max) throw new Error(s.dayFull(max));
     this.posting.add(draft.id);
     let link: string | null;
     try {
-      link = await this.publish(draft, body);
+      link = await this.publish({ ...draft, title: heading }, body);
     } catch (err) {
       const name = words.platforms[draft.platform];
       if (err instanceof PlatformBlocked) throw new Error(err.kind === 'login' ? s.login(name) : s.blocked(name, err.detail));
@@ -738,10 +802,11 @@ export class SocialWorld implements World {
     } finally {
       this.posting.delete(draft.id);
     }
-    const edited = body !== draft.text;
-    this.comments.record({ platform: draft.platform, kind: draft.kind, url: draft.url, link, text: body, edited, auto: false }, draft.id);
-    const shown = edited ? oneLine(body, COMMENT_TEXT_MAX) : null;
-    const event = draft.kind === 'note' ? this.t.notePosted(link, shown) : this.t.commentPosted(draft.url, link, shown);
+    const edited = body !== draft.text || heading !== draft.title;
+    this.comments.record({ ...postedOf(draft), ...(heading !== undefined ? { title: heading } : {}), link, text: body, edited, auto: false }, draft.id);
+    const shown = edited ? oneLine(heading ? `${heading} · ${body}` : body, COMMENT_TEXT_MAX) : null;
+    const t = this.t;
+    const event = draft.kind === 'note' ? t.notePosted(link, shown) : draft.kind === 'post' ? t.postPosted(t.platform[draft.platform], link, shown) : t.commentPosted(draft.url, link, shown);
     await this.push(`${SOCIAL_ID}.comment`, event, 'flush', 'internal').catch((err: Error) => this.host?.log.warn(`social event not sent: ${err.message}`));
   }
 
@@ -750,7 +815,8 @@ export class SocialWorld implements World {
     if (typeof id === 'string' && this.posting.has(id)) throw new Error(s.posting);
     const draft = typeof id === 'string' ? this.comments.remove(id) : undefined;
     if (!draft) throw new Error(s.gone);
-    const event = draft.kind === 'note' ? this.t.noteDiscarded : this.t.commentDiscarded(draft.url);
+    const t = this.t;
+    const event = draft.kind === 'note' ? t.noteDiscarded : draft.kind === 'post' ? t.postDiscarded(t.platform[draft.platform]) : t.commentDiscarded(draft.url);
     await this.push(`${SOCIAL_ID}.comment`, event, 'piggyback', 'internal').catch((err: Error) => this.host?.log.warn(`social event not sent: ${err.message}`));
   }
 
@@ -759,7 +825,7 @@ export class SocialWorld implements World {
     if (typeof id === 'string' && this.sending === id) throw new Error(s.posting);
     const post = typeof id === 'string' ? this.comments.unqueue(id) : undefined;
     if (!post) throw new Error(s.gone);
-    const draft = this.comments.add({ platform: post.platform, kind: post.kind, url: post.url, target: post.target, text: post.text });
+    const draft = this.comments.add(draftOf(post));
     await this.push(`${SOCIAL_ID}.posted`, this.t.heldByPerson(this.t.kind[post.kind], draft.id), 'piggyback', 'internal')
       .catch((err: Error) => this.host?.log.warn(`social event not sent: ${err.message}`));
   }
@@ -1022,6 +1088,7 @@ export class SocialWorld implements World {
       'social.images': t.envImages[this.cfg.images],
       'social.autoscroll': t.envAutoscroll(this.jobLines()),
       'social.comments': t.envComments(this.cfg.comments),
+      'social.posts': t.envPosts({ ...this.cfg.posts, platforms: this.postable() }),
       'social.substack': t.envSubstack({ ...this.cfg.substack, publication: publicationAddress(this.cfg.substack.publication) }),
     };
   }
@@ -1041,6 +1108,7 @@ export class SocialWorld implements World {
         platforms: Object.fromEntries(PLATFORM_IDS.map((p) => [p, c.platforms[p]?.enabled !== false])) as Record<PlatformId, boolean>,
         autoscroll: { enabled: c.autoscroll.enabled, maxMinutes: c.autoscroll.maxMinutes },
         comments: { enabled: c.comments.enabled, maxPerDay: c.comments.maxPerDay, auto: c.comments.auto, autoReply: c.comments.autoReply, sign: c.comments.sign },
+        posts: { ...c.posts },
         substack: { ...c.substack },
       },
       jobs: this.jobs(),
@@ -1052,13 +1120,16 @@ export class SocialWorld implements World {
       running: this.running,
       comments: {
         drafts: this.comments.drafts(), posted: this.comments.posted(POSTED_SHOWN, 'comment'), postedNotes: this.comments.posted(POSTED_SHOWN, 'note'),
+        postedPosts: this.comments.posted(POSTED_SHOWN, 'post'), postsToday: this.comments.today(this.opts.timezone, 'post'),
         today: this.comments.today(this.opts.timezone), posting: [...this.posting],
         checkedAt: this.comments.checkedAt, queued: this.comments.queued(), notesToday: this.comments.today(this.opts.timezone, 'note'),
       },
+      postPlatforms: [...POST_PLATFORMS],
       caps: {
         maxPosts: MAX_POSTS_CAP, maxSec: MAX_SEC_CAP, jobPosts: JOB_POSTS_CAP, jobs: MAX_JOBS, commentsPerDay: COMMENTS_PER_DAY_CAP,
         replyCheckMin: REPLY_CHECK_MS / 60_000, repliesPerAccount: REPLIES_PER_ACCOUNT,
-        notesPerDay: NOTES_PER_DAY_CAP, dailyNotes: DAILY_NOTES_CAP, commentGapMin: GAPS.comment / 60_000, noteGapMin: GAPS.note / 60_000,
+        notesPerDay: NOTES_PER_DAY_CAP, dailyNotes: DAILY_NOTES_CAP, postsPerDay: POSTS_PER_DAY_CAP,
+        commentGapMin: GAPS.comment / 60_000, noteGapMin: GAPS.note / 60_000, postGapMin: GAPS.post / 60_000,
         writeFromMin: WRITE_FROM_MIN, writeToMin: WRITE_TO_MIN,
       },
     };
@@ -1109,7 +1180,7 @@ export class SocialWorld implements World {
         this.lifetime.reset();
         return this.panelState();
       case 'commentPost':
-        await this.postDraft(args[0], args[1], words);
+        await this.postDraft(args[0], args[1], args[2], words);
         return this.panelState();
       case 'queueHold':
         await this.holdQueued(args[0], c);
@@ -1167,7 +1238,7 @@ export class SocialWorld implements World {
         ...c.envPrompt,
         path: this.envPromptFile(),
         role: 'envPrompt',
-        vars: ['social.platforms', 'social.maxPosts', 'social.maxSec', 'social.images', 'social.autoscroll', 'social.comments', 'social.substack']
+        vars: ['social.platforms', 'social.maxPosts', 'social.maxSec', 'social.images', 'social.autoscroll', 'social.comments', 'social.posts', 'social.substack']
           .map((name) => ({ name, description: c.vars[name] ?? name, ...(name === 'social.autoscroll' ? { multiline: true } : {}) })),
       }],
     };

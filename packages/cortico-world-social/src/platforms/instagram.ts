@@ -2,13 +2,16 @@
  * Instagram: a profile's posts, a hashtag and a keyword search through the web JSON the site's own
  * pages use (it needs the site's app id header and a login), the home feed and single posts from
  * the pages. When the JSON is refused, the posts linked from the profile or search page are opened
- * one by one.
+ * one by one. A comment goes to the web endpoint the site's own comment box uses, with the login's
+ * `csrftoken` cookie as CSRF token.
  */
 import type { PageSession } from '../browser.ts';
 import { PlatformBlocked, scrollCollect, type Collector } from '../collect.ts';
+import { CommentRefused } from '../comments.ts';
 import type { Post } from '../posts.ts';
 import { readInstagramPosts, scrollDown } from './dom.ts';
 import { accountName, hostIs, type Adapter } from './adapter.ts';
+import { findKey, jsonOf } from './compose.ts';
 import { parseInstagramPosts } from './instagram-parse.ts';
 
 const ORIGIN = 'https://www.instagram.com';
@@ -106,6 +109,46 @@ async function openLinked(page: PageSession, url: string, collector: Collector):
   }
 }
 
+/** The longest comment Instagram takes. */
+export const INSTAGRAM_COMMENT_MAX = 2200;
+/** The digits of a post's shortcode, which is its media id in base 64. */
+const SHORTCODE_DIGITS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+
+/** A post's media id from its shortcode; a longer shortcode (a private post's) carries the id in its first 11 characters. */
+export function mediaIdOf(shortcode: string): string | null {
+  if (!/^[A-Za-z0-9_-]+$/.test(shortcode)) return null;
+  let id = 0n;
+  for (const c of shortcode.slice(0, 11)) id = id * 64n + BigInt(SHORTCODE_DIGITS.indexOf(c));
+  return id > 0n ? id.toString() : null;
+}
+
+/** What a comment on an Instagram link replies to: its post's shortcode. */
+export function instagramReplyTarget(url: URL): string | null {
+  // a comment's link (…/c/<id>/): the bot replies to none
+  if (!hostIs(url, 'instagram.com') || /\/c\/\d+/.test(url.pathname)) return null;
+  return /^\/(?:[\w.]+\/)?(?:p|reels?|tv)\/([A-Za-z0-9_-]+)/.exec(url.pathname)?.[1] ?? null;
+}
+
+/** Comments `text` on the post whose shortcode is `target`; the comment's link. */
+export async function postInstagramComment(page: PageSession, target: string, text: string): Promise<{ link: string | null }> {
+  const media = mediaIdOf(target);
+  if (!media) throw new CommentRefused('instagram', 'not a post link');
+  if (!page.url().startsWith(`${ORIGIN}/`)) await page.goto(`${ORIGIN}/robots.txt`);
+  const csrf = await page.run(() => /(?:^|;\s*)csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '', undefined);
+  if (!csrf) throw new PlatformBlocked('instagram', 'login');
+  const rep = await page.fetchText(`${ORIGIN}/api/v1/web/comments/${media}/add/`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded', 'x-csrftoken': csrf, 'x-ig-app-id': WEB_APP_ID, 'x-requested-with': 'XMLHttpRequest' },
+    body: new URLSearchParams({ comment_text: text }).toString(),
+  });
+  const json = jsonOf(rep.text) as { message?: unknown; status?: unknown } | null;
+  if (rep.status === 401 || json?.message === 'login_required') throw new PlatformBlocked('instagram', 'login');
+  if (rep.status === 429) throw new PlatformBlocked('instagram', 'blocked', 'HTTP 429, too many requests');
+  if (rep.status >= 400 || json?.status === 'fail') throw new CommentRefused('instagram', typeof json?.message === 'string' && json.message ? json.message : `HTTP ${rep.status}`);
+  const id = findKey(json, 'id');
+  return { link: id ? `${ORIGIN}/p/${target}/c/${id}/` : null };
+}
+
 export const INSTAGRAM: Adapter = {
   id: 'instagram',
   loginUrl: `${ORIGIN}/accounts/login/`,
@@ -135,6 +178,12 @@ export const INSTAGRAM: Adapter = {
   },
 
   owns: (url) => hostIs(url, 'instagram.com'),
+
+  write: {
+    replyTarget: instagramReplyTarget,
+    comment: postInstagramComment,
+    commentMax: INSTAGRAM_COMMENT_MAX,
+  },
 
   async read(page, url) {
     const post = await readPost(page, url.split('?')[0]);

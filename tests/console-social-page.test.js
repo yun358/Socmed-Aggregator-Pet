@@ -29,6 +29,8 @@ const realFetch = globalThis.fetch;
 const NodeURL = globalThis.URL;
 
 let dir, bot, base, live, jsdomEnv, requests, mounted, s;
+/** The bot's social World, which drafts as the bot does. */
+let world;
 /** The settings window's modules, imported into the window. */
 let W;
 
@@ -37,7 +39,7 @@ beforeAll(async () => {
   mkdirSync(join(dir, 'providers', 'fixture'), { recursive: true });
   writeFileSync(join(dir, 'providers', 'fixture', 'config.json'), JSON.stringify({ kind: 'openai-responses-compat', baseUrl: 'http://127.0.0.1:9/v1', spec: { model: 'test-model', thinking: false } }));
   writeFileSync(join(dir, 'config.json'), JSON.stringify({ activeProvider: 'fixture', worlds: { social: { browserFile: join(dir, 'no-browser') } } }));
-  const SOCIAL = socialDefinition();
+  const SOCIAL = socialDefinition({ onCreate: (w) => { world = w; } });
   const cormini = (await import(join(CORTICO, 'bots', 'cormini', 'index.ts'))).default;
   const definition = withWorlds({ ...cormini, declares: [...(cormini.declares ?? []), SOCIAL.id] }, [CONSOLE, SOCIAL]);
   const loaded = loadDeployment(definition, dir, CORTICO);
@@ -134,9 +136,9 @@ it('is a page of the normal mode, and mounts the social World\'s panel from the 
   expect(W.ENTRIES.find((e) => e.route === W.socialPage.route)).toMatchObject({ basic: true, page: W.socialPage });
   const { root, imported } = await mountPage();
   expect(imported).toEqual([expect.stringMatching(/^\/assets\/extensions\/cortico-world-social\//)]);
-  const { comments: c, substack: sb } = socialText(W.LANGUAGE);
+  const { comments: c, posts: ps, substack: sb } = socialText(W.LANGUAGE);
   expect([...root.querySelectorAll('.sheet h3')].map((h) => h.firstChild.textContent))
-    .toEqual([c.waitingTitle, c.outboxTitle, s.limitsTitle, s.platformsTitle, s.autoscrollTitle, c.title, sb.title, s.lifetimeTitle]);
+    .toEqual([c.waitingTitle, c.outboxTitle, s.limitsTitle, s.platformsTitle, s.autoscrollTitle, c.title, ps.title, sb.title, s.lifetimeTitle]);
   // the drafts and the queued posts show first, and only while there are any
   const sheet = (title) => [...root.querySelectorAll('.sheet')].find((el) => el.querySelector('h3').firstChild.textContent === title);
   expect(sheet(c.waitingTitle).hidden).toBe(true);
@@ -158,6 +160,36 @@ it('writes a changed post limit through /api/config, and refuses one outside the
   await vi.waitFor(() => expect(root.querySelector('.msgline.bad')?.textContent).toMatch(/\d/));
   expect(live.maxPosts).toBe(next);
   expect(requests.filter((r) => r.path === '/api/config')).toHaveLength(1);
+});
+
+it('shows a new post the bot drafted with its platform, subreddit and title, and posts the title the person left in it', async () => {
+  const { comments: c, posts: ps } = socialText(W.LANGUAGE);
+  live.posts.enabled = true;
+  const write = world.tools().find((t) => t.name === 'social_post');
+  const quiet = { info() {}, warn() {}, error() {}, debug() {} };
+  await write.handler({ platform: 'reddit', text: 'Where do you get ramen after 10pm?', title: 'Late ramen', community: 'r/fixture' }, { role: 'main', log: quiet });
+  try {
+    const { root, button } = await mountPage();
+    const card = await vi.waitFor(() => {
+      const el = root.querySelector('.social-draft');
+      expect(el).not.toBeNull();
+      return el;
+    });
+    expect(card.querySelector('.social-draft-head').textContent).toContain(`Reddit · ${ps.newPostIn('r/fixture')}`);
+    const title = card.querySelector('input');
+    expect(title.value).toBe('Late ramen');
+    title.value = 'Late-night ramen';
+    button(c.post).click();
+    // the browser file is missing, so posting fails and the draft stays, with the reason under it
+    await vi.waitFor(() => expect(card.querySelector('.msgline').textContent).not.toBe(''));
+    const posted = requests.filter((r) => r.path.endsWith('/commentPost'));
+    expect(posted).toHaveLength(1);
+    expect(posted[0].body.args.slice(1)).toEqual(['Where do you get ramen after 10pm?', 'Late-night ramen']);
+    expect(root.querySelector('.social-draft')).toBe(card);
+  } finally {
+    for (const d of (await world.webUi('en').invoke('social', 'state', [])).comments.drafts) await world.webUi('en').invoke('social', 'commentDiscard', [d.id]);
+    live.posts.enabled = false;
+  }
 });
 
 it('writes the Substack publication through /api/config, and says when it names no publication', async () => {

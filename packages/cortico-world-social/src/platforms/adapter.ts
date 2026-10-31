@@ -46,6 +46,42 @@ export interface Adapter {
   shareLink?(url: URL): boolean;
   /** Whether a login holds, for a platform whose cookies cannot tell (it sets the session cookie for guests too). */
   loggedIn?(page: PageSession): Promise<boolean>;
+  /** Writing with the browser's login. */
+  write: Writer;
+}
+
+/** A new post of the person's own: its text, and a title and a community where the platform needs them. */
+export interface NewPost {
+  text: string;
+  title?: string;
+  community?: string;
+}
+
+/**
+ * What the bot can write on a platform, in the person's name with the browser's login. Each call
+ * throws `PlatformBlocked` for a missing login, `CommentRefused` with the platform's reason when it
+ * turns the text down, and `TimeUp` when it was sent but the platform did not confirm it, so it may be up.
+ */
+export interface Writer {
+  /** What a comment on the post or comment at `url` replies to, as the platform names it; null when the link names neither. */
+  replyTarget(url: URL): string | null;
+  /** Posts `text` replying to `target`; the comment's link when the platform gives it. */
+  comment(page: PageSession, target: string, text: string): Promise<{ link: string | null }>;
+  /** The longest comment, counted as `length` counts. */
+  commentMax: number;
+  /** How the platform counts text against its limits; characters when absent. */
+  length?(text: string): number;
+  /** The line automatic comments and posts end with while they are marked; `AUTO_LINE` when absent. */
+  mark?: string;
+  /** New posts of the person's own; absent where the bot writes none. */
+  posts?: {
+    /** What a post needs besides its text. */
+    needs: ReadonlyArray<'title' | 'community'>;
+    /** The longest post text, and the longest title where a post needs one. */
+    max: number;
+    titleMax?: number;
+    publish(page: PageSession, post: NewPost): Promise<{ link: string | null }>;
+  };
 }
 
 /** The handle without a leading @ or `u/`, or the last path segment of a profile URL. */

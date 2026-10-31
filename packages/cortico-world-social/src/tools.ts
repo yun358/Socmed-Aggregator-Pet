@@ -1,12 +1,18 @@
 /** Tool declarations; `SocialWorld.tools()` binds the handlers. Descriptions are English whatever the model-text language. */
 import type { ToolDef } from 'cortico/core/types.ts';
-import { DRAFTS_MAX } from './comments.ts';
+import { DRAFTS_MAX, type WriteKind } from './comments.ts';
 import { SOURCE_KINDS } from './config.ts';
-import { BOT_COMMENT_MAX } from './platforms/reddit.ts';
-import { PLATFORM_IDS } from './posts.ts';
+import { MODEL_TEXT } from './model-text.ts';
+import { POST_PLATFORMS, limitOf } from './platforms/index.ts';
+import { PLATFORM_IDS, type PlatformId } from './posts.ts';
+import { REDDIT_TITLE_MAX } from './platforms/reddit.ts';
 
 export const COMMENTS_MAX = 30;
 export const COMMENTS_DEFAULT = 10;
+
+/** "Reddit 9961, X 241, …": the longest `kind` the bot may write on each of `platforms`. */
+const limits = (platforms: readonly PlatformId[], kind: WriteKind) => platforms.map((p) => `${MODEL_TEXT.en.platform[p]} ${limitOf(p, kind, true)}`).join(', ');
+const COUNTING = 'X counts a link as 23 characters and a CJK character as 2.';
 
 export const SOCIAL_TOOL_DECLS: ReadonlyArray<Omit<ToolDef, 'handler'>> = [
   {
@@ -67,14 +73,29 @@ export const SOCIAL_TOOL_DECLS: ReadonlyArray<Omit<ToolDef, 'handler'>> = [
   {
     name: 'social_comment',
     tags: ['act'],
-    description: `Write a comment in the person's name: on a Reddit post, as a reply to a Reddit comment, or on a Substack post. Usually it becomes a draft that waits on the Social media page of the settings window, where the person edits it, posts it or discards it, and an event says which. When the person has turned on automatic comments, or automatic replies and this answers a reply an event told you of, it is queued instead: it goes out on its own a minute or more later, spaced from their other comments, and an event gives its link. One with a link, or past a limit, still waits as a draft. Comment only when the person asks you to, or to answer such a reply. At most ${DRAFTS_MAX} drafts wait at a time.`,
+    description: `Write a comment in the person's name on a post or video of any platform, or, on Reddit, X, Threads and Bilibili, a reply to a comment by the comment's link. Usually it becomes a draft that waits on the Social media page of the settings window, where the person edits it, posts it or discards it, and an event says which. When the person has turned on automatic comments, or automatic replies and this answers a reply an event told you of, it is queued instead: it goes out on its own a minute or more later, spaced from their other comments, and an event gives its link. One with a link, or past a limit, still waits as a draft. Comment only when the person asks you to, or to answer such a reply. At most ${DRAFTS_MAX} drafts wait at a time.`,
     parameters: {
       type: 'object',
       properties: {
-        url: { type: 'string', description: 'The link of the post or comment to reply to, as a receipt gave it.' },
-        text: { type: 'string', description: `The comment: Markdown on Reddit, plain text on Substack; at most ${BOT_COMMENT_MAX} characters.` },
+        url: { type: 'string', description: 'The link of the post, video or comment to reply to, as a receipt gave it.' },
+        text: { type: 'string', description: `The comment: Markdown on Reddit, plain text elsewhere. At most: ${limits(PLATFORM_IDS, 'comment')}. ${COUNTING}` },
       },
       required: ['url', 'text'],
+    },
+  },
+  {
+    name: 'social_post',
+    tags: ['act'],
+    description: "Write a new post in the person's name: on X, Threads, Reddit (a text post in a subreddit) or Bilibili (a dynamic). Like social_comment, it becomes a draft for the person, unless they turned on automatic posts; then it is queued, goes out on its own spaced from their other posts, and an event gives its link. One with a link still waits as a draft. Post only when the person asks you to. On Substack, new posts are Notes: use social_note.",
+    parameters: {
+      type: 'object',
+      properties: {
+        platform: { type: 'string', enum: [...POST_PLATFORMS] },
+        text: { type: 'string', description: `The post: Markdown on Reddit, plain text elsewhere. At most: ${limits(POST_PLATFORMS, 'post')}. ${COUNTING}` },
+        title: { type: 'string', description: `Reddit only, and needed there: the title, at most ${REDDIT_TITLE_MAX} characters.` },
+        community: { type: 'string', description: 'Reddit only, and needed there: the subreddit, as r/name or its link.' },
+      },
+      required: ['platform', 'text'],
     },
   },
   {
@@ -84,7 +105,7 @@ export const SOCIAL_TOOL_DECLS: ReadonlyArray<Omit<ToolDef, 'handler'>> = [
     parameters: {
       type: 'object',
       properties: {
-        text: { type: 'string', description: `The Note, plain text; each line is a paragraph. At most ${BOT_COMMENT_MAX} characters.` },
+        text: { type: 'string', description: `The Note, plain text; each line is a paragraph. At most ${limitOf('substack', 'note', true)} characters.` },
         reply_to: { type: 'string', description: 'The link of the Note to reply to (…/note/c-…), as a receipt gave it; leave out for a new Note.' },
       },
       required: ['text'],

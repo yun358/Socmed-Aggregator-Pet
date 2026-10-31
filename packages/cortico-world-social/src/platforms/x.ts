@@ -1,9 +1,15 @@
-/** X (Twitter) from its pages: the home timeline, search, a profile, and a post with its replies. */
-import type { PageSession } from '../browser.ts';
+/**
+ * X (Twitter) from its pages: the home timeline, search, a profile, and a post with its replies.
+ * Replies and posts are typed into X's own composer (`compose`), under the post or on the compose
+ * page, and confirmed by X's `CreateTweet` answer, which names the new post.
+ */
+import type { FetchedText, PageSession } from '../browser.ts';
 import { PlatformBlocked, domToPost, scrollCollect } from '../collect.ts';
+import { CommentRefused } from '../comments.ts';
 import type { Post } from '../posts.ts';
 import { DOM_READ_DEFAULTS, readXPosts } from './dom.ts';
-import { accountName, hostIs, type Adapter } from './adapter.ts';
+import { accountName, hostIs, type Adapter, type NewPost } from './adapter.ts';
+import { compose, findKey, jsonOf } from './compose.ts';
 
 const ORIGIN = 'https://x.com';
 const READY = 'article[data-testid="tweet"]';
@@ -31,6 +37,53 @@ async function open(page: PageSession, url: string): Promise<void> {
   checkLogin(await page.goto(url));
 }
 
+/** The most a post or a reply may weigh (`xLength`). */
+export const X_TEXT_MAX = 280;
+/** Code points X counts as one; the others count as two. */
+const LIGHT: ReadonlyArray<[number, number]> = [[0, 4351], [8192, 8205], [8208, 8223], [8242, 8247]];
+const LINK = /https?:\/\/\S+/g;
+
+/** A text's weight as X counts it: a link 23, a Latin letter, digit or common punctuation 1, anything else (CJK, emoji) 2. */
+export function xLength(text: string): number {
+  let n = (text.match(LINK) ?? []).length * 23;
+  for (const ch of text.replace(LINK, '')) {
+    const c = ch.codePointAt(0)!;
+    n += LIGHT.some(([a, b]) => c >= a && c <= b) ? 1 : 2;
+  }
+  return n;
+}
+
+/** What a reply on an X link answers: the post's id. */
+export function xReplyTarget(url: URL): string | null {
+  if (!hostIs(url, 'x.com', 'twitter.com')) return null;
+  return /^\/(?:[^/]+|i(?:\/web)?)\/status(?:es)?\/(\d{1,25})(?:\/|$)/.exec(url.pathname)?.[1] ?? null;
+}
+
+/** The composer's box, under a post or in the compose dialog. */
+const BOX = '[data-testid="tweetTextarea_0"]';
+/** X's requests that send a post or a reply. */
+const SENDS = /\/graphql\/[^/]+\/Create\w*Tweet\b/;
+
+/** The new post's link from X's answer; X's own error when it names one instead. */
+function linkOf(answer: FetchedText): string | null {
+  const json = jsonOf(answer.text) as { errors?: Array<{ message?: unknown }> } | null;
+  const id = findKey(json, 'rest_id');
+  if (!id && Array.isArray(json?.errors) && json.errors.length) throw new CommentRefused('x', String(json.errors[0]?.message ?? 'X turned it down'));
+  return id ? `${ORIGIN}/i/status/${id}` : null;
+}
+
+/** Replies `text` to the post `target` names, in the reply box under it. */
+export async function postXReply(page: PageSession, target: string, text: string): Promise<{ link: string | null }> {
+  await open(page, `${ORIGIN}/i/status/${target}`);
+  return { link: linkOf(await compose(page, 'x', { box: BOX, send: '[data-testid="tweetButtonInline"]', request: SENDS }, text)) };
+}
+
+/** Posts `post.text` from the compose page. */
+export async function postX(page: PageSession, post: NewPost): Promise<{ link: string | null }> {
+  await open(page, `${ORIGIN}/compose/post`);
+  return { link: linkOf(await compose(page, 'x', { box: BOX, send: '[data-testid="tweetButton"]', request: SENDS }, post.text)) };
+}
+
 export const X: Adapter = {
   id: 'x',
   loginUrl: `${ORIGIN}/i/flow/login`,
@@ -47,6 +100,14 @@ export const X: Adapter = {
   },
 
   owns: (url) => hostIs(url, 'x.com', 'twitter.com'),
+
+  write: {
+    replyTarget: xReplyTarget,
+    comment: postXReply,
+    commentMax: X_TEXT_MAX,
+    length: xLength,
+    posts: { needs: [], max: X_TEXT_MAX, publish: postX },
+  },
 
   async read(page, url, maxComments) {
     const u = new URL(url);

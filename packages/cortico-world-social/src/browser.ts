@@ -13,7 +13,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { isIP } from 'node:net';
 import { join } from 'node:path';
-import type { BrowserContext, Page } from 'playwright-core';
+import { errors, type BrowserContext, type Page } from 'playwright-core';
 
 export const IDLE_MS = 3 * 60_000;
 const NAV_TIMEOUT_MS = 30_000;
@@ -102,8 +102,17 @@ export interface PageSession {
   fetchRaw(url: string, referer: string, accept?: string): Promise<{ bytes: Uint8Array; mime: string } | null>;
   /** Waits for `selector` up to `ms`; false when it did not appear. */
   waitFor(selector: string, ms: number): Promise<boolean>;
-  /** The body of the first response whose URL matches `match` while `action` runs, waiting up to `ms`. */
-  captureResponse(match: RegExp, action: () => Promise<unknown>, ms: number): Promise<FetchedText | null>;
+  /**
+   * The body of the first response whose URL matches `match`, and whose request body matches `body`
+   * when given, while `action` runs, waiting up to `ms`.
+   */
+  captureResponse(match: RegExp, action: () => Promise<unknown>, ms: number, body?: RegExp): Promise<FetchedText | null>;
+  /** Clicks the first visible element matching `selector` as a person would, waiting up to `ms` for one; false when none showed. */
+  click(selector: string, ms: number): Promise<boolean>;
+  /** Types `text` into what has the focus, key by key; a line break as Shift+Enter, which no platform takes as sending. */
+  type(text: string): Promise<void>;
+  /** Presses `key`, as Playwright names keys (`Enter`). */
+  press(key: string): Promise<void>;
   /** Waits `ms`, ending early when the tool is interrupted. */
   pause(ms: number): Promise<void>;
   check(): void;
@@ -219,13 +228,38 @@ class LivePage implements PageSession {
     }
   }
 
-  async captureResponse(match: RegExp, action: () => Promise<unknown>, ms: number): Promise<FetchedText | null> {
+  async captureResponse(match: RegExp, action: () => Promise<unknown>, ms: number, body?: RegExp): Promise<FetchedText | null> {
     this.check();
-    const waiting = this.page.waitForResponse((r) => match.test(r.url()), { timeout: this.within(ms) })
+    const waiting = this.page.waitForResponse((r) => match.test(r.url()) && (!body || body.test(r.request().postData() ?? '')), { timeout: this.within(ms) })
       .then(async (r) => ({ status: r.status(), text: await r.text() }))
       .catch(() => null);
     await action();
     return waiting;
+  }
+
+  async click(selector: string, ms: number): Promise<boolean> {
+    this.check();
+    try {
+      await this.page.locator(`${selector} >> visible=true`).first().click({ timeout: this.within(ms) });
+      return true;
+    } catch (err) {
+      this.check();
+      if (err instanceof errors.TimeoutError) return false;
+      throw err;
+    }
+  }
+
+  async type(text: string): Promise<void> {
+    for (const [i, line] of text.split('\n').entries()) {
+      this.check();
+      if (i) await this.page.keyboard.press('Shift+Enter');
+      if (line) await this.page.keyboard.type(line);
+    }
+  }
+
+  async press(key: string): Promise<void> {
+    this.check();
+    await this.page.keyboard.press(key);
   }
 
   async pause(ms: number): Promise<void> {

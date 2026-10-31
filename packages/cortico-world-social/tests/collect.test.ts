@@ -178,6 +178,9 @@ class ScriptedPage implements PageSession {
   async fetchText(): Promise<FetchedText> { throw new Error('no network in this page'); }
   async fetchRaw(): Promise<null> { return null; }
   async captureResponse(): Promise<null> { return null; }
+  async click(): Promise<boolean> { return false; }
+  async type(): Promise<void> {}
+  async press(): Promise<void> {}
   check(): void {}
   url(): string { return 'https://fixture.test/'; }
 }

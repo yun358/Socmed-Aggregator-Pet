@@ -99,6 +99,20 @@ class ScriptedPage implements PageSession {
     this.check();
     this.browser.clock.now += Math.min(ms, this.limits.timeLeft());
   }
+
+  /** A scripted page has no elements to click: only `fetchText` stands in for a platform. */
+  async click(): Promise<boolean> {
+    this.check();
+    return false;
+  }
+
+  async type(): Promise<void> {
+    this.check();
+  }
+
+  async press(): Promise<void> {
+    this.check();
+  }
 }
 
 export class ScriptedBrowser extends SocialBrowser {

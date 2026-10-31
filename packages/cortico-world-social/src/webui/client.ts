@@ -1,12 +1,14 @@
 /**
- * The `social` panel: the drafts of comments and Notes waiting for the person and the automatic
- * posts queued to go out (first, each shown only while there are any), the limits of one request, the
- * platforms with their logins and the browser, the daily autoscroll jobs with their recent runs, the
- * comment settings (drafts, the automatic switches, a look at the replies now) with the comments
- * posted, the Substack settings with the Notes posted, and the lifetime counter. It renders the
+ * The `social` panel: the drafts of comments, new posts and Notes waiting for the person and the
+ * automatic posts queued to go out (first, each shown only while there are any), the limits of one
+ * request, the platforms with their logins and the browser, the daily autoscroll jobs with their recent
+ * runs, the comment settings (drafts, the automatic switches, a look at the replies now) with the
+ * comments posted, the new-post settings with the posts posted, the Substack settings with the Notes
+ * posted, and the lifetime counter. It renders the
  * panel's `state`, read again every `POLL_MS` while mounted. Scalar settings are written through
  * `/api/config` (`ctx.setConfig`) on each change; the job list goes through the panel's `setJobs`,
- * whole, whenever every job in it is complete. A draft is posted with the text left in its field.
+ * whole, whenever every job in it is complete. A draft is posted with the text, and the title of a
+ * post that has one, left in its fields.
  */
 import type { WebUiClientBundle, WebUiPanelContext } from 'cortico/web/shared/client-panel.ts';
 import type { CommentDraft, PostedComment, QueuedPost } from '../comments.ts';
@@ -42,6 +44,9 @@ const NEW_JOB = { at: '09:00', maxPosts: 100 };
 
 const errText = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
+/** What a comment, post or Note says, on one line: a post's title, then its text. */
+const gist = (p: Pick<CommentDraft, 'text' | 'title'>) => (p.title ? `${p.title} · ${p.text}` : p.text).replace(/\s+/g, ' ');
+
 /** Characters of a link's or a comment's text shown in a line. */
 const SHOWN_MAX = 80;
 const shorten = (text: string) => (text.length > SHOWN_MAX ? `${text.slice(0, SHOWN_MAX - 1)}…` : text);
@@ -61,6 +66,7 @@ function mount(ctx: WebUiPanelContext): void {
   const s = text.panel;
   const ct = text.comments;
   const sb = text.substack;
+  const ps = text.posts;
   const doc = ctx.root.ownerDocument;
   const props = socialConfigGroup(ctx.language).schema.properties;
   const stamp = new Intl.DateTimeFormat(ctx.language, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -174,7 +180,7 @@ function mount(ctx: WebUiPanelContext): void {
   waiting.body.append(draftsBox);
   waiting.el.hidden = true;
   /** The drafts shown, by id; each stays as it is, with what the person typed, until its draft is posted or discarded. */
-  const drafts = new Map<string, { card: HTMLElement; area: HTMLTextAreaElement; post: HTMLButtonElement; discard: HTMLButtonElement; msg: HTMLElement }>();
+  const drafts = new Map<string, { card: HTMLElement; title?: HTMLInputElement; area: HTMLTextAreaElement; post: HTMLButtonElement; discard: HTMLButtonElement; msg: HTMLElement }>();
   /** Drafts this panel is posting or discarding now. */
   const acting = new Set<string>();
   const paintDraft = (id: string, posting: boolean) => {
@@ -188,29 +194,37 @@ function mount(ctx: WebUiPanelContext): void {
     acting.add(id);
     paintDraft(id, method === 'commentPost');
     say(d.msg, '');
-    const next = await write(() => ctx.invoke<SocialPanelState>(method, method === 'commentPost' ? [id, d.area.value] : [id]), d.msg, (e) => e);
+    const args = method === 'commentDiscard' ? [id] : d.title ? [id, d.area.value, d.title.value] : [id, d.area.value];
+    const next = await write(() => ctx.invoke<SocialPanelState>(method, args), d.msg, (e) => e);
     acting.delete(id);
     if (next) {
       if (method === 'commentPost') ui.toast(ct.posted, 'ok');
       render(next);
     } else if (drafts.get(id) === d) paintDraft(id, false);
   };
-  /** Where a draft or queued post goes: what it replies to, or a new Note. */
-  const target = (p: Pick<CommentDraft, 'url'>) => (p.url ? [ui.h('span', null, ct.replyTo), ' ', link(p.url)] : [ui.h('span', null, sb.newNote)]);
+  /** Where a draft or queued post goes: what it replies to, a new post (in its community), or a new Note. */
+  const target = (p: Pick<CommentDraft, 'kind' | 'url' | 'community'>) => {
+    if (p.kind === 'post') return [ui.h('span', null, p.community ? ps.newPostIn(p.community) : ps.newPost)];
+    return p.url ? [ui.h('span', null, ct.replyTo), ' ', link(p.url)] : [ui.h('span', null, sb.newNote)];
+  };
   const draftCard = (draft: CommentDraft) => {
     const head = ui.h('div', 'social-draft-head');
+    // a reply's link names its platform; a new post names it here
+    if (draft.kind === 'post') head.append(ui.h('span', null, text.platforms[draft.platform]), ' · ');
     head.append(...target(draft), ui.h('span', 'social-draft-at', ct.draftedAt(when(draft.at))));
+    const title = draft.title === undefined ? undefined : ui.input({ value: draft.title, placeholder: ps.titleLabel });
+    title?.setAttribute('aria-label', ps.titleLabel);
     const area = ui.textarea({ value: draft.text, rows: 4 });
-    area.setAttribute('aria-label', draft.kind === 'note' ? sb.note : ct.comment);
+    area.setAttribute('aria-label', { comment: ct.comment, post: ps.post, note: sb.note }[draft.kind]);
     const msg = ui.msgline('');
     const post = ui.button(ct.post, { variant: 'primary', size: 'sm', onClick: () => void act(draft.id, 'commentPost') });
     const discard = ui.button(ct.discard, { size: 'sm', onClick: () => void act(draft.id, 'commentDiscard') });
     const bar = ui.rowbar();
     bar.append(post, discard, msg);
     const card = ui.h('div', 'social-draft');
-    card.append(head, area, bar);
+    card.append(head, ...(title ? [title] : []), area, bar);
     draftsBox.append(card);
-    drafts.set(draft.id, { card, area, post, discard, msg });
+    drafts.set(draft.id, { card, title, area, post, discard, msg });
   };
   /** Removes the drafts gone and adds the new ones, which come last; the others keep their fields as they are. */
   const syncDrafts = (next: SocialPanelState) => {
@@ -249,7 +263,7 @@ function mount(ctx: WebUiPanelContext): void {
       const where = ui.h('span');
       where.append(text.platforms[q.platform], ' · ', ...target(q));
       const button = ui.button(ct.hold, { size: 'sm', onClick: () => void hold(q.id, button) });
-      outboxTable.addRow([when(q.due), where, shorten(q.text.replace(/\s+/g, ' ')), button]);
+      outboxTable.addRow([when(q.due), where, shorten(gist(q)), button]);
     }
   };
 
@@ -487,13 +501,33 @@ function mount(ctx: WebUiPanelContext): void {
   };
   /** A posted comment's text on one line, linked to the comment when the platform named it. */
   const postedText = (p: PostedComment) => {
-    const shown = shorten(p.text.replace(/\s+/g, ' '));
+    const shown = shorten(gist(p));
     const cell = ui.h('span');
     cell.append(p.link ? link(p.link, shown) : shown);
     if (p.edited) cell.append(' ', ui.h('span', 'social-muted', ct.edited));
     if (p.auto) cell.append(' ', ui.h('span', 'social-muted', ct.automatic));
     return cell;
   };
+
+  /* ---------- new posts ---------- */
+  const postsSheet = ui.sheet({ title: ps.title, desc: ps.desc });
+  const postsMsg = ui.msgline('');
+  const postsOn = switchSetting('posts.enabled', ps.enabledCheck, postsMsg);
+  const postsPerDay = numberSetting('posts.maxPerDay', ps.perDaySuffix, postsMsg);
+  const postsToday = ui.h('p', 'home-note');
+  const postsAutoOn = switchSetting('posts.auto', ps.autoCheck, postsMsg);
+  const postsAutoHint = ui.h('p', 'home-note');
+  const postsPosted = ui.table({ head: [ct.when, ps.where, ps.post] });
+  postsPosted.el.classList.add('social-table');
+  postsSheet.body.append(
+    row(ps.enabled, postsOn.el),
+    row(ps.perDay, postsPerDay.box, postsToday),
+    row(ps.auto, postsAutoOn.el, postsAutoHint),
+    ui.h('p', 'home-note', ps.risk),
+    postsMsg,
+    ui.section(ps.recent),
+    postsPosted.el,
+  );
 
   /* ---------- Substack ---------- */
   const substack = ui.sheet({ title: sb.title, desc: sb.desc });
@@ -537,7 +571,7 @@ function mount(ctx: WebUiPanelContext): void {
   }), lifeMsg);
   lifetime.body.append(lifeTable.el, lifeBar);
 
-  const sheets = [waiting.el, outbox.el, limits.el, platforms.el, autoscroll.el, comments.el, substack.el, lifetime.el];
+  const sheets = [waiting.el, outbox.el, limits.el, platforms.el, autoscroll.el, comments.el, postsSheet.el, substack.el, lifetime.el];
   // nothing can be changed until the state has been read once
   for (const el of sheets) el.inert = true;
   ctx.root.append(...sheets);
@@ -585,14 +619,25 @@ function mount(ctx: WebUiPanelContext): void {
     autoHint.textContent = ct.autoHint(next.caps.commentGapMin);
     autoReplyOn.setChecked(c.comments.autoReply);
     signOn.setChecked(c.comments.sign);
-    // the automatic switches act only while comments are on; the mark also on Notes
+    // the automatic switches act only while comments are on; the mark also on new posts and Notes
     for (const x of [autoOn, autoReplyOn]) x.input.disabled = !c.comments.enabled;
-    signOn.input.disabled = !c.comments.enabled && !c.substack.notes;
+    signOn.input.disabled = !c.comments.enabled && !c.posts.enabled && !c.substack.notes;
     replyHint.textContent = ct.autoReplyHint(next.caps.replyCheckMin, next.caps.repliesPerAccount);
     checkedLine.textContent = next.comments.checkedAt ? ct.checkedAt(when(next.comments.checkedAt)) : '';
     if (checkNow.textContent !== ct.checkingReplies) checkNow.disabled = !(c.comments.enabled && c.comments.autoReply);
     posted.clear(next.comments.posted.length ? undefined : ct.nonePosted);
     for (const p of next.comments.posted) posted.addRow([when(p.at), link(p.url), postedText(p)]);
+
+    postsOn.setChecked(c.posts.enabled);
+    postsPerDay.set(c.posts.maxPerDay);
+    postsToday.textContent = ps.today(next.comments.postsToday);
+    postsAutoOn.setChecked(c.posts.auto);
+    postsAutoOn.input.disabled = !c.posts.enabled;
+    postsAutoHint.textContent = ps.autoHint(next.caps.postGapMin);
+    postsPosted.clear(next.comments.postedPosts.length ? undefined : ps.nonePosted);
+    for (const p of next.comments.postedPosts) {
+      postsPosted.addRow([when(p.at), [text.platforms[p.platform], p.community].filter(Boolean).join(' · '), postedText(p)]);
+    }
 
     const n = c.substack;
     notesOn.setChecked(n.notes);

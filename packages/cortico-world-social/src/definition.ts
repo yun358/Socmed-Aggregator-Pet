@@ -14,7 +14,8 @@ const DESCRIBE: WorldDescribe = {
     social_read: { zh: '打开一条帖子读全文、图片与热门评论。', en: 'Opens one post for its full text, images and top comments.' },
     social_transcript: { zh: '读 YouTube 或哔哩哔哩视频的字幕文字稿,长的分次读。', en: 'Reads the caption transcript of a YouTube or Bilibili video, a long one in parts.' },
     social_login: { zh: '打开浏览器窗口到某个平台的登录页,让使用者登录或完成验证。', en: "Opens a browser window at a platform's login page for the person to log in or pass a check." },
-    social_comment: { zh: '为 Reddit 的帖子或评论、或 Substack 的文章写评论:通常是草稿,由使用者在「社交媒体」页修改、发出或丢弃;打开自动评论或自动回复时排队自动发出。', en: 'Writes a comment on a Reddit post or comment, or on a Substack post: usually a draft the person edits, posts or discards on the Social media page; queued to go out on its own under automatic comments or replies.' },
+    social_comment: { zh: '为任一平台的帖子或视频写评论,或在 Reddit、X、Threads、哔哩哔哩回复评论:通常是草稿,由使用者在「社交媒体」页修改、发出或丢弃;打开自动评论或自动回复时排队自动发出。', en: 'Writes a comment on a post or video of any platform, or a reply to a comment on Reddit, X, Threads or Bilibili: usually a draft the person edits, posts or discards on the Social media page; queued to go out on its own under automatic comments or replies.' },
+    social_post: { zh: '以使用者的名义在 X、Threads、Reddit 或哔哩哔哩写新帖:通常是草稿;打开自动新帖时排队自动发出,彼此错开。', en: "Writes a new post in the person's name on X, Threads, Reddit or Bilibili: usually a draft; queued to go out on its own, spaced apart, under automatic posts." },
     social_note: { zh: '以使用者的名义写 Substack 短帖或回复短帖:通常是草稿;打开自动短帖时排队自动发出,彼此错开。', en: "Writes a Substack Note, or a reply to one, in the person's name: usually a draft; queued to go out on its own, spaced apart, under automatic Notes." },
     social_draft: { zh: '在使用者的 Substack 刊物里建立文章草稿,由使用者自己发布。', en: "Creates a post draft in the person's Substack publication, for them to publish." },
     social_stats: { zh: '累计用时:各平台浏览的时间与读过的数量,登录情况,每日自动浏览的设置。', en: 'The lifetime counter: time and reads per platform, logins, and the daily autoscroll jobs.' },
@@ -33,7 +34,7 @@ const DESCRIBE: WorldDescribe = {
     },
     {
       type: `${SOCIAL_ID}.comment`,
-      description: { zh: '使用者发出了 Coo 起草的评论或短帖(附链接),或丢弃了它;丢弃随下一批事件送达。', en: 'The person posted a comment or Note Coo drafted (with its link), or discarded it; a discard piggybacks.' },
+      description: { zh: '使用者发出了 Coo 起草的评论、新帖或短帖(附链接),或丢弃了它;丢弃随下一批事件送达。', en: 'The person posted a comment, post or Note Coo drafted (with its link), or discarded it; a discard piggybacks.' },
       trigger: 'flush',
     },
     {
@@ -43,7 +44,7 @@ const DESCRIBE: WorldDescribe = {
     },
     {
       type: `${SOCIAL_ID}.posted`,
-      description: { zh: 'Coo 排队的自动评论或短帖发出了(附链接),或没有发出而改为草稿;随下一批事件送达。', en: 'An automatic comment or Note Coo queued went out (with its link), or became a draft instead; piggybacks.' },
+      description: { zh: 'Coo 排队的自动评论、新帖或短帖发出了(附链接),或没有发出而改为草稿;随下一批事件送达。', en: 'An automatic comment, post or Note Coo queued went out (with its link), or became a draft instead; piggybacks.' },
       trigger: 'piggyback',
     },
     {

@@ -15,19 +15,18 @@ import type { ToolOutcome } from 'cortico/core/types.ts';
 import { dryMountWorld } from 'cortico/extensions/dry-mount.ts';
 import { DigestStore, digestId, jobKey, localClock } from '../src/autoscroll.ts';
 import type { FetchedText } from '../src/browser.ts';
-import { DRAFTS_MAX } from '../src/comments.ts';
+import { AUTO_LINE, AUTO_LINE_ZH, DRAFTS_MAX } from '../src/comments.ts';
 import {
-  COMMENTS_PER_DAY_CAP, DAILY_NOTES_CAP, JOB_POSTS_CAP, MAX_JOBS, MAX_POSTS_CAP, MAX_SEC_CAP, NOTES_PER_DAY_CAP, SOCIAL_DEFAULTS, parseJobs, type AutoscrollJob, type SocialConfigSection,
+  COMMENTS_PER_DAY_CAP, DAILY_NOTES_CAP, JOB_POSTS_CAP, MAX_JOBS, MAX_POSTS_CAP, MAX_SEC_CAP, NOTES_PER_DAY_CAP, POSTS_PER_DAY_CAP, SOCIAL_DEFAULTS, parseJobs, type AutoscrollJob, type SocialConfigSection,
 } from '../src/config.ts';
 import { SOCIAL } from '../src/definition.ts';
 import { findBrowser } from '../src/find-browser.ts';
 import { socialText } from '../src/i18n/index.ts';
 import { MODEL_TEXT, type ModelLanguage } from '../src/model-text.ts';
 import { Ocr, OcrImageError } from '../src/ocr.ts';
-import { ADAPTERS } from '../src/platforms/index.ts';
-import { AUTO_NOTE, BOT_COMMENT_MAX } from '../src/platforms/reddit.ts';
+import { ADAPTERS, limitOf } from '../src/platforms/index.ts';
+import { AUTO_NOTE } from '../src/platforms/reddit.ts';
 import { noteDoc } from '../src/platforms/substack-parse.ts';
-import { SUBSTACK_AUTO_NOTE } from '../src/platforms/substack.ts';
 import { PLATFORM_IDS } from '../src/posts.ts';
 import { COMMENT_TEXT_MAX, clock, localStamp } from '../src/render.ts';
 import { SOCIAL_TOOL_DECLS } from '../src/tools.ts';
@@ -564,6 +563,7 @@ describe('panel and daily autoscroll', () => {
         platforms: Object.fromEntries(PLATFORM_IDS.map((p) => [p, true])),
         autoscroll: { enabled: cfg.autoscroll.enabled, maxMinutes: cfg.autoscroll.maxMinutes },
         comments: { enabled: cfg.comments.enabled, maxPerDay: cfg.comments.maxPerDay, auto: cfg.comments.auto, autoReply: cfg.comments.autoReply, sign: cfg.comments.sign },
+        posts: cfg.posts,
         substack: cfg.substack,
       },
       jobs: [],
@@ -573,11 +573,13 @@ describe('panel and daily autoscroll', () => {
       lifetime: expect.objectContaining({ sinceAt: expect.any(String) }),
       digests: [],
       running: null,
-      comments: { drafts: [], posted: [], postedNotes: [], today: 0, posting: [], checkedAt: null, queued: [], notesToday: 0 },
+      comments: { drafts: [], posted: [], postedNotes: [], postedPosts: [], today: 0, posting: [], checkedAt: null, queued: [], notesToday: 0, postsToday: 0 },
+      postPlatforms: ['reddit', 'x', 'threads', 'bilibili'],
       caps: {
         maxPosts: MAX_POSTS_CAP, maxSec: MAX_SEC_CAP, jobPosts: JOB_POSTS_CAP, jobs: MAX_JOBS, commentsPerDay: COMMENTS_PER_DAY_CAP,
         replyCheckMin: REPLY_CHECK_MS / 60_000, repliesPerAccount: REPLIES_PER_ACCOUNT,
-        notesPerDay: NOTES_PER_DAY_CAP, dailyNotes: DAILY_NOTES_CAP, commentGapMin: GAPS.comment / 60_000, noteGapMin: GAPS.note / 60_000,
+        notesPerDay: NOTES_PER_DAY_CAP, dailyNotes: DAILY_NOTES_CAP, postsPerDay: POSTS_PER_DAY_CAP,
+        commentGapMin: GAPS.comment / 60_000, noteGapMin: GAPS.note / 60_000, postGapMin: GAPS.post / 60_000,
         writeFromMin: WRITE_FROM_MIN, writeToMin: WRITE_TO_MIN,
       },
     });
@@ -697,6 +699,7 @@ describe('environment prompt', () => {
       'social.images': t.envImages.skip,
       'social.autoscroll': t.envAutoscroll([]),
       'social.comments': t.envComments(cfg.comments),
+      'social.posts': t.envPosts({ ...cfg.posts, platforms: ['Reddit', 'X', 'Threads', 'Bilibili'] }),
       'social.substack': t.envSubstack({ ...cfg.substack, publication: null }),
     });
     const doc = world.webUi('en').promptDocs![0]!;
@@ -801,16 +804,16 @@ describe('comments', () => {
     expect(made.browser.requests).toEqual([]);
   });
 
-  it('refuses another platform, a link elsewhere, a share link, an empty or too long text, and drafts past their limit', async () => {
+  it('refuses a link elsewhere, a share link, a link to nothing it comments on, an empty or too long text, and drafts past their limit', async () => {
     const made = await makeWorld({}, on);
     const refused = async (args: Record<string, unknown>) => (await made.call('social_comment', args)).text;
-    expect(await refused({ url: 'https://www.youtube.com/watch?v=aaaaaaaaaaa', text: 'x' })).toBe(t.notRun('social_comment', t.commentPlatforms));
+    const max = limitOf('reddit', 'comment', true);
     expect(await refused({ url: 'https://fixture.test/post/1', text: 'x' })).toBe(t.notRun('social_comment', t.notPlatformUrl));
     expect(await refused({ url: `${REDDIT}/r/fixture/s/AbCdEf123`, text: 'x' })).toBe(t.notRun('social_comment', t.commentShareLink));
-    expect(await refused({ url: `${REDDIT}/r/fixture/`, text: 'x' })).toBe(t.notRun('social_comment', t.commentNoTarget));
-    expect(await refused({ url: 'javascript://www.reddit.com/r/fixture/comments/r1/x/%0Aalert(1)', text: 'x' })).toBe(t.notRun('social_comment', t.commentNoTarget));
+    expect(await refused({ url: `${REDDIT}/r/fixture/`, text: 'x' })).toBe(t.notRun('social_comment', t.commentNoTarget('Reddit')));
+    expect(await refused({ url: 'javascript://www.reddit.com/r/fixture/comments/r1/x/%0Aalert(1)', text: 'x' })).toBe(t.notRun('social_comment', t.commentNoTarget('Reddit')));
     expect(await refused({ url: POST, text: '   ' })).toBe(t.notRun('social_comment', t.commentEmpty));
-    expect(await refused({ url: POST, text: 'x'.repeat(BOT_COMMENT_MAX + 1) })).toBe(t.notRun('social_comment', t.commentTooLong(BOT_COMMENT_MAX)));
+    expect(await refused({ url: POST, text: 'x'.repeat(max + 1) })).toBe(t.notRun('social_comment', t.commentTooLong(max)));
     for (let i = 0; i < DRAFTS_MAX; i++) await made.call('social_comment', { url: POST, text: `draft ${i}` });
     expect(await refused({ url: POST, text: 'one more' })).toBe(t.notRun('social_comment', t.commentDraftsFull(DRAFTS_MAX)));
     expect(await draftIds(made)).toHaveLength(DRAFTS_MAX);
@@ -1139,6 +1142,202 @@ describe('automatic comments and replies', () => {
   });
 });
 
+describe('comments on every platform', () => {
+  const on = (cfg: SocialConfigSection) => { cfg.comments.enabled = true; };
+
+  it('drafts a comment on a post or video of each platform, naming it there as its writer does', async () => {
+    const made = await makeWorld({}, on);
+    const cases: Array<[string, string, string]> = [
+      ['x', 'https://x.com/fixture_alice/status/1850000000000000001?s=20', '1850000000000000001'],
+      ['threads', 'https://www.threads.net/@fixture_alice/post/DAbCdEf1234?xmt=1', 'https://www.threads.com/@fixture_alice/post/DAbCdEf1234'],
+      ['instagram', 'https://www.instagram.com/p/DAbCdEf1234/?img_index=1', 'DAbCdEf1234'],
+      ['youtube', 'https://youtu.be/aaaaaaaaaaa', 'aaaaaaaaaaa'],
+      ['bilibili', `https://www.bilibili.com/video/${BV}/?spm_id_from=333`, BV],
+      ['bilibili', `https://www.bilibili.com/video/${BV}#reply5005`, `${BV}#5005`],
+      ['facebook', 'https://www.facebook.com/fixturegroup/posts/123456789', 'https://www.facebook.com/fixturegroup/posts/123456789'],
+      ['rednote', `https://www.xiaohongshu.com/explore/${'a1'.repeat(12)}?xsec_token=FIXTURE`, `https://www.xiaohongshu.com/explore/${'a1'.repeat(12)}?xsec_token=FIXTURE`],
+    ];
+    for (const [platform, url, target] of cases) {
+      await made.call('social_comment', { url, text: `On ${platform}.` });
+      const drafts = (await made.panel('state')).comments.drafts;
+      expect(drafts.at(-1), url).toMatchObject({ platform, kind: 'comment', url, target });
+      await made.panel('commentDiscard', drafts.at(-1)!.id);
+    }
+  });
+
+  it('refuses the link of a comment on a platform where the bot replies to none, and a page that is no post', async () => {
+    const made = await makeWorld({}, on);
+    const cases: Array<[string, string]> = [
+      ['YouTube', 'https://www.youtube.com/watch?v=aaaaaaaaaaa&lc=UgxFixture'],
+      ['Instagram', 'https://www.instagram.com/p/DAbCdEf1234/c/17890000000000001/'],
+      ['Facebook', 'https://www.facebook.com/fixturegroup/posts/123456789?comment_id=987'],
+      ['X', 'https://x.com/fixture_alice'],
+      ['Threads', 'https://www.threads.com/@fixture_alice'],
+      ['Rednote', 'https://www.xiaohongshu.com/user/profile/5f00'],
+    ];
+    for (const [name, url] of cases) expect((await made.call('social_comment', { url, text: 'x' })).text, url).toBe(t.notRun('social_comment', t.commentNoTarget(name)));
+  });
+
+  it("measures a comment as the platform does, leaving room for the mark, and refuses one past the platform's limit", async () => {
+    const made = await makeWorld({}, on);
+    const POST = 'https://x.com/fixture_alice/status/1850000000000000001';
+    const max = limitOf('x', 'comment', true);
+    // X weighs a CJK character as two and any link as 23
+    expect((await made.call('social_comment', { url: POST, text: '字'.repeat(Math.floor(max / 2) + 1) })).text).toBe(t.notRun('social_comment', t.commentTooLong(max)));
+    expect((await made.call('social_comment', { url: POST, text: `${'a'.repeat(max - 24)} https://fixture.test/${'p'.repeat(300)}` })).text).toMatch(/^\[social_comment\] Draft/);
+    expect((await made.call('social_comment', { url: `https://www.bilibili.com/video/${BV}`, text: 'x'.repeat(limitOf('bilibili', 'comment', true) + 1) })).text)
+      .toBe(t.notRun('social_comment', t.commentTooLong(limitOf('bilibili', 'comment', true))));
+  });
+
+  it('sends a comment on Bilibili with the login\'s token, as a reply when the link names a comment, and gives its link', async () => {
+    const sent: URLSearchParams[] = [];
+    const script: PageScript = {
+      run: () => 'fixturejct',
+      fetch: (url, init) => {
+        const u = new URL(url);
+        if (u.pathname === '/x/web-interface/view') return json({ code: 0, data: { aid: 170001, bvid: u.searchParams.get('bvid') } });
+        if (u.pathname !== '/x/v2/reply/add') return undefined;
+        sent.push(new URLSearchParams(init?.body));
+        return json({ code: 0, data: { rpid: 6006 + sent.length, rpid_str: String(6006 + sent.length) } });
+      },
+    };
+    const made = await makeWorld(script, on);
+    await made.call('social_comment', { url: `https://www.bilibili.com/video/${BV}#reply5005`, text: '同意。' });
+    const [draft] = (await made.panel('state')).comments.drafts;
+    const state = await made.panel('commentPost', draft!.id, '同意,讲得很清楚。');
+    expect(Object.fromEntries(sent[0]!)).toEqual({ type: '1', oid: '170001', message: '同意,讲得很清楚。', plat: '1', csrf: 'fixturejct', root: '5005', parent: '5005' });
+    expect(state.comments.posted).toMatchObject([{ platform: 'bilibili', link: `https://www.bilibili.com/video/${BV}#reply6007` }]);
+  });
+});
+
+describe('new posts', () => {
+  const ME = `${REDDIT}/api/me.json`;
+  const SUBMIT = `${REDDIT}/api/submit`;
+  const c = socialText('en').comments;
+  const MIN = 60_000;
+  /** Reddit logged in as fixture_alice: keeps each post's form and answers each with a new post. */
+  function reddit() {
+    const sent: Array<Record<string, string>> = [];
+    const script: PageScript = {
+      fetch: (url, init) => {
+        if (url === ME) return json({ kind: 't2', data: { name: 'fixture_alice', modhash: 'fixturehash' } });
+        if (url !== SUBMIT) return undefined;
+        sent.push(Object.fromEntries(new URLSearchParams(init?.body)));
+        return json({ json: { errors: [], data: { url: `${REDDIT}/r/fixture/comments/n${sent.length}/fixture_post/`, id: `n${sent.length}`, name: `t3_n${sent.length}` } } });
+      },
+    };
+    return { script, sent };
+  }
+  const linkOf = (n: number) => `${REDDIT}/r/fixture/comments/n${n}/fixture_post/`;
+  const posts = (patch: Partial<SocialConfigSection['posts']> = {}) => (cfg: SocialConfigSection) => { Object.assign(cfg.posts, { enabled: true }, patch); };
+  const redditPost = { platform: 'reddit', text: 'Where do you get ramen after 10pm?', title: 'Late ramen', community: 'r/fixture' };
+
+  beforeEach(() => { vi.useFakeTimers({ toFake: ['setTimeout', 'setInterval'] }); });
+  afterEach(() => { vi.useRealTimers(); });
+
+  it('writes no post while new posts are off', async () => {
+    const made = await makeWorld(reddit().script);
+    expect((await made.call('social_post', redditPost)).text).toBe(t.notRun('social_post', t.postsOff));
+  });
+
+  it('refuses Substack, a platform without posts, a platform turned off, and a post missing what its platform needs or past a limit', async () => {
+    const made = await makeWorld({}, (cfg) => { posts()(cfg); cfg.platforms.threads.enabled = false; });
+    const refused = async (args: Record<string, unknown>) => (await made.call('social_post', args)).text;
+    expect(await refused({ platform: 'substack', text: 'x' })).toBe(t.notRun('social_post', t.postOnSubstack));
+    // the platforms named are those turned on
+    for (const platform of ['instagram', 'fixturebook']) expect(await refused({ platform, text: 'x' })).toBe(t.notRun('social_post', t.postPlatforms(['Reddit', 'X', 'Bilibili'])));
+    expect(await refused({ platform: 'threads', text: 'x' })).toBe(t.notRun('social_post', t.platformOff('Threads')));
+    expect(await refused({ ...redditPost, title: ' ' })).toBe(t.notRun('social_post', t.postNeeds('Reddit', 'title')));
+    expect(await refused({ ...redditPost, community: '' })).toBe(t.notRun('social_post', t.postNeeds('Reddit', 'community')));
+    expect(await refused({ ...redditPost, title: 'x'.repeat(301) })).toBe(t.notRun('social_post', t.titleTooLong(300)));
+    expect(await refused({ ...redditPost, text: '  ' })).toBe(t.notRun('social_post', t.commentEmpty));
+    const max = limitOf('x', 'post', true);
+    expect(await refused({ platform: 'x', text: 'x'.repeat(max + 1) })).toBe(t.notRun('social_post', t.commentTooLong(max)));
+    expect((await made.panel('state')).comments.drafts).toEqual([]);
+  });
+
+  it('keeps a post for the person with its title and subreddit, then posts the title and text the person left in it', async () => {
+    let shown = 0;
+    const { script, sent } = reddit();
+    const made = await makeWorld(script, posts(), { showDrafts: () => { shown++; } });
+    const r = await made.call('social_post', { ...redditPost, platform: 'reddit' });
+    const [draft] = (await made.panel('state')).comments.drafts;
+    expect(draft).toMatchObject({ platform: 'reddit', kind: 'post', url: '', target: '', title: 'Late ramen', community: 'r/fixture', text: redditPost.text });
+    expect(r.text).toBe(t.commentDrafted('social_post', draft!.id));
+    expect(shown).toBe(1);
+    expect(sent).toEqual([]);
+    await expect(made.panel('commentPost', draft!.id, redditPost.text, ' ')).rejects.toThrow(c.titleEmpty);
+    await expect(made.panel('commentPost', draft!.id, redditPost.text, 'x'.repeat(301))).rejects.toThrow(c.titleTooLong(300));
+    const state = await made.panel('commentPost', draft!.id, redditPost.text, ' Late-night ramen ');
+    expect(sent).toEqual([{ api_type: 'json', raw_json: '1', sr: 'fixture', kind: 'self', title: 'Late-night ramen', text: redditPost.text, resubmit: 'true' }]);
+    expect(state.comments).toMatchObject({ drafts: [], posted: [], postsToday: 1, today: 0, postedPosts: [{ platform: 'reddit', kind: 'post', title: 'Late-night ramen', community: 'r/fixture', link: linkOf(1), edited: true }] });
+    expect(made.host.events).toMatchObject([{ type: 'social.comment', text: t.postPosted('Reddit', linkOf(1), `Late-night ramen · ${redditPost.text}`) }]);
+  });
+
+  it('tells the bot of a discarded post with the next batch, and stops at the daily limit', async () => {
+    const { script, sent } = reddit();
+    const made = await makeWorld(script, posts({ maxPerDay: 1 }));
+    await made.call('social_post', redditPost);
+    await made.call('social_post', { ...redditPost, title: 'Second' });
+    const [a, b] = (await made.panel('state')).comments.drafts.map((d) => d.id);
+    await made.panel('commentDiscard', a);
+    expect(made.host.events).toMatchObject([{ type: 'social.comment', text: t.postDiscarded('Reddit') }]);
+    await made.panel('commentPost', b, redditPost.text);
+    expect(sent.map((x) => x.title)).toEqual(['Second']);
+    expect((await made.call('social_post', redditPost)).text).toBe(t.notRun('social_post', t.postDayFull(1)));
+  });
+
+  it(`queues posts with automatic posts on, at least ${GAPS.post / MIN} minutes apart, each marked; one with a link waits`, async () => {
+    const { script, sent } = reddit();
+    const made = await makeWorld(script, posts({ auto: true }), { random: () => 0 });
+    const start = made.browser.clock.now;
+    expect((await made.call('social_post', redditPost)).text).toBe(t.commentQueued('social_post', localStamp(new Date(start + FIRST_WAIT_MS).toISOString(), TZ)));
+    await made.call('social_post', { ...redditPost, title: 'Second' });
+    expect((await made.panel('state')).comments.queued.map((q) => [q.kind, q.title, Date.parse(q.due)])).toEqual([['post', 'Late ramen', start + FIRST_WAIT_MS], ['post', 'Second', start + FIRST_WAIT_MS + GAPS.post]]);
+    const held = await made.call('social_post', { ...redditPost, text: 'Menu at https://fixture.test/menu' });
+    const [draft] = (await made.panel('state')).comments.drafts;
+    expect(held.text).toBe(t.commentHeld('social_post', draft!.id, t.heldLink));
+    await waitFor(made, FIRST_WAIT_MS);
+    expect(sent).toEqual([expect.objectContaining({ title: 'Late ramen', text: `${redditPost.text}\n\n${AUTO_NOTE}` })]);
+    expect(made.host.events).toMatchObject([{ type: 'social.posted', text: t.autoSent(t.kind.post, 'Reddit', linkOf(1)) }]);
+    await waitFor(made, GAPS.post);
+    expect(sent).toHaveLength(2);
+    expect((await made.panel('state')).comments).toMatchObject({ queued: [], postsToday: 2, postedPosts: [{ title: 'Second', auto: true }, { title: 'Late ramen', auto: true }] });
+  });
+
+  it('makes a queued post a draft when automatic posts were turned off before its time', async () => {
+    const { script, sent } = reddit();
+    const made = await makeWorld(script, posts({ auto: true }), { random: () => 0 });
+    await made.call('social_post', redditPost);
+    made.cfg.posts.auto = false;
+    await waitFor(made, FIRST_WAIT_MS);
+    expect(sent).toEqual([]);
+    const { comments } = await made.panel('state');
+    expect(comments.drafts).toMatchObject([{ kind: 'post', title: 'Late ramen', community: 'r/fixture' }]);
+    expect(made.host.events).toMatchObject([{ type: 'social.posted', text: t.autoHeld(t.kind.post, 'Reddit', t.heldSwitchedOff, comments.drafts[0]!.id) }]);
+  });
+
+  it("posts a Bilibili dynamic with the login's token, marked in Chinese when automatic", async () => {
+    const sent: Array<{ url: URL; body: unknown }> = [];
+    const script: PageScript = {
+      run: () => 'fixturejct',
+      fetch: (url, init) => {
+        const u = new URL(url);
+        if (u.pathname !== '/x/dynamic/feed/create/dyn') return undefined;
+        sent.push({ url: u, body: JSON.parse(init?.body ?? 'null') });
+        return json({ code: 0, data: { dyn_id: 900000000000000001, dyn_id_str: '900000000000000001' } });
+      },
+    };
+    const made = await makeWorld(script, posts({ auto: true }), { random: () => 0 });
+    await made.call('social_post', { platform: 'bilibili', text: '今天读完了一本好书。' });
+    await waitFor(made, FIRST_WAIT_MS);
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.url.searchParams.get('csrf')).toBe('fixturejct');
+    expect(sent[0]!.body).toMatchObject({ dyn_req: { content: { contents: [{ raw_text: `今天读完了一本好书。\n\n${AUTO_LINE_ZH}`, type: 1 }] }, scene: 1 } });
+    expect(made.host.events).toMatchObject([{ type: 'social.posted', text: t.autoSent(t.kind.post, 'Bilibili', 'https://www.bilibili.com/opus/900000000000000001') }]);
+  });
+});
+
 describe('Substack', () => {
   const SUB = 'https://substack.com';
   const PUB = 'https://fixturewriter.substack.com';
@@ -1209,7 +1408,7 @@ describe('Substack', () => {
     await made.call('social_note', { text: 'Second.' });
     expect((await made.panel('state')).comments.queued.map((q) => Date.parse(q.due))).toEqual([start + FIRST_WAIT_MS, start + FIRST_WAIT_MS + GAPS.note]);
     await waitFor(made, FIRST_WAIT_MS);
-    expect(sent.map((x) => x.body.bodyJson)).toEqual([noteDoc(`First.\n\n${SUBSTACK_AUTO_NOTE}`)]);
+    expect(sent.map((x) => x.body.bodyJson)).toEqual([noteDoc(`First.\n\n${AUTO_LINE}`)]);
     expect(made.host.events).toMatchObject([{ type: 'social.posted', text: t.autoSent(t.kind.note, 'Substack', noteLink(1)) }]);
     await waitFor(made, GAPS.note);
     expect(sent).toHaveLength(2);
@@ -1227,7 +1426,10 @@ describe('Substack', () => {
     const { script, sent } = substack();
     const made = await makeWorld(script, (cfg) => { cfg.comments.enabled = true; });
     expect((await made.call('social_comment', { url: NOTE, text: 'x' })).text).toBe(t.notRun('social_comment', t.commentOnNote));
-    expect((await made.call('social_comment', { url: `${PUB}/archive`, text: 'x' })).text).toBe(t.notRun('social_comment', t.commentNoSubstackPost));
+    // a comment under a post takes no reply from the bot: its link is refused rather than taken for the post's
+    for (const url of [`${PUB}/archive`, `${POST}/comment/55`]) {
+      expect((await made.call('social_comment', { url, text: 'x' })).text).toBe(t.notRun('social_comment', t.commentNoTarget('Substack')));
+    }
     await made.call('social_comment', { url: POST, text: 'Well put.' });
     const [draft] = (await made.panel('state')).comments.drafts;
     expect(draft).toMatchObject({ platform: 'substack', kind: 'comment', target: POST });

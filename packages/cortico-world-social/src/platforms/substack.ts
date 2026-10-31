@@ -28,8 +28,8 @@ const RANKS: Record<string, string> = { rising: 'trending', paid: 'paid' };
 /** A person's feed narrowed to one kind, as the tool names it, to Substack's `types[]`. */
 const PROFILE_TYPES: Record<string, string> = { notes: 'note', posts: 'post' };
 const JSON_HEADERS = { 'content-type': 'application/json' };
-/** The line automatic comments and Notes end with while they are marked (`cfg.comments.sign`). */
-export const SUBSTACK_AUTO_NOTE = '(Sent automatically by my assistant.)';
+/** The longest comment or Note the bot sends; Substack states none. */
+export const SUBSTACK_TEXT_MAX = 10_000;
 
 const str = (v: unknown): string | undefined => (typeof v === 'string' && v ? v : undefined);
 const num = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
@@ -235,6 +235,14 @@ export const SUBSTACK: Adapter = {
   },
 
   owns: (url) => hostIs(url, 'substack.com'),
+
+  // comments go on posts; a Note is answered with a Note of the person's own (`postSubstackNote`)
+  write: {
+    // a comment's link (…/comment/<id>): the bot replies to none
+    replyTarget: (url) => (substackPostRef(url.href) && !/\/comment\/\d+/.test(url.pathname) ? url.href : null),
+    comment: postSubstackComment,
+    commentMax: SUBSTACK_TEXT_MAX,
+  },
 
   async read(page, url, maxComments) {
     const ref = substackPostRef(url);

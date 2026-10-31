@@ -105,15 +105,13 @@ const zh = {
   loginOpened: (platform: string) => `[social_login] 已在${platform}的登录页打开浏览器窗口。告诉对方在里面登录,登录完关掉窗口;之后会有事件说明登录是否生效。`,
   loginEvent: (platform: string, holds: boolean) => `[social] ${platform}的登录窗口关掉了。${holds ? '登录已生效。' : '没有发现登录。'}`,
 
-  kind: { comment: '评论', note: '短帖(Note)' } as Record<WriteKind, string>,
+  kind: { comment: '评论', note: '短帖(Note)', post: '新帖' } as Record<WriteKind, string>,
   commentDrafted: (tool: string, id: string) => `[${tool}] 草稿 ${id} 在设置窗口的「社交媒体」页等对方处理:对方可以修改后发出,也可以丢弃。只有对方在那里点「发出」才会发出;事件告诉你结果之前,不要说已经发出。`,
   commentsOff: '评论草稿在「社交媒体」页是关着的;对方可以在那里打开。',
-  commentPlatforms: '只能给 Reddit 和 Substack 的帖子写评论。',
   commentOnNote: '这是 Substack 的短帖:回复它用 social_note,reply_to 给它的链接。',
-  commentNoSubstackPost: 'Substack 的评论要写在文章下:请给文章的链接(带 /p/ 的那种)。',
   commentQueued: (tool: string, time: string) => `[${tool}] 已排队,约 ${time} 自动发出,与对方的其他发帖错开;发出后会有事件告诉你。在那之前不要说已经发出。`,
   commentShareLink: '分享链接看不出指向哪条帖子。先用 social_read 打开它,再用回执里的帖子链接。',
-  commentNoTarget: '这个链接没有指向 Reddit 的帖子或评论。',
+  commentNoTarget: (platform: string) => `这个链接没有指向${platform}上可以评论的内容;请给帖子或视频本身的链接。`,
   commentEmpty: 'text 是空的。',
   commentTooLong: (max: number) => `超过了 ${max} 字的上限。`,
   commentDraftsFull: (max: number) => `已经有 ${max} 份草稿在等对方处理;对方发出或丢弃一些之后才能再起草。`,
@@ -135,6 +133,15 @@ const zh = {
   noteDayFull: (max: number) => `今天的短帖(含已排队的)已经到了对方设的每日上限 ${max} 条;对方可以在「社交媒体」页调高。`,
   notePosted: (link: string | null, edited: string | null) => `[social] 对方发出了你起草的短帖。${edited !== null ? `发出前对方把它改成了:${edited}` : ''}${link ? `\n短帖的链接:${link}` : ''}`,
   noteDiscarded: '[social] 对方丢弃了你起草的短帖。',
+  postsOff: '写新帖在「社交媒体」页是关着的;对方可以在那里打开。',
+  postOnSubstack: 'Substack 上的新帖是短帖:用 social_note;长文用 social_draft 存为草稿。',
+  postPlatforms: (names: string[]) => (names.length ? `只能在这些平台写新帖:${names.join('、')}。` : '能写新帖的平台都被关掉了。'),
+  postNeeds: (platform: string, what: 'title' | 'community') => `${platform}的新帖要给 ${what}${what === 'community' ? '(发到哪个社区)' : ''}。`,
+  titleTooLong: (max: number) => `title 超过了 ${max} 字的上限。`,
+  postDayFull: (max: number) => `今天的新帖(含已排队的)已经到了对方设的每日上限 ${max} 条;对方可以在「社交媒体」页调高。`,
+  postPosted: (platform: string, link: string | null, edited: string | null) =>
+    `[social] 对方在 ${platform} 发出了你起草的新帖。${edited !== null ? `发出前对方把它改成了:${edited}` : ''}${link ? `\n帖子的链接:${link}` : ''}`,
+  postDiscarded: (platform: string) => `[social] 对方丢弃了你为 ${platform} 起草的新帖。`,
   autoSent: (kind: string, platform: string, link: string | null) => `[social] 你的${kind}已在 ${platform} 自动发出。${link ? `链接:${link}` : ''}`,
   autoHeld: (kind: string, platform: string, why: string, id: string) => `[social] 你在 ${platform} 的${kind}没有自动发出:${why}它作为草稿 ${id} 等对方处理。`,
   heldSwitchedOff: '对方关掉了自动发出。',
@@ -174,6 +181,9 @@ const zh = {
   envComments: (c: { enabled: boolean; maxPerDay: number; auto: boolean; autoReply: boolean }) => (c.enabled
     ? `已打开,对方每天最多发出 ${c.maxPerDay} 条。${c.auto ? '自动评论开着:你写的评论排队后自动发出,彼此错开,不等对方过目。' : '你写的评论先作为草稿,等对方发出。'}${c.autoReply ? '自动回复开着:有人回复对方在 Reddit 的评论或帖子时会有 [social] 事件,你对那条回复的回应自动发出。' : ''}`
     : '已关闭:对方在「社交媒体」页打开之前,social_comment 不会执行。'),
+  envPosts: (p: { enabled: boolean; maxPerDay: number; auto: boolean; platforms: string[] }) => (p.enabled
+    ? `已打开,每天最多 ${p.maxPerDay} 条${p.auto ? ',排队后自动发出,彼此错开,不等对方过目' : ',先作为草稿等对方发出'}。能写新帖的平台:${p.platforms.length ? p.platforms.join('、') : '都被关掉了'}。`
+    : '已关闭:对方在「社交媒体」页打开之前,social_post 不会执行。'),
   envSubstack: (s: { notes: boolean; autoNotes: boolean; maxNotesPerDay: number; dailyNotes: number; topic: string; publication: string | null }) =>
     `${s.notes ? `可以写短帖,每天最多 ${s.maxNotesPerDay} 条${s.autoNotes ? ',自动发出,彼此错开' : ',先作为草稿等对方发出'}${s.dailyNotes ? `;每天还会在随机时间请你写 ${s.dailyNotes} 条${s.topic ? `,写前先看「${s.topic}」` : ''}` : ''}。` : '写短帖是关着的。'}${s.publication ? `对方的刊物是 ${s.publication}:social_draft 把文章草稿放在那里。` : '对方没有填写刊物,social_draft 不能用。'}`,
 };
@@ -262,15 +272,13 @@ const en: ModelText = {
   loginOpened: (platform) => `[social_login] A browser window is open at the ${platform} login page. Tell the person to log in there and close the window when done; an event will say whether a login holds.`,
   loginEvent: (platform, holds) => `[social] The ${platform} login window was closed. ${holds ? 'A login holds.' : 'No login was found.'}`,
 
-  kind: { comment: 'comment', note: 'Note' },
+  kind: { comment: 'comment', note: 'Note', post: 'post' },
   commentDrafted: (tool, id) => `[${tool}] Draft ${id} waits for the person on the Social media page of the settings window, where they can edit and post it, or discard it. It is posted only when they click Post there; until an event says what they did, don't say it was posted.`,
   commentsOff: 'Drafting comments is turned off on the Social media page; the person can turn it on there.',
-  commentPlatforms: 'Comments go on Reddit and Substack posts only.',
   commentOnNote: 'This is a Substack Note: reply to it with social_note, its link as reply_to.',
-  commentNoSubstackPost: 'On Substack, comments go on posts: give a post link (one with /p/ in it).',
   commentQueued: (tool, time) => `[${tool}] Queued: it goes out on its own at about ${time}, spaced from the person's other posts, and an event says when it is up. Until then, don't say it was posted.`,
   commentShareLink: "A share link doesn't say which post it leads to. Open it with social_read first, then use the post link the receipt gives.",
-  commentNoTarget: 'This link names no Reddit post or comment.',
+  commentNoTarget: (platform) => `This link names nothing on ${platform} that takes a comment; give the link of the post or video itself.`,
   commentEmpty: 'text is empty.',
   commentTooLong: (max) => `It is longer than the limit of ${max} characters.`,
   commentDraftsFull: (max) => `${max} drafts already wait for the person; another can be drafted once they post or discard some.`,
@@ -292,6 +300,15 @@ const en: ModelText = {
   noteDayFull: (max) => `Today's Notes, queued ones included, reached the daily limit of ${max} the person set; they can raise it on the Social media page.`,
   notePosted: (link, edited) => `[social] The person posted the Note you drafted.${edited !== null ? ` They changed it before posting, to: ${edited}` : ''}${link ? `\nThe Note's link: ${link}` : ''}`,
   noteDiscarded: '[social] The person discarded the Note you drafted.',
+  postsOff: 'Writing new posts is turned off on the Social media page; the person can turn it on there.',
+  postOnSubstack: 'New posts on Substack are Notes: use social_note; social_draft keeps a long post as a draft.',
+  postPlatforms: (names) => (names.length ? `New posts go on ${names.join(', ')} only.` : 'The platforms that take new posts are all turned off.'),
+  postNeeds: (platform, what) => `A new post on ${platform} needs ${what}${what === 'community' ? ' (where it goes)' : ''}.`,
+  titleTooLong: (max) => `title is longer than the limit of ${max} characters.`,
+  postDayFull: (max) => `Today's new posts, queued ones included, reached the daily limit of ${max} the person set; they can raise it on the Social media page.`,
+  postPosted: (platform, link, edited) =>
+    `[social] The person published the post you drafted for ${platform}.${edited !== null ? ` They changed it before posting, to: ${edited}` : ''}${link ? `\nIts link: ${link}` : ''}`,
+  postDiscarded: (platform) => `[social] The person discarded the post you drafted for ${platform}.`,
   autoSent: (kind, platform, link) => `[social] Your automatic ${kind} on ${platform} is up.${link ? ` Its link: ${link}` : ''}`,
   autoHeld: (kind, platform, why, id) => `[social] Your automatic ${kind} on ${platform} did not go out: ${why} It waits as draft ${id} for the person.`,
   heldSwitchedOff: 'The person turned automatic posting off.',
@@ -331,6 +348,9 @@ const en: ModelText = {
   envComments: (c) => (c.enabled
     ? `On; the person posts at most ${c.maxPerDay} a day. ${c.auto ? 'Automatic comments are on: what you write is queued and goes out on its own, spaced out, without waiting for the person.' : 'What you write waits as a draft for the person to post.'}${c.autoReply ? " Automatic replies are on: a [social] event brings new replies to the person's Reddit comments and posts, and your answer to one goes out on its own." : ''}`
     : "Off: social_comment doesn't run until the person turns it on on the Social media page."),
+  envPosts: (p) => (p.enabled
+    ? `On; at most ${p.maxPerDay} a day${p.auto ? ', queued and posted on their own, spaced out, without waiting for the person' : ', as drafts the person posts'}. Platforms that take new posts: ${p.platforms.length ? p.platforms.join(', ') : 'all turned off'}.`
+    : "Off: social_post doesn't run until the person turns it on on the Social media page."),
   envSubstack: (s) => `${s.notes ? `You may write Notes, at most ${s.maxNotesPerDay} a day${s.autoNotes ? ', posted on their own, spaced out' : ', as drafts the person posts'}${s.dailyNotes ? `; you are also asked for ${s.dailyNotes} a day at random times${s.topic ? `, after a look at ${s.topic}` : ''}` : ''}.` : 'Writing Notes is off.'} ${s.publication ? `The person's publication is ${s.publication}: social_draft puts post drafts there.` : "social_draft can't run: the person hasn't set their publication."}`,
 };
 

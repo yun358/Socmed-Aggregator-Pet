@@ -1,6 +1,7 @@
 /**
- * What the bot writes on the platforms: comments, and Notes on Substack. A draft waits until the
- * person posts or discards it on the Social media page; the bot has no way to post one. With an
+ * What the bot writes on the platforms: comments, new posts of the person's own, and Notes on
+ * Substack. A draft waits until the person posts or discards it on the Social media page; the bot
+ * has no way to post one. With an
  * automatic switch on, the World queues the post instead, to go out at its time, spaced from the
  * others (`world.ts`). Drafts, the queue, what was posted (the last `POSTED_KEPT`), the watch on the
  * inbox and the day's plan of Notes to write are kept in `social-comments.json` in the deployment's
@@ -18,20 +19,28 @@ export const POSTED_KEPT = 50;
 /** Replies looked at that are remembered, so none is told twice. */
 export const SEEN_KEPT = 500;
 
-export type WriteKind = 'comment' | 'note';
+export type WriteKind = 'comment' | 'note' | 'post';
+
+/** The line automatic comments and posts end with while they are marked, where the platform has no line of its own (`Writer.mark`). */
+export const AUTO_LINE = '(Sent automatically by my assistant.)';
+/** The same line on the Chinese platforms. */
+export const AUTO_LINE_ZH = '（由我的助手自动发出）';
 
 export interface CommentDraft {
   id: string;
   platform: PlatformId;
   kind: WriteKind;
-  /** The post, comment or Note it replies to, as the bot gave it; empty for a new Note. */
+  /** The post, comment or Note it replies to, as the bot gave it; empty for a new post or Note. */
   url: string;
   /**
-   * What it replies to as the platform names it: on Reddit `t3_` for a post and `t1_` for a comment,
-   * on Substack a post's link or a Note's number; empty for a new Note.
+   * What it replies to as the platform names it (`Writer.replyTarget`; a Note's number on Substack);
+   * empty for a new post or Note.
    */
   target: string;
   text: string;
+  /** A new post's title and the community it goes to, where the platform needs them. */
+  title?: string;
+  community?: string;
   /** ISO time it was drafted. */
   at: string;
 }
@@ -48,6 +57,8 @@ export interface PostedComment {
   platform: PlatformId;
   kind: WriteKind;
   url: string;
+  title?: string;
+  community?: string;
   /** Its own link, when the platform gave one. */
   link: string | null;
   text: string;
@@ -105,12 +116,14 @@ interface Data {
 
 const str = (v: unknown): v is string => typeof v === 'string';
 const isPlatform = (v: unknown): v is PlatformId => (PLATFORM_IDS as readonly unknown[]).includes(v);
-const kindOf = (v: unknown): WriteKind => (v === 'note' ? 'note' : 'comment');
+const kindOf = (v: unknown): WriteKind => (v === 'note' || v === 'post' ? v : 'comment');
+/** `title` and `community` where they are strings, as a post carries them. */
+const postParts = (d: { title?: unknown; community?: unknown }) => ({ ...(str(d.title) ? { title: d.title } : {}), ...(str(d.community) ? { community: d.community } : {}) });
 
 /** A draft read back from the file, or null when it is not one. */
 function readDraft(d: Partial<CommentDraft>): CommentDraft | null {
   if (!str(d.id) || !isPlatform(d.platform) || !str(d.url) || !str(d.target) || !str(d.text) || !str(d.at)) return null;
-  return { id: d.id, platform: d.platform, kind: kindOf(d.kind), url: d.url, target: d.target, text: d.text, at: d.at };
+  return { id: d.id, platform: d.platform, kind: kindOf(d.kind), url: d.url, target: d.target, text: d.text, ...postParts(d), at: d.at };
 }
 
 export class CommentStore {
@@ -138,7 +151,7 @@ export class CommentStore {
       for (const p of Array.isArray(raw.posted) ? raw.posted as Array<Partial<PostedComment>> : []) {
         if (!isPlatform(p.platform) || !str(p.url) || !str(p.text) || !str(p.at)) continue;
         fresh.posted.push({
-          platform: p.platform, kind: kindOf(p.kind), url: p.url, link: str(p.link) ? p.link : null, text: p.text,
+          platform: p.platform, kind: kindOf(p.kind), url: p.url, ...postParts(p), link: str(p.link) ? p.link : null, text: p.text,
           edited: p.edited === true, auto: p.auto === true, ...(str(p.to) ? { to: p.to } : {}), at: p.at,
         });
       }

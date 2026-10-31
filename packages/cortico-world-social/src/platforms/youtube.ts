@@ -9,6 +9,7 @@ import type { PageSession } from '../browser.ts';
 import { PlatformBlocked, type Collector } from '../collect.ts';
 import type { Post } from '../posts.ts';
 import { accountName, hostIs, type Adapter, type TranscriptResult } from './adapter.ts';
+import { compose, findKey, jsonOf } from './compose.ts';
 import {
   YOUTUBE_ORIGIN, parseCaptionTracks, parseCaptionXml, parseJson3, parseTranscriptPanel, parseVideoDetails,
   parseYoutubeChannel, parseYoutubeFeed, parseYoutubeVideos, pickCaptionTrack, youtubeVideoId,
@@ -158,6 +159,35 @@ async function transcript(page: PageSession, ref: string): Promise<TranscriptRes
   return lines.length ? done(lines) : { kind: 'none', reason: 'unavailable', title: details.title, url };
 }
 
+/** The longest comment YouTube takes. */
+export const YOUTUBE_COMMENT_MAX = 10_000;
+/** The comment box under a video: a placeholder until clicked. */
+const SIMPLEBOX = 'ytd-comment-simplebox-renderer';
+
+/** Scrolls to the comments, which YouTube loads only once they come near. */
+function towardComments(): void {
+  const comments = document.querySelector('ytd-comments');
+  if (comments) comments.scrollIntoView();
+  window.scrollBy(0, 600);
+}
+
+/**
+ * Comments `text` on the video `target` names, in the box under it, confirmed by YouTube's
+ * `create_comment` answer, which names the new comment.
+ */
+export async function postYouTubeComment(page: PageSession, target: string, text: string): Promise<{ link: string | null }> {
+  await page.goto(`${YOUTUBE_ORIGIN}/watch?v=${encodeURIComponent(target)}`);
+  for (let i = 0; i < 6 && !(await page.waitFor(SIMPLEBOX, 1500)); i++) await page.run(towardComments, undefined);
+  const answer = await compose(page, 'youtube', {
+    open: [`${SIMPLEBOX} #placeholder-area`, '#simplebox-placeholder'],
+    box: `${SIMPLEBOX} #contenteditable-root`,
+    send: `${SIMPLEBOX} #submit-button`,
+    request: /\/youtubei\/v1\/comment\/create_comment\b/,
+  }, text);
+  const id = findKey(jsonOf(answer.text), 'commentId');
+  return { link: id ? `${YOUTUBE_ORIGIN}/watch?v=${target}&lc=${id}` : null };
+}
+
 export const YOUTUBE: Adapter = {
   id: 'youtube',
   loginUrl: 'https://accounts.google.com/ServiceLogin?service=youtube&continue=https%3A%2F%2Fwww.youtube.com%2F',
@@ -200,6 +230,13 @@ export const YOUTUBE: Adapter = {
   },
 
   owns: (url) => hostIs(url, 'youtube.com', 'youtu.be'),
+
+  write: {
+    // a comment's link (lc=…): the bot replies to none
+    replyTarget: (url) => (url.searchParams.has('lc') ? null : youtubeVideoId(url.href)),
+    comment: postYouTubeComment,
+    commentMax: YOUTUBE_COMMENT_MAX,
+  },
 
   async read(page, url) {
     const id = youtubeVideoId(url);

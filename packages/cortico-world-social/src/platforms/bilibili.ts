@@ -3,12 +3,14 @@
  * cookies: search, an uploader's videos, the home recommendations, a video's details and top
  * comments, and subtitles. The `wbi/` endpoints are signed (`wbiSign`); an uploader's list falls
  * back to the space page when its endpoint refuses. Bilibili shows its AI subtitles only to
- * logged-in viewers.
+ * logged-in viewers. Comments on videos (`x/v2/reply/add`) and text dynamics
+ * (`x/dynamic/feed/create/dyn`) are written the same way, with the login's `bili_jct` cookie as CSRF token.
  */
-import type { PageSession } from '../browser.ts';
+import type { FetchedText, PageSession } from '../browser.ts';
 import { PlatformBlocked } from '../collect.ts';
+import { AUTO_LINE_ZH, CommentRefused } from '../comments.ts';
 import { clean, type Comment, type Post } from '../posts.ts';
-import { hostIs, type Adapter, type TranscriptResult } from './adapter.ts';
+import { hostIs, type Adapter, type NewPost, type TranscriptResult } from './adapter.ts';
 import {
   BILIBILI_API, BILIBILI_ORIGIN, bilibiliVideoId, parseBilibiliSubtitleBody, parseBilibiliSubtitles, parseBilibiliUser,
   parseBilibiliVideos, parseBilibiliView, wbiKeys, wbiSign,
@@ -110,6 +112,79 @@ async function transcript(page: PageSession, ref: string): Promise<TranscriptRes
   };
 }
 
+/** The longest comment the bot sends, and the longest text dynamic. */
+export const BILIBILI_COMMENT_MAX = 1000;
+export const BILIBILI_DYNAMIC_MAX = 1000;
+
+/** The login's CSRF token: the `bili_jct` cookie, which Bilibili's own pages read too; a login block without one. */
+async function csrfOf(page: PageSession): Promise<string> {
+  await onBilibili(page);
+  const jct = await page.run(() => /(?:^|;\s*)bili_jct=([^;]+)/.exec(document.cookie)?.[1] ?? '', undefined);
+  if (!jct) throw new PlatformBlocked('bilibili', 'login');
+  return jct;
+}
+
+/** Bilibili's answer to a write: its `data`, or the refusal it stands for. */
+function written(rep: FetchedText): Record<string, unknown> {
+  if (rep.status === 412) throw new PlatformBlocked('bilibili', 'captcha', 'HTTP 412');
+  if (rep.status >= 400) throw new CommentRefused('bilibili', `HTTP ${rep.status}`);
+  let json: { code?: unknown; message?: unknown; data?: unknown };
+  try {
+    json = JSON.parse(rep.text) as typeof json;
+  } catch {
+    throw new PlatformBlocked('bilibili', 'blocked', 'the answer was not JSON');
+  }
+  if (json.code === -101) throw new PlatformBlocked('bilibili', 'login');
+  if (json.code === -352 || json.code === -412) throw new PlatformBlocked('bilibili', 'captcha', `code ${json.code}`);
+  if (json.code !== 0) throw new CommentRefused('bilibili', typeof json.message === 'string' && json.message ? json.message : `code ${String(json.code)}`);
+  return (json.data && typeof json.data === 'object' ? json.data : {}) as Record<string, unknown>;
+}
+
+const idOf = (v: unknown): string | null => (typeof v === 'string' && /^\d+$/.test(v) ? v : typeof v === 'number' && v > 0 ? String(v) : null);
+
+/** What a comment on a Bilibili link replies to: the video's `BV…` id, with `#<rpid>` when the link names a comment under it. */
+export function bilibiliReplyTarget(url: URL): string | null {
+  if (!hostIs(url, 'bilibili.com')) return null;
+  const bvid = /\/video\/(BV[0-9A-Za-z]{10})/.exec(url.pathname)?.[1];
+  if (!bvid) return null;
+  const rpid = /^#reply(\d+)$/.exec(url.hash)?.[1];
+  return rpid ? `${bvid}#${rpid}` : bvid;
+}
+
+/** Posts `text` under the video `target` names, as a reply to its comment when it names one; the comment's link. */
+export async function postBilibiliComment(page: PageSession, target: string, text: string): Promise<{ link: string | null }> {
+  const [bvid, rpid] = target.split('#');
+  const csrf = await csrfOf(page);
+  const view = await api(page, `/x/web-interface/view?bvid=${encodeURIComponent(bvid!)}`);
+  check(view);
+  const aid = idOf((view as { data?: { aid?: unknown } }).data?.aid);
+  if (!aid) throw new CommentRefused('bilibili', 'the video was not found');
+  const form: Record<string, string> = { type: '1', oid: aid, message: text, plat: '1', csrf, ...(rpid ? { root: rpid, parent: rpid } : {}) };
+  const data = written(await page.fetchText(`${BILIBILI_API}/x/v2/reply/add`, {
+    method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(form).toString(),
+  }));
+  const id = idOf(data.rpid_str) ?? idOf(data.rpid);
+  return { link: id ? `${BILIBILI_ORIGIN}/video/${bvid}#reply${id}` : null };
+}
+
+/** Posts a text dynamic of the person's own; its link. */
+export async function postBilibiliDynamic(page: PageSession, post: NewPost): Promise<{ link: string | null }> {
+  const csrf = await csrfOf(page);
+  const dyn = {
+    dyn_req: {
+      content: { contents: [{ raw_text: post.text, type: 1, biz_id: '' }] },
+      scene: 1,
+      attach_card: null,
+      meta: { app_meta: { from: 'create.dynamic.web', mobi_app: 'web' } },
+    },
+  };
+  const data = written(await page.fetchText(`${BILIBILI_API}/x/dynamic/feed/create/dyn?csrf=${encodeURIComponent(csrf)}`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(dyn),
+  }));
+  const id = idOf(data.dyn_id_str) ?? idOf(data.dyn_id);
+  return { link: id ? `${BILIBILI_ORIGIN}/opus/${id}` : null };
+}
+
 export const BILIBILI: Adapter = {
   id: 'bilibili',
   loginUrl: 'https://passport.bilibili.com/login',
@@ -161,6 +236,14 @@ export const BILIBILI: Adapter = {
 
   // the apps share b23.tv links, which redirect to the video
   shareLink: (url) => hostIs(url, 'b23.tv'),
+
+  write: {
+    replyTarget: bilibiliReplyTarget,
+    comment: postBilibiliComment,
+    commentMax: BILIBILI_COMMENT_MAX,
+    mark: AUTO_LINE_ZH,
+    posts: { needs: [], max: BILIBILI_DYNAMIC_MAX, publish: postBilibiliDynamic },
+  },
 
   async read(page, url, maxComments) {
     const bvid = bilibiliVideoId(url);

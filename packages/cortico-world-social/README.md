@@ -4,8 +4,8 @@
 
 [Cortico](https://github.com/Pal-AI-Lab/Cortico) 的社交媒体 World,随 Coopanion 打包。bot 用自己的浏览器替使用者浏览
 Reddit、X、Facebook、Threads、Instagram、YouTube、哔哩哔哩、小红书与 Substack,在使用者设定的上限内读帖子、读视频文字稿,
-用 OCR 读帖子图片里的文字,每天按设定自动浏览并交给 bot 写摘要,并累计在每个平台花的时间。bot 写的评论(Reddit、Substack)
-与 Substack 短帖默认是草稿,由使用者在面板上发出;Substack 的文章只建草稿。
+用 OCR 读帖子图片里的文字,每天按设定自动浏览并交给 bot 写摘要,并累计在每个平台花的时间。bot 写的评论(每个平台)、
+新帖(X、Threads、Reddit、哔哩哔哩)与 Substack 短帖默认是草稿,由使用者在面板上发出;Substack 的文章只建草稿。
 
 ## 工具
 
@@ -15,7 +15,8 @@ Reddit、X、Facebook、Threads、Instagram、YouTube、哔哩哔哩、小红书
 | `social_read(url, comments?)` | 打开一条帖子读全文与图片;Reddit、X、Threads、哔哩哔哩带热门评论 | 同上,算一条 |
 | `social_transcript(video, from_sec?)` | YouTube 或哔哩哔哩视频的字幕文字稿,约 30 秒一段、带时间;超过 `maxTranscriptChars` 时写明从哪一秒续读 | 同一请求里同一个视频只算一条,续读从内存缓存取 |
 | `social_login(platform)` | 用同一份资料目录单独启动浏览器(不受自动化控制),停在平台登录页,让使用者登录或完成验证;窗口开着时读取类工具拒绝执行 | 立即返回;窗口关掉后 `social.login` 事件写明登录是否生效 |
-| `social_comment(url, text)` | 以使用者的名义给 Reddit 的帖子或评论、或 Substack 的文章写评论:草稿,或在自动评论、自动回复下排队 | 草稿 id,或排队后约何时发出;拒绝时写明原因 |
+| `social_comment(url, text)` | 以使用者的名义给任一平台的帖子或视频写评论,或凭评论的链接在 Reddit、X、Threads、哔哩哔哩回复评论:草稿,或在自动评论、自动回复下排队。`text` 的上限按平台计(见「各平台的写入」),并为自动发出时末尾的说明留出位置 | 草稿 id,或排队后约何时发出;拒绝时写明原因 |
+| `social_post(platform, text, title?, community?)` | 以使用者的名义在 X、Threads、Reddit(子版里的文字帖,要 `title` 与 `community`)或哔哩哔哩(动态)写新帖:草稿,或在自动新帖下排队 | 同上 |
 | `social_note(text, reply_to?)` | 写 Substack 短帖,或回复一条短帖(`reply_to` 给它的链接):草稿,或在自动短帖下排队 | 同上 |
 | `social_draft(title, subtitle?, body)` | 在 `substack.publication` 的刊物里建立文章草稿,`body` 是 Markdown;不发布 | 草稿在 Substack 编辑器里的链接 |
 | `social_stats()` | 累计用时、各平台读过的数量、上次检查的登录情况、每日自动浏览的设置 | — |
@@ -32,7 +33,7 @@ Reddit、X、Facebook、Threads、Instagram、YouTube、哔哩哔哩、小红书
 |---|---|---|
 | `social.digest` | `flush`,等 bot 空闲(`onRunPhase` 为 `idle`)时才推送 | 每日自动浏览的一项读完:读到多少、略过了什么、摘要 id;或没能运行的原因 |
 | `social.login` | 由 bot 打开的窗口为 `flush`,由设置页打开的为 `piggyback` | 登录窗口关掉后登录是否生效:平台的会话 Cookie,小红书与 Substack(访客也有这个 Cookie)再看页面 |
-| `social.comment` | 发出为 `flush`,丢弃为 `piggyback` | 使用者在面板上发出了草稿(附链接与改动后的文字)或丢弃了它 |
+| `social.comment` | 发出为 `flush`,丢弃为 `piggyback` | 使用者在面板上发出了评论、新帖或短帖的草稿(附链接与改动后的文字)或丢弃了它 |
 | `social.reply` | `flush`,等 bot 空闲 | 自动回复开着时,Reddit 收件箱里的新回复 |
 | `social.posted` | `piggyback` | 排队的帖子发出了(附链接),或改为草稿及其原因(开关被关掉、发出失败、使用者点了「暂不发出」) |
 | `social.write` | `flush`,等 bot 空闲 | 到了当天计划的某条每日短帖的时间 |
@@ -72,6 +73,26 @@ Reddit、X、Facebook、Threads、Instagram、YouTube、哔哩哔哩、小红书
 | 小红书 | feed、search、account(主页链接) | 列表卡片取自 `__INITIAL_STATE__`(或 DOM),每条笔记带卡片的 `xsec_token` 打开详情页读全文与图片,笔记之间停 2.5 秒 | 搜索需要;登录从页面判断 |
 | Substack | feed、account(刊物、`@作者` 或 `me`)、community(类别) | 从页面请求 Substack 网页自己用的 JSON:刊物的 `/api/v1/archive`(`new` 或 `top`),作者的 `/api/v1/reader/feed/profile/<id>`(`notes` 或 `posts` 只取一种),类别的排行 `/api/v1/category/leaderboard/<id>/<trending 或 paid>` 及前 10 个刊物各自最受欢迎的 2 篇近期文章;刊物有自己的域名时,打开它的 substack.com 地址跟随跳转,链接留在 substack.com 上 | `me` 与写入需要;登录从 `/api/v1/user/profile/self` 判断 |
 
+## 各平台的写入
+
+| 平台 | 评论 | 新帖 | 方式 | 链接 |
+|---|---|---|---|---|
+| Reddit | 帖子与评论,10000 字 | 子版里的文字帖,标题 300 字,正文 40000 字 | `/api/comment`、`/api/submit`,带 `x-modhash` | 有 |
+| X | 帖子(回复也是帖子),280 | 280 | 在帖子页的回复框或 `/compose/post` 里输入,点发送;等 `Create…Tweet` 请求的回答 | 取自 `rest_id` |
+| Threads | 帖子,500 字 | 500 字,由分享链接 `/intent/post?text=` 填好 | 点回复按钮打开的对话框里输入,点「发布」(按钮文字认 11 种语言) | 无 |
+| 哔哩哔哩 | 视频与视频下的评论(`#reply<rpid>`),1000 字 | 文字动态,1000 字 | `/x/v2/reply/add`、`/x/dynamic/feed/create/dyn`,`bili_jct` 作 csrf | 有 |
+| Instagram | 帖子,2200 字 | 无(要图片) | `/api/v1/web/comments/<media_id>/add/`,带 `x-csrftoken`;media id 由短码按 64 进制算出 | 有 |
+| YouTube | 视频,10000 字 | 无(要视频) | 在观看页的评论框里输入,点「评论」;等 `create_comment` 的回答 | `lc=<commentId>` |
+| Facebook | 帖子、视频、照片,8000 字 | 无 | 在帖子页的评论框里输入,按 Enter;等 `/api/graphql` 的回答 | 无 |
+| 小红书 | 笔记,280 字 | 无(要图片) | 点笔记下的评论栏,输入,点发送;等 `/api/sns/web/v1/comment/post` 的回答 | 无 |
+| Substack | 文章,10000 字 | 短帖用 `social_note` | `/api/v1/post/<id>/comment` | 有 |
+
+X 按它自己的算法计长度:链接算 23,中日韩字符与表情算 2(`xLength`)。在网页里输入的平台(`platforms/compose.ts`)先点开输入框,
+逐键输入(换行用 Shift+Enter),再点发送或按 Enter,并等平台对带有这段文字的请求的回答:请求正文要含文字里第一串至少 4 个的字母或数字
+(原样、URL 编码或 JSON 转义),15 秒内没有回答记为可能已经发出(`TimeUp`),401、403 记为要登录,429 记为被拒。输入框与按钮的选择器
+按这些网站现在的版式写,网站改版后会失效;测试只在仿照它们的页面上跑过。给别人的评论回复的链接(YouTube 的 `lc=`、Instagram 的 `/c/`、
+Facebook 的 `comment_id`、Substack 的 `/comment/`)在不支持回复评论的平台上被拒绝,而不是当成给帖子的评论。
+
 平台的版式会变。平台读取器在第一屏一条也没读到时,改用通用读取器(`readGenericPosts`:`article`、`role="article"`、
 `aria-posinset`、`time[datetime]` 附近的块),回执写明有帖子是通用读取器读的。遇到登录页、验证页或 Cookie 选择页时抛出
 `PlatformBlocked`,回执让 bot 调用 `social_login`。
@@ -99,17 +120,18 @@ Reddit、X、Facebook、Threads、Instagram、YouTube、哔哩哔哩、小红书
 每项最多 `autoscroll.maxMinutes` 分钟,读到的帖子存为摘要(`<数据目录>/social-digests/`,保留 14 天),然后推送 `social.digest`。
 「立即运行」也记作当天的运行;清除记录只删摘要,不删运行日期。
 
-## 评论与短帖
+## 评论、新帖与短帖
 
 `comments.ts` 把草稿(最多 5 份,`DRAFTS_MAX`)、排队的帖子、发出过的(最后 50 条)、收件箱的查看记录与当天的每日短帖计划存在
-`<数据目录>/social-comments.json`。草稿只能由使用者在面板上发出,用浏览器的登录经平台网站自己的接口(Reddit 的 `/api/comment`,
-Substack 的 `/api/v1/comment/feed`、`/api/v1/post/<id>/comment`)。每天的上限(`comments.maxPerDay`、`substack.maxNotesPerDay`)
+`<数据目录>/social-comments.json`。草稿只能由使用者在面板上发出,用浏览器的登录,按上表的方式发出;Substack 的短帖经
+`/api/v1/comment/feed`。新帖草稿的标题可以在面板上修改。每天的上限(`comments.maxPerDay`、`posts.maxPerDay`、`substack.maxNotesPerDay`)
 按本地日期数发出的与排在当天的。
 
 自动评论、自动回复(回应 bot 一小时内被告知的回复)与自动短帖开着时,写出的内容排进队列:最早在 `FIRST_WAIT_MS` 到它的两倍之后,
-并与同一平台同一种类的上一条(发出的或排队的)相隔 `GAPS`(评论 4 分钟,短帖 90 分钟)到它的两倍,随机取。每 30 秒看一次,
+并与同一平台同一种类的上一条(发出的或排队的)相隔 `GAPS`(评论 4 分钟,新帖 60 分钟,短帖 90 分钟)到它的两倍,随机取。每 30 秒看一次,
 到时间的一次发出一条,`social.posted` 随下一批事件告诉 bot。带链接的、同一账号当天已自动回复 `REPLIES_PER_ACCOUNT` 次的不排队,
-改为草稿;到时间时开关已关、发出失败或被打断(可能已经发出)的,也改为草稿。`comments.sign` 开着时自动发出的末尾加一行说明。
+改为草稿;到时间时开关已关、发出失败或被打断(可能已经发出)的,也改为草稿。`comments.sign` 开着时自动发出的末尾加一行说明
+(`AUTO_LINE`;Reddit 用上标,哔哩哔哩与小红书用中文)。
 
 自动回复开着时每 5 分钟(`REPLY_CHECK_MS`)看一次 Reddit 收件箱(`/message/unread.json`,不标记已读),打开之前的、一天以前的、
 自己的与 AutoModerator 的回复不告诉 bot。
@@ -142,7 +164,10 @@ Substack 的 `/api/v1/comment/feed`、`/api/v1/post/<id>/comment`)。每天的�
 | `comments.maxPerDay` | 10 | 每天最多发出的评论(1–50) |
 | `comments.auto` | false | 自动评论 |
 | `comments.autoReply` | false | 自动回复 Reddit 收件箱里的新回复 |
-| `comments.sign` | true | 自动发出的评论与短帖末尾加一行说明 |
+| `comments.sign` | true | 自动发出的评论、新帖与短帖末尾加一行说明 |
+| `posts.enabled` | false | bot 可以写新帖 |
+| `posts.maxPerDay` | 3 | 每天最多发出的新帖(1–20) |
+| `posts.auto` | false | 自动新帖 |
 | `substack.publication` | 空 | 使用者的刊物:刊物名、name.substack.com 或它的域名;`social_draft` 的草稿放在这里 |
 | `substack.notes` | false | bot 可以写短帖 |
 | `substack.autoNotes` | false | 自动短帖 |
@@ -153,8 +178,8 @@ Substack 的 `/api/v1/comment/feed`、`/api/v1/post/<id>/comment`)。每天的�
 ## 面板与存储
 
 面板 `social`(`src/webui/client.ts`,构建为 `dist/webui.js`)显示等待处理的草稿、即将自动发出的帖子、上述设置、登录、每日自动浏览、
-发出过的评论与短帖和累计用时;设置窗口的普通模式在「社交媒体」页挂载同一个面板。`invoke` 方法:`state`、`checkLogins`、`login`、
-`setJobs`、`runNow`、`resetLifetime`、`commentPost`、`commentDiscard`、`queueHold`、`checkReplies`。
+发出过的评论、新帖与短帖和累计用时;设置窗口的普通模式在「社交媒体」页挂载同一个面板。`invoke` 方法:`state`、`checkLogins`、`login`、
+`setJobs`、`runNow`、`resetLifetime`、`commentPost`(草稿 id、文字,新帖还有标题)、`commentDiscard`、`queueHold`、`checkReplies`。
 数据页签可以清除浏览器资料(各平台的登录)、OCR 语言数据与每日自动浏览的记录。
 
 ## 测试
